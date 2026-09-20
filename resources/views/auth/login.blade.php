@@ -9,41 +9,11 @@
 @section('content')
     <div class="mg-login">
         <aside class="mg-login-brand" aria-label="Queen Mary Help of Christians Hospital">
-            <div class="mg-login-blob mg-login-blob-a" aria-hidden="true"></div>
-            <div class="mg-login-blob mg-login-blob-b" aria-hidden="true"></div>
-            <div class="mg-login-blob mg-login-blob-c" aria-hidden="true"></div>
-
-            <div class="mg-login-brand-top">
-                <x-queen-mary-logo class="mg-login-logo" />
-                <p class="mg-login-hospital">
-                    Queen Mary
-                    <span>Help of Christians Hospital</span>
-                </p>
-                <p class="mg-login-tagline">Compassion. Care. For a Healthier Tomorrow.</p>
-            </div>
-
-            <div class="mg-login-photo-wrap">
-                <img
-                    src="{{ asset('images/queen-mary-hospital.png') }}"
-                    alt="Queen Mary Help of Christians Hospital building"
-                    class="mg-login-photo"
-                >
-            </div>
-
-            <ul class="mg-login-values">
-                <li>
-                    <x-patient.icon name="heart" class="mg-login-value-icon" />
-                    <span>Patient-Centered<br>Care</span>
-                </li>
-                <li>
-                    <x-patient.icon name="users" class="mg-login-value-icon" />
-                    <span>Trusted Healthcare<br>Community</span>
-                </li>
-                <li>
-                    <x-patient.icon name="shield-check" class="mg-login-value-icon" />
-                    <span>A Healthier<br>Tomorrow</span>
-                </li>
-            </ul>
+    <img
+        src="{{ asset('images/login-brand-panel.jpg') }}"
+        alt="Queen Mary Help of Christians Hospital"
+        class="mg-login-brand-image"
+    >
         </aside>
 
         <main class="mg-login-panel">
