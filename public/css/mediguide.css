@@ -1388,12 +1388,26 @@ select.mg-input {
 /* Login (approved split-screen design)                                        */
 /* -------------------------------------------------------------------------- */
 
-.mg-login {
-    min-height: 100vh;
+/* ==========================================================================
+   MEDIGUIDE LOGIN
+   ========================================================================== */
+
+   .mg-login {
+    width: 100%;
+    height: 100vh;
+    min-height: 680px;
+
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    background: #fff;
+    grid-template-columns: 50% 50%;
+
+    background: #ffffff;
+    overflow: hidden;
 }
+
+
+/* ==========================================================================
+   DECORATIVE BLOBS
+   ========================================================================== */
 
 .mg-login-blob {
     position: absolute;
@@ -1404,35 +1418,39 @@ select.mg-input {
 .mg-login-blob-a {
     width: 340px;
     height: 260px;
-    top: -90px;
+    top: -100px;
     left: -110px;
+
     border-radius: 64% 36% 58% 42%;
-    background: rgba(255, 255, 255, 0.55);
+    background: rgba(255, 255, 255, 0.58);
 }
 
 .mg-login-blob-b {
     width: 220px;
     height: 180px;
-    top: 36px;
+    top: 40px;
     right: -70px;
+
     border-radius: 42% 58% 37% 63%;
-    background: rgba(186, 221, 247, 0.7);
+    background: rgba(171, 215, 246, 0.60);
 }
 
 .mg-login-blob-c {
-    width: 280px;
-    height: 170px;
-    bottom: 92px;
-    left: -80px;
+    width: 290px;
+    height: 180px;
+    bottom: 70px;
+    left: -100px;
+
     border-radius: 48% 52% 40% 60%;
-    background: rgba(255, 255, 255, 0.38);
+    background: rgba(255, 255, 255, 0.32);
 }
 
 .mg-login-blob-d {
-    width: 260px;
-    height: 210px;
-    top: -80px;
-    right: -70px;
+    width: 280px;
+    height: 220px;
+    top: -100px;
+    right: -80px;
+
     border-radius: 58% 42% 62% 38%;
     background: #eef6fd;
 }
@@ -1440,31 +1458,63 @@ select.mg-input {
 .mg-login-blob-e {
     width: 190px;
     height: 160px;
-    top: 28%;
-    right: -50px;
+    top: 26%;
+    right: -60px;
+
     border-radius: 40% 60% 55% 45%;
     background: #f4f9fe;
 }
 
 .mg-login-blob-f {
-    width: 320px;
-    height: 220px;
-    bottom: -90px;
-    left: -80px;
+    width: 340px;
+    height: 230px;
+    bottom: -115px;
+    left: -90px;
+
     border-radius: 55% 45% 60% 40%;
     background: #eef6fd;
 }
 
+
+/* ==========================================================================
+   LEFT HOSPITAL PANEL
+   ========================================================================== */
+
 .mg-login-brand {
     position: relative;
+    z-index: 1;
+
+    height: 100vh;
+    min-height: 680px;
+
+    display: grid;
+
+    /*
+       Branding
+       Photo
+       Values
+    */
+    grid-template-rows: auto minmax(200px, 1fr) 58px;
+
+    padding:
+        clamp(20px, 2.5vh, 34px)
+        clamp(30px, 3.2vw, 58px)
+        clamp(18px, 2vh, 28px);
+
     overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
-    padding: 2rem 2.4rem 1.5rem;
+
     background:
-        radial-gradient(900px 420px at 12% -10%, rgba(255, 255, 255, 0.85), transparent 58%),
-        linear-gradient(180deg, #eaf5fd 0%, #d5ebfb 42%, #c5e3f8 100%);
+        radial-gradient(
+            850px 420px at 8% -8%,
+            rgba(255, 255, 255, 0.90),
+            transparent 58%
+        ),
+        linear-gradient(
+            180deg,
+            #edf8ff 0%,
+            #dceffc 48%,
+            #c9e7fa 100%
+        );
 }
 
 .mg-login-brand-top,
@@ -1474,186 +1524,370 @@ select.mg-input {
     z-index: 1;
 }
 
+
+/* ==========================================================================
+   HOSPITAL BRANDING
+   ========================================================================== */
+
 .mg-login-brand-top {
     text-align: center;
-    flex: 0 0 auto;
 }
 
 .mg-login-logo {
-    width: 132px;
-    height: auto;
-    margin: 0 auto 0.85rem;
+    display: block;
+
+    width: clamp(120px, 9vw, 155px);
+    height: clamp(120px, 9vw, 155px);
+
+    margin: 0 auto clamp(8px, 1vh, 12px);
+
     object-fit: contain;
+
+    /*
+       Helps the white background of the supplied logo
+       blend slightly into the blue panel.
+    */
     mix-blend-mode: multiply;
-    filter: drop-shadow(0 8px 18px rgba(31, 64, 128, 0.12));
+
+    filter:
+        drop-shadow(
+            0 7px 15px
+            rgba(31, 64, 128, 0.09)
+        );
 }
 
 .mg-login-hospital {
     margin: 0;
-    font-family: "Playfair Display", Georgia, serif;
-    font-size: 1.72rem;
+
+    font-family:
+        "Playfair Display",
+        Georgia,
+        serif;
+
+    font-size: clamp(1.65rem, 2.2vw, 2.15rem);
     font-weight: 700;
-    line-height: 1.12;
-    color: #16315f;
+    line-height: 1.03;
+
+    color: #123b72;
 }
 
 .mg-login-hospital span {
     display: block;
-    font-size: 1.18rem;
+
+    margin-top: 0.22rem;
+
+    font-size: clamp(1.05rem, 1.45vw, 1.42rem);
     font-weight: 600;
-    margin-top: 0.12rem;
+    line-height: 1.12;
 }
 
 .mg-login-tagline {
-    margin: 0.55rem 0 0;
-    font-family: "Playfair Display", Georgia, serif;
-    font-style: italic;
-    font-size: 0.92rem;
-    color: #5d7394;
     position: relative;
     display: inline-block;
-    padding-bottom: 0.7rem;
+
+    margin: clamp(7px, 1vh, 12px) 0 0;
+    padding-bottom: clamp(8px, 1vh, 12px);
+
+    font-family:
+        "Playfair Display",
+        Georgia,
+        serif;
+
+    font-size: clamp(0.82rem, 1vw, 1rem);
+    font-style: italic;
+
+    color: #54769a;
 }
 
 .mg-login-tagline::after {
     content: "";
+
     position: absolute;
     left: 50%;
     bottom: 0;
-    width: 86px;
+
+    width: min(250px, 80%);
     height: 1px;
-    background: #8eabc8;
+
+    background: rgba(72, 121, 169, 0.55);
+
     transform: translateX(-50%);
 }
 
+
+/* ==========================================================================
+   HOSPITAL PHOTO
+   ========================================================================== */
+
 .mg-login-photo-wrap {
-    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+
     min-height: 0;
-    margin: 1.15rem 0 1.1rem;
-    display: flex;
-    align-items: stretch;
+
+    margin:
+    clamp(12px, 1.6vh, 20px)
+    0
+    6px;
+
+    overflow: hidden;
+
+    border-radius: 22px;
+
+    box-shadow:
+        0 14px 32px
+        rgba(30, 74, 128, 0.14);
+}
+
+.mg-login-photo-wrap::after {
+    content: "";
+
+    position: absolute;
+    inset: 0;
+
+    pointer-events: none;
+
+    border-radius: inherit;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(220, 240, 253, 0.10) 0%,
+            rgba(220, 240, 253, 0.00) 35%,
+            rgba(201, 231, 250, 0.08) 100%
+        );
 }
 
 .mg-login-photo {
+    display: block;
+
     width: 100%;
     height: 100%;
-    min-height: 200px;
-    max-height: 340px;
+
+    min-height: 0;
+
     object-fit: cover;
-    object-position: center 58%;
-    border-radius: 22px;
-    box-shadow: 0 18px 40px rgba(30, 74, 128, 0.18);
+
+    /*
+       Slightly above center so the hospital signage
+       remains visible.
+    */
+    object-position: center 47%;
+
+    border-radius: inherit;
 }
 
-.mg-login-values {
+
+/* ==========================================================================
+   HOSPITAL VALUES
+   ========================================================================== */
+
+   .mg-login-values {
+    position: relative;
+    z-index: 3;
+
     list-style: none;
+
+    width: 100%;
+    height: 58px;
+
     margin: 0;
-    padding: 0.2rem 0 0.35rem;
+    padding: 8px 0 0;
+
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.75rem;
-    color: #1f4f86;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: center;
+
+    gap: 20px;
+
+    color: #14558f;
 }
 
 .mg-login-values li {
+    min-width: 0;
+
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    text-align: center;
-    gap: 0.35rem;
+    justify-content: center;
+
+    gap: 10px;
+
+    text-align: left;
 }
 
 .mg-login-value-icon {
-    width: 22px;
-    height: 22px;
+    flex: 0 0 auto;
+
+    width: 26px;
+    height: 26px;
+
     stroke-width: 1.7;
     fill: currentColor;
 }
 
 .mg-login-values span {
+    display: block;
+
     font-size: 0.72rem;
-    font-weight: 700;
-    line-height: 1.25;
-    color: #21548d;
+    font-weight: 600;
+    line-height: 1.2;
+
+    color: #14558f;
 }
+
+
+/* ==========================================================================
+   RIGHT LOGIN PANEL
+   ========================================================================== */
 
 .mg-login-panel {
     position: relative;
-    overflow: hidden;
+    z-index: 1;
+
+    height: 100vh;
+    min-height: 680px;
+
     display: flex;
-    flex-direction: column;
+    align-items: center;
     justify-content: center;
-    min-height: 100vh;
-    padding: 4.5rem 4.25rem 4rem;
-    background: #fff;
+
+    padding:
+        clamp(65px, 8vh, 90px)
+        clamp(55px, 6vw, 100px)
+        clamp(55px, 6vh, 75px);
+
+    overflow: hidden;
+
+    background: #ffffff;
 }
+
+
+/* ==========================================================================
+   CREATE ACCOUNT — TOP RIGHT
+   ========================================================================== */
 
 .mg-login-top-account {
     position: absolute;
-    top: 1.6rem;
-    right: 1.8rem;
-    z-index: 2;
+
+    top: clamp(18px, 2.4vh, 30px);
+    right: clamp(24px, 3vw, 46px);
+
+    z-index: 3;
+
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+
+    gap: 0.8rem;
+
     margin: 0;
-    color: #8b9bb3;
-    font-size: 0.82rem;
+
+    color: #8294ae;
+
+    font-size: 0.88rem;
     font-weight: 500;
 }
 
 .mg-login-create-btn {
+    min-height: 42px;
+
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 36px;
-    padding: 0.35rem 0.95rem;
-    border: 1.5px solid #7eb4ea;
-    border-radius: 10px;
-    color: #2e6ed2;
-    font-size: 0.82rem;
+
+    padding: 0.48rem 1.15rem;
+
+    border: 1.5px solid #72aae5;
+    border-radius: 12px;
+
+    background: #ffffff;
+
+    color: #1767c7;
+
+    font-size: 0.88rem;
     font-weight: 700;
-    background: #fff;
+
+    text-decoration: none;
+
+    transition:
+        background-color 0.15s ease,
+        border-color 0.15s ease,
+        transform 0.15s ease;
 }
 
 .mg-login-create-btn:hover {
     background: #f4f9fe;
+    border-color: #2e6ed2;
+
+    transform: translateY(-1px);
 }
+
+
+/* ==========================================================================
+   FORM CONTAINER
+   ========================================================================== */
 
 .mg-login-form-wrap {
     position: relative;
-    z-index: 1;
-    width: 100%;
-    max-width: 430px;
+    z-index: 2;
+
+    width: min(100%, 540px);
+
+    /*
+       Tiny upward offset leaves room for the decorative
+       mission text without making the form look too high.
+    */
+    transform: translateY(-6px);
 }
 
+
+/* ==========================================================================
+   MEDIGUIDE TYPOGRAPHY
+   ========================================================================== */
+
 .mg-login-wordmark {
-    margin: 0 0 0.85rem;
-    font-size: 2.55rem;
+    margin: 0 0 clamp(16px, 2vh, 24px);
+
+    font-size: clamp(3rem, 4vw, 3.75rem);
     font-weight: 800;
-    color: #16315f;
-    letter-spacing: -0.05em;
-    line-height: 1;
+
+    line-height: 0.95;
+    letter-spacing: -0.055em;
+
+    color: #123b72;
 }
 
 .mg-login-wordmark span {
-    color: #2e6ed2;
+    color: #2e76dc;
 }
 
 .mg-login-title {
     margin: 0;
-    font-size: 2.05rem;
+
+    font-size: clamp(2rem, 2.8vw, 2.65rem);
     font-weight: 800;
-    color: #16315f;
+
+    line-height: 1.08;
     letter-spacing: -0.045em;
-    line-height: 1.15;
+
+    color: #123b72;
 }
 
 .mg-login-lead {
-    margin: 0.4rem 0 1.45rem;
-    color: #7b8aa8;
-    font-size: 0.98rem;
+    margin:
+        clamp(7px, 1vh, 10px)
+        0
+        clamp(22px, 3vh, 34px);
+
+    color: #7586a4;
+
+    font-size: clamp(0.95rem, 1.1vw, 1.08rem);
 }
+
+
+/* ==========================================================================
+   FORM
+   ========================================================================== */
 
 .mg-login .mg-required {
     display: none;
@@ -1666,56 +1900,126 @@ select.mg-input {
 .mg-login-form {
     display: flex;
     flex-direction: column;
-    gap: 0.95rem;
+
+    gap: clamp(13px, 1.8vh, 20px);
 }
 
 .mg-login .mg-label {
-    font-size: 0.86rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+
+    color: #173b6c;
 }
 
 .mg-login .mg-input {
-    min-height: 48px;
-    border-radius: 12px;
-    background: #fff;
-    padding-top: 0.78rem;
-    padding-bottom: 0.78rem;
+    min-height: clamp(52px, 6.4vh, 60px);
+
+    border-radius: 13px;
+
+    background: #ffffff;
+
+    padding-top: 0.82rem;
+    padding-bottom: 0.82rem;
+
+    border-color: #cfdded;
 }
+
+.mg-login .mg-input:focus {
+    border-color: #75abe4;
+
+    box-shadow:
+        0 0 0 4px
+        rgba(46, 110, 210, 0.10);
+}
+
+
+/* ==========================================================================
+   REMEMBER / FORGOT PASSWORD
+   ========================================================================== */
 
 .mg-login-options {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.75rem;
+
+    gap: 1rem;
+
     margin-top: -0.15rem;
 }
 
 .mg-login .mg-auth-forgot {
-    font-size: 0.84rem;
+    color: #1767cf;
+
+    font-size: 0.88rem;
+    font-weight: 600;
+
+    text-decoration: none;
 }
 
+.mg-login .mg-auth-forgot:hover {
+    text-decoration: underline;
+}
+
+
+/* ==========================================================================
+   SIGN IN BUTTON
+   ========================================================================== */
+
 .mg-login-submit {
-    margin-top: 0.35rem;
     width: 100%;
-    min-height: 50px;
+
+    min-height: clamp(54px, 6.6vh, 61px);
+
+    margin-top: 0.25rem;
+
     border: 0;
-    border-radius: 12px;
-    background: #2e6ed2;
-    color: #fff;
+    border-radius: 13px;
+
+    background:
+        linear-gradient(
+            90deg,
+            #2e6ed2 0%,
+            #1687e8 100%
+        );
+
+    color: #ffffff;
+
     font-size: 1rem;
     font-weight: 700;
+
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.55rem;
-    box-shadow: 0 10px 22px rgba(46, 110, 210, 0.28);
+
+    gap: 0.6rem;
+
+    cursor: pointer;
+
+    box-shadow:
+        0 11px 24px
+        rgba(46, 110, 210, 0.24);
+
+    transition:
+        transform 0.15s ease,
+        box-shadow 0.15s ease,
+        filter 0.15s ease;
 }
 
 .mg-login-submit:hover {
-    background: #1f5bb8;
+    transform: translateY(-1px);
+
+    filter: brightness(1.03);
+
+    box-shadow:
+        0 14px 28px
+        rgba(46, 110, 210, 0.29);
 }
 
 .mg-login-submit:focus-visible {
-    outline: 3px solid rgba(46, 110, 210, 0.28);
+    outline:
+        3px solid
+        rgba(46, 110, 210, 0.28);
+
     outline-offset: 2px;
 }
 
@@ -1724,103 +2028,395 @@ select.mg-input {
     height: 18px;
 }
 
+
+/* ==========================================================================
+   DIVIDER / FOOTNOTE
+   ========================================================================== */
+
 .mg-login-or {
     display: flex;
     align-items: center;
-    gap: 0.85rem;
-    margin: 1.35rem 0 1.05rem;
-    color: #9aa8bd;
+
+    gap: 0.9rem;
+
+    margin:
+        clamp(18px, 2.5vh, 28px)
+        0
+        clamp(13px, 1.8vh, 20px);
+
+    color: #96a5ba;
+
     font-size: 0.86rem;
 }
 
 .mg-login-or::before,
 .mg-login-or::after {
     content: "";
+
     flex: 1;
+
     height: 1px;
-    background: #e6eef6;
+
+    background: #dce7f2;
 }
 
 .mg-login-footnote {
     margin: 0;
+
     text-align: center;
-    color: #8b9bb3;
-    font-size: 0.88rem;
+
+    color: #8294ae;
+
+    font-size: 0.9rem;
 }
 
 .mg-login-footnote a {
-    color: #2e6ed2;
+    color: #1767cf;
+
     font-weight: 700;
+
+    text-decoration: none;
 }
 
 .mg-login-footnote a:hover {
     text-decoration: underline;
 }
 
+
+/* ==========================================================================
+   DECORATIVE MISSION TEXT
+   ========================================================================== */
+
 .mg-login-mission {
     position: absolute;
-    right: 2.4rem;
-    bottom: 1.5rem;
+
+    right: clamp(28px, 3.2vw, 52px);
+    bottom: clamp(16px, 2.4vh, 30px);
+
     z-index: 1;
+
     margin: 0;
-    font-family: "Playfair Display", Georgia, serif;
+
+    font-family:
+        "Playfair Display",
+        Georgia,
+        serif;
+
     font-style: italic;
-    font-size: 1.55rem;
-    line-height: 1.2;
-    color: #c5d6ea;
+
+    font-size: clamp(1.35rem, 1.8vw, 1.85rem);
+
+    line-height: 1.15;
+
+    color: #d3e2f2;
+
     text-align: right;
+
     pointer-events: none;
 }
 
-@media (max-width: 1199.98px) {
-    .mg-login-panel {
-        padding: 4.5rem 2.5rem 3.5rem;
-    }
 
-    .mg-login-hospital {
-        font-size: 1.48rem;
-    }
+/* ==========================================================================
+   MEDIUM / SHORT DESKTOPS
+   Keeps the entire screen visible without scrolling.
+   ========================================================================== */
 
-    .mg-login-wordmark {
-        font-size: 2.2rem;
-    }
-}
+@media (min-width: 992px) and (max-height: 820px) {
 
-@media (max-width: 991.98px) {
     .mg-login {
-        grid-template-columns: 1fr;
+        min-height: 620px;
+    }
+
+    .mg-login-brand,
+    .mg-login-panel {
+        min-height: 620px;
     }
 
     .mg-login-brand {
-        min-height: auto;
-        padding: 1.5rem 1.25rem 1rem;
+        grid-template-rows:
+            auto
+            minmax(200px, 1fr)
+            auto;
+
+        padding:
+            16px
+            34px
+            14px;
     }
 
     .mg-login-logo {
-        width: 92px;
+        width: 110px;
+        height: 110px;
+
+        margin-bottom: 5px;
     }
 
+    .mg-login-hospital {
+        font-size: 1.55rem;
+    }
+
+    .mg-login-hospital span {
+        font-size: 1rem;
+    }
+
+    .mg-login-tagline {
+        margin-top: 5px;
+        padding-bottom: 6px;
+
+        font-size: 0.78rem;
+    }
+
+    .mg-login-photo-wrap {
+        margin:
+            9px
+            0
+            8px;
+    }
+
+    .mg-login-value-icon {
+        width: 22px;
+        height: 22px;
+    }
+
+    .mg-login-values span {
+        font-size: 0.66rem;
+    }
+
+    .mg-login-panel {
+        padding:
+            56px
+            clamp(45px, 5vw, 80px)
+            46px;
+    }
+
+    .mg-login-form-wrap {
+        width: min(100%, 520px);
+
+        transform: none;
+    }
+
+    .mg-login-wordmark {
+        margin-bottom: 12px;
+
+        font-size: 2.8rem;
+    }
+
+    .mg-login-title {
+        font-size: 2rem;
+    }
+
+    .mg-login-lead {
+        margin:
+            5px
+            0
+            17px;
+
+        font-size: 0.93rem;
+    }
+
+    .mg-login-form {
+        gap: 11px;
+    }
+
+    .mg-login .mg-input {
+        min-height: 50px;
+    }
+
+    .mg-login-submit {
+        min-height: 52px;
+    }
+
+    .mg-login-or {
+        margin:
+            15px
+            0
+            11px;
+    }
+
+    .mg-login-mission {
+        font-size: 1.25rem;
+    }
+}
+
+
+/* ==========================================================================
+   TABLET
+   ========================================================================== */
+
+@media (max-width: 991.98px) {
+
+    .mg-login {
+        height: auto;
+        min-height: 100vh;
+
+        display: block;
+
+        overflow: visible;
+    }
+
+    .mg-login-brand {
+        height: auto;
+        min-height: auto;
+
+        display: block;
+
+        padding:
+            1.5rem
+            1.25rem
+            1.25rem;
+    }
+
+    .mg-login-logo {
+        width: 96px;
+        height: 96px;
+    }
+
+    .mg-login-hospital {
+        font-size: 1.45rem;
+    }
+
+    .mg-login-hospital span {
+        font-size: 1rem;
+    }
+
+    /*
+       The large hospital photograph and values are
+       intentionally hidden on tablet/mobile so the
+       authentication form remains the priority.
+    */
     .mg-login-photo-wrap,
     .mg-login-values {
         display: none;
     }
 
     .mg-login-panel {
-        min-height: auto;
-        padding: 1.25rem 1.25rem 5rem;
-        justify-content: flex-start;
+        height: auto;
+        min-height: calc(100vh - 230px);
+
+        padding:
+            1.5rem
+            1.25rem
+            5rem;
+
+        display: block;
+
+        overflow: visible;
     }
 
     .mg-login-top-account {
         position: static;
+
         justify-content: flex-end;
-        margin-bottom: 1.25rem;
+
+        margin-bottom: 1.75rem;
+    }
+
+    .mg-login-form-wrap {
+        width: min(100%, 540px);
+
+        margin: 0 auto;
+
+        transform: none;
+    }
+
+    .mg-login-wordmark {
+        font-size: 2.7rem;
+    }
+
+    .mg-login-title {
+        font-size: 2.1rem;
     }
 
     .mg-login-mission {
-        font-size: 1.2rem;
         right: 1.25rem;
         bottom: 1rem;
+
+        font-size: 1.15rem;
+    }
+}
+
+
+/* ==========================================================================
+   MOBILE
+   ========================================================================== */
+
+@media (max-width: 575.98px) {
+
+    .mg-login-brand {
+        padding:
+            1.1rem
+            1rem
+            1rem;
+    }
+
+    .mg-login-logo {
+        width: 78px;
+        height: 78px;
+
+        margin-bottom: 0.35rem;
+    }
+
+    .mg-login-hospital {
+        font-size: 1.2rem;
+    }
+
+    .mg-login-hospital span {
+        font-size: 0.88rem;
+    }
+
+    .mg-login-tagline {
+        margin-top: 0.4rem;
+
+        font-size: 0.75rem;
+    }
+
+    .mg-login-panel {
+        padding:
+            1.2rem
+            1rem
+            4.5rem;
+    }
+
+    .mg-login-top-account {
+        gap: 0.5rem;
+
+        font-size: 0.78rem;
+    }
+
+    .mg-login-create-btn {
+        min-height: 38px;
+
+        padding:
+            0.4rem
+            0.8rem;
+
+        font-size: 0.78rem;
+    }
+
+    .mg-login-wordmark {
+        font-size: 2.35rem;
+    }
+
+    .mg-login-title {
+        font-size: 1.85rem;
+    }
+
+    .mg-login-lead {
+        font-size: 0.9rem;
+    }
+
+    .mg-login-options {
+        align-items: flex-start;
+
+        gap: 0.75rem;
+    }
+
+    .mg-login-footnote {
+        font-size: 0.82rem;
+    }
+
+    .mg-login-mission {
+        font-size: 1rem;
     }
 }
 
