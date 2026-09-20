@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 230" fill="none" aria-hidden="true">
+    <defs>
+        <linearGradient id="qmhc-gold" x1="40" y1="4" x2="160" y2="52" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#F0D36A"/>
+            <stop offset="0.45" stop-color="#D7A72A"/>
+            <stop offset="1" stop-color="#C08A12"/>
+        </linearGradient>
+        <linearGradient id="qmhc-gold-band" x1="58" y1="36" x2="142" y2="52" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#F6E08A"/>
+            <stop offset="1" stop-color="#C89618"/>
+        </linearGradient>
+        <linearGradient id="qmhc-blue" x1="28" y1="40" x2="172" y2="210" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#2A6CB8"/>
+            <stop offset="1" stop-color="#163E86"/>
+        </linearGradient>
+    </defs>
+
+    <!-- Crown -->
+    <path fill="url(#qmhc-gold)" d="M42 44.5l10.5-18 16 12.5 15.5-26.5 3.2 8.2L100 4.5l12.8 15.7 3.2-8.2 15.5 26.5 16-12.5 10.5 18-6.2 6.2H48.2z"/>
+    <rect x="50" y="46" width="100" height="10" rx="3" fill="url(#qmhc-gold-band)"/>
+    <circle cx="68" cy="51" r="2.1" fill="#F8E9A6"/>
+    <circle cx="100" cy="51" r="2.1" fill="#F8E9A6"/>
+    <circle cx="132" cy="51" r="2.1" fill="#F8E9A6"/>
+    <path fill="#D4A017" d="M97.4 0h5.2v9.5h-5.2z"/>
+    <path fill="#D4A017" d="M100 0l2.4 2.4h-4.8z"/>
+    <path fill="#D4A017" d="M64.8 12.5h4.4v7.2h-4.4z"/>
+    <path fill="#D4A017" d="M131 12.5h4.4v7.2H131z"/>
+
+    <!-- Shield -->
+    <path fill="url(#qmhc-blue)" d="M100 54c38 0 66 18 66 54 0 42-28 74-66 96-38-22-66-54-66-96 0-36 28-54 66-54z"/>
+    <path fill="#FFFFFF" d="M100 66c31 0 53 14.5 53 43.5 0 34.5-23 61.5-53 80.5-30-19-53-46-53-80.5C47 80.5 69 66 100 66z"/>
+    <path stroke="#1E4F9C" stroke-width="2.4" d="M100 70.5c28.5 0 48.5 13 48.5 39.5 0 32-21 57-48.5 74.5-27.5-17.5-48.5-42.5-48.5-74.5 0-26.5 20-39.5 48.5-39.5z"/>
+
+    <!-- Decorative dots -->
+    <g fill="#C9A227">
+        <circle cx="100" cy="78" r="1.5"/>
+        <circle cx="81" cy="83" r="1.35"/>
+        <circle cx="119" cy="83" r="1.35"/>
+        <circle cx="68" cy="96" r="1.35"/>
+        <circle cx="132" cy="96" r="1.35"/>
+        <circle cx="62" cy="114" r="1.35"/>
+        <circle cx="138" cy="114" r="1.35"/>
+        <circle cx="66" cy="134" r="1.35"/>
+        <circle cx="134" cy="134" r="1.35"/>
+        <circle cx="80" cy="152" r="1.35"/>
+        <circle cx="120" cy="152" r="1.35"/>
+        <circle cx="100" cy="166" r="1.35"/>
+    </g>
+
+    <!-- Star -->
+    <path fill="#1E4F9C" d="M100 86.5l3.1 6.4 7.1.8-5.2 4.8 1.4 7-6.4-3.6-6.4 3.6 1.4-7-5.2-4.8 7.1-.8z"/>
+
+    <!-- M -->
+    <path fill="#1E4F9C" d="M64 162V104.5h13.2l22.8 38.2 22.8-38.2H136V162h-12.4v-38.6L100.4 162h-8.8L76.4 123.4V162H64z"/>
+
+    <!-- Cross -->
+    <path fill="#1E4F9C" d="M97.2 148.5h5.6v18.8h-5.6z"/>
+    <path fill="#1E4F9C" d="M91.4 154.2h17.2v5.2H91.4z"/>
+</svg>

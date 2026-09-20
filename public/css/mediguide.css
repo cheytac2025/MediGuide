@@ -1,0 +1,1826 @@
+/* MediGuide Patient Portal
+   Queen Mary Help of Christians Hospital
+   Dedicated stylesheet for the Patient Dashboard UI. */
+
+:root {
+    --mg-navy: #1f2755;
+    --mg-navy-soft: #2c3b6e;
+    --mg-text: #243056;
+    --mg-muted: #7b8aa8;
+    --mg-muted-2: #8b97b0;
+    --mg-primary: #2e6ed2;
+    --mg-primary-deep: #1f5bb8;
+    --mg-primary-soft: #e7f1fb;
+    --mg-brand: #1e5aa8;
+    --mg-teal: #2f9d8f;
+    --mg-canvas: #f3f7fc;
+    --mg-sidebar: #f6fafe;
+    --mg-card: #ffffff;
+    --mg-border: #e4edf6;
+    --mg-border-soft: #eef3f9;
+    --mg-danger: #ef4444;
+    --mg-profile: #d45a6a;
+    --mg-qa-blue: #eaf4ff;
+    --mg-qa-green: #e6f7f2;
+    --mg-qa-purple: #f1ecfb;
+    --mg-qa-pink: #fdecee;
+    --mg-confirmed-bg: #d8f5ea;
+    --mg-confirmed-text: #2c9a74;
+    --mg-shadow: 0 8px 24px rgba(31, 64, 128, 0.05);
+    --mg-shadow-soft: 0 1px 2px rgba(31, 64, 128, 0.04);
+    --mg-radius: 20px;
+    --mg-radius-sm: 14px;
+    --mg-sidebar-width: 272px;
+    --mg-font: "Plus Jakarta Sans", "Segoe UI", sans-serif;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body.mg-body {
+    min-height: 100%;
+}
+
+body.mg-body {
+    margin: 0;
+    font-family: var(--mg-font);
+    color: var(--mg-text);
+    background: var(--mg-canvas);
+    -webkit-font-smoothing: antialiased;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+button,
+input,
+textarea {
+    font-family: inherit;
+}
+
+.mg-app {
+    display: flex;
+    min-height: 100vh;
+    background:
+        radial-gradient(1200px 420px at 78% -8%, rgba(255, 255, 255, 0.9), transparent 60%),
+        var(--mg-canvas);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Sidebar                                                                     */
+/* -------------------------------------------------------------------------- */
+
+.mg-sidebar {
+    width: var(--mg-sidebar-width);
+    max-width: var(--mg-sidebar-width);
+    background: linear-gradient(180deg, #f8fbfe 0%, #eef5fb 100%);
+    border-right: 1px solid rgba(210, 224, 240, 0.7);
+    display: flex;
+    flex-direction: column;
+    padding: 1.35rem 1.05rem 1.15rem;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.mg-sidebar.offcanvas,
+.mg-sidebar.offcanvas-lg {
+    background: linear-gradient(180deg, #f8fbfe 0%, #eef5fb 100%);
+}
+
+@media (min-width: 992px) {
+    aside.mg-sidebar.offcanvas-lg {
+        position: sticky !important;
+        top: 0;
+        display: flex !important;
+        flex-direction: column;
+        width: var(--mg-sidebar-width) !important;
+        max-width: var(--mg-sidebar-width);
+        height: 100vh !important;
+        background: linear-gradient(180deg, #f8fbfe 0%, #eef5fb 100%) !important;
+        border-right: 1px solid rgba(210, 224, 240, 0.7) !important;
+        transform: none !important;
+        visibility: visible !important;
+    }
+}
+
+.mg-sidebar-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 0.15rem 0.5rem 1.15rem;
+}
+
+.mg-qm-logo {
+    display: block;
+    height: auto;
+    max-width: 100%;
+    object-fit: contain;
+}
+
+.mg-sidebar-logo {
+    width: 78px;
+    height: auto;
+    margin: 0 auto 0.7rem;
+    object-fit: contain;
+}
+
+.mg-hospital-name {
+    margin: 0;
+    font-size: 1.02rem;
+    font-weight: 800;
+    line-height: 1.15;
+    color: var(--mg-navy);
+    letter-spacing: -0.02em;
+}
+
+.mg-hospital-name span {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin-top: 0.12rem;
+}
+
+.mg-hospital-tagline {
+    margin: 0.35rem 0 0;
+    font-size: 0.56rem;
+    color: #8ea0bb;
+    font-weight: 500;
+    letter-spacing: 0;
+    white-space: nowrap;
+}
+
+.mg-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.22rem;
+    padding: 0.15rem 0.15rem 0;
+}
+
+.mg-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.62rem 0.9rem;
+    border-radius: 999px;
+    color: #5d6e8b;
+    font-size: 0.9rem;
+    font-weight: 500;
+    border: 0;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    transition: background 0.18s ease, color 0.18s ease;
+}
+
+.mg-nav-link:hover {
+    background: rgba(255, 255, 255, 0.72);
+    color: var(--mg-navy);
+}
+
+.mg-nav-link.active {
+    background: var(--mg-primary-soft);
+    color: var(--mg-primary);
+    font-weight: 600;
+}
+
+.mg-nav-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    opacity: 0.92;
+}
+
+.mg-nav-link.active .mg-nav-icon {
+    color: var(--mg-primary);
+}
+
+.mg-nav-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--mg-primary);
+    margin-left: auto;
+}
+
+.mg-sidebar-footer {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding-top: 1rem;
+    position: relative;
+}
+
+.mg-mary {
+    width: 170px;
+    max-width: 100%;
+    height: auto;
+    opacity: 0.95;
+    pointer-events: none;
+    margin-bottom: 0.15rem;
+    mask-image: linear-gradient(180deg, #000 70%, transparent 100%);
+}
+
+.mg-sidebar-motto {
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    color: #6d7fa0;
+    font-weight: 600;
+}
+
+.mg-offcanvas-close {
+    position: absolute;
+    top: 0.85rem;
+    right: 0.85rem;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Main column                                                                 */
+/* -------------------------------------------------------------------------- */
+
+.mg-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.mg-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.95rem 1.75rem 0.2rem;
+}
+
+.mg-header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.mg-menu-btn {
+    display: none;
+    width: 42px;
+    height: 42px;
+    border: 1px solid var(--mg-border);
+    background: #fff;
+    border-radius: 12px;
+    color: var(--mg-navy);
+    align-items: center;
+    justify-content: center;
+}
+
+.mg-wordmark {
+    margin: 0;
+    font-size: 1.55rem;
+    font-weight: 800;
+    color: var(--mg-brand);
+    letter-spacing: -0.04em;
+    line-height: 1.1;
+}
+
+.mg-wordmark-sub {
+    margin: 0.1rem 0 0;
+    font-size: 0.78rem;
+    color: #8b9bb3;
+    font-weight: 500;
+}
+
+.mg-header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+}
+
+.mg-icon-btn {
+    position: relative;
+    width: 42px;
+    height: 42px;
+    border: 0;
+    background: transparent;
+    color: var(--mg-primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.mg-icon-btn:hover {
+    background: var(--mg-primary-soft);
+}
+
+.mg-badge-dot {
+    position: absolute;
+    top: 6px;
+    right: 7px;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 3px;
+    border-radius: 999px;
+    background: var(--mg-danger);
+    color: #fff;
+    font-size: 0.55rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--mg-canvas);
+}
+
+.mg-user {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.2rem 0.15rem 0.2rem 0.15rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+}
+
+.mg-user.dropdown-toggle::after {
+    display: none;
+}
+
+.mg-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: var(--mg-primary);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.82rem;
+    letter-spacing: 0.02em;
+}
+
+.mg-user-meta {
+    text-align: left;
+    line-height: 1.2;
+}
+
+.mg-user-name {
+    display: block;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--mg-navy);
+}
+
+.mg-user-role {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--mg-muted);
+    font-weight: 500;
+}
+
+.mg-chevron {
+    color: #9aa8bd;
+}
+
+.mg-dropdown {
+    border: 1px solid var(--mg-border);
+    border-radius: 14px;
+    box-shadow: var(--mg-shadow);
+    padding: 0.45rem 0;
+    min-width: 200px;
+}
+
+.mg-dropdown .dropdown-item {
+    font-size: 0.88rem;
+    padding: 0.45rem 1rem;
+    color: var(--mg-text);
+}
+
+.mg-dropdown .dropdown-item:hover {
+    background: var(--mg-primary-soft);
+    color: var(--mg-primary);
+}
+
+.mg-dropdown form {
+    margin: 0;
+}
+
+.mg-dropdown button.dropdown-item {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    text-align: left;
+}
+
+.mg-content {
+    flex: 1;
+    padding: 0.5rem 1.75rem 1.25rem;
+}
+
+.mg-hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1.5rem;
+    padding: 0.55rem 0.15rem 0.85rem;
+    position: relative;
+}
+
+.mg-hero::after {
+    content: "";
+    position: absolute;
+    right: 6%;
+    top: -40px;
+    width: 420px;
+    height: 220px;
+    background: radial-gradient(closest-side, rgba(255, 255, 255, 0.95), rgba(232, 242, 252, 0.4) 55%, transparent 72%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.mg-hero-copy,
+.mg-verse {
+    position: relative;
+    z-index: 1;
+}
+
+.mg-greeting {
+    margin: 0;
+    font-size: 1.85rem;
+    font-weight: 800;
+    color: var(--mg-navy);
+    letter-spacing: -0.04em;
+}
+
+.mg-greeting-sub {
+    margin: 0.28rem 0 0;
+    font-size: 1.12rem;
+    color: #6a7894;
+    font-weight: 500;
+}
+
+.mg-verse {
+    text-align: right;
+    color: #9aa8c0;
+    font-size: 0.86rem;
+    font-style: italic;
+    max-width: 280px;
+    margin: 0.2rem 0 0;
+}
+
+.mg-verse cite {
+    display: block;
+    font-style: normal;
+    font-size: 0.75rem;
+    margin-top: 0.2rem;
+    color: #a7b4c8;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Composer                                                                    */
+/* -------------------------------------------------------------------------- */
+
+.mg-composer {
+    background: var(--mg-card);
+    border: 1px solid #e7eef6;
+    border-radius: 24px;
+    box-shadow: var(--mg-shadow-soft), var(--mg-shadow);
+    padding: 0.9rem 1.05rem 0.8rem;
+}
+
+.mg-composer-input {
+    width: 100%;
+    border: 0;
+    resize: none;
+    outline: none;
+    overflow: hidden;
+    font-size: 0.98rem;
+    color: var(--mg-navy);
+    background: transparent;
+    min-height: 38px;
+    padding: 0.1rem 0.2rem 0.55rem;
+}
+
+.mg-composer-input::placeholder {
+    color: #b0bbcc;
+    font-weight: 500;
+}
+
+.mg-composer-row {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.mg-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    flex: 1;
+}
+
+.mg-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.38rem;
+    border: 1px solid #e6eef7;
+    background: #f7fafd;
+    color: #5f7290;
+    border-radius: 999px;
+    padding: 0.38rem 0.8rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.mg-chip:hover {
+    background: var(--mg-primary-soft);
+    color: var(--mg-primary);
+    border-color: #d5e6f8;
+}
+
+.mg-chip svg {
+    width: 14px;
+    height: 14px;
+}
+
+.mg-composer-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-left: auto;
+}
+
+.mg-attach-btn {
+    width: 38px;
+    height: 38px;
+    border: 0;
+    background: transparent;
+    color: #8b9bb3;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.mg-attach-btn:hover {
+    background: #f3f7fb;
+    color: var(--mg-primary);
+}
+
+.mg-send-btn {
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 50%;
+    background: var(--mg-primary);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 16px rgba(46, 110, 210, 0.28);
+}
+
+.mg-send-btn:hover {
+    background: var(--mg-primary-deep);
+}
+
+.mg-send-btn svg {
+    fill: currentColor;
+    stroke: none;
+}
+
+.mg-disclaimer {
+    margin: 0.85rem 0 0;
+    text-align: center;
+    font-size: 0.78rem;
+    color: #9aa8bd;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Panels / cards                                                              */
+/* -------------------------------------------------------------------------- */
+
+.mg-panel {
+    background: var(--mg-card);
+    border: 1px solid var(--mg-border);
+    border-radius: var(--mg-radius);
+    box-shadow: var(--mg-shadow-soft);
+    padding: 1.1rem 1.15rem 1.15rem;
+}
+
+.mg-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.9rem;
+}
+
+.mg-panel-title {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--mg-navy);
+}
+
+.mg-panel-title svg {
+    width: 18px;
+    height: 18px;
+    color: var(--mg-primary);
+}
+
+.mg-panel-link {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--mg-primary);
+}
+
+.mg-panel-link:hover {
+    text-decoration: underline;
+}
+
+.mg-qa-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.85rem;
+}
+
+.mg-qa-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 136px;
+    border-radius: 18px;
+    padding: 0.9rem 0.95rem 0.8rem;
+    border: 1px solid transparent;
+    position: relative;
+    transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.mg-qa-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--mg-shadow);
+}
+
+.mg-qa-card.is-blue { background: var(--mg-qa-blue); }
+.mg-qa-card.is-green { background: var(--mg-qa-green); }
+.mg-qa-card.is-purple { background: var(--mg-qa-purple); }
+.mg-qa-card.is-pink { background: var(--mg-qa-pink); }
+
+.mg-qa-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.72);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.7rem;
+}
+
+.mg-qa-icon svg {
+    width: 18px;
+    height: 18px;
+}
+
+.mg-qa-card.is-blue .mg-qa-icon { color: var(--mg-primary); }
+.mg-qa-card.is-green .mg-qa-icon { color: var(--mg-teal); }
+.mg-qa-card.is-purple .mg-qa-icon { color: #7b6ccb; }
+.mg-qa-card.is-pink .mg-qa-icon { color: var(--mg-profile); }
+
+.mg-qa-title {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--mg-navy);
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+}
+
+.mg-qa-card.is-pink .mg-qa-title {
+    color: #c44b5c;
+}
+
+.mg-qa-desc {
+    margin: 0.35rem 0 0;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    color: #7d8aa3;
+    max-width: 18ch;
+}
+
+.mg-qa-go {
+    margin-top: auto;
+    align-self: flex-end;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.86);
+    color: #8b97ad;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.lower-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 0.95fr;
+    gap: 0.95rem;
+}
+
+.mg-appt {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 0.15rem 0.1rem 0.2rem;
+}
+
+.mg-date {
+    flex-shrink: 0;
+    width: 78px;
+    border-radius: 16px;
+    background: #f4f7fb;
+    border: 1px solid #edf2f8;
+    text-align: center;
+    padding: 0.7rem 0.35rem;
+}
+
+.mg-date-month {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #8b97ad;
+}
+
+.mg-date-day {
+    display: block;
+    font-size: 1.7rem;
+    font-weight: 800;
+    color: var(--mg-navy);
+    line-height: 1.05;
+    letter-spacing: -0.04em;
+}
+
+.mg-date-year {
+    display: block;
+    font-size: 0.72rem;
+    color: #8b97ad;
+    font-weight: 600;
+}
+
+.mg-appt-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.mg-appt-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.mg-appt-title {
+    margin: 0;
+    font-size: 0.98rem;
+    font-weight: 800;
+    color: var(--mg-navy);
+}
+
+.mg-status {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    background: var(--mg-confirmed-bg);
+    color: var(--mg-confirmed-text);
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.28rem 0.7rem;
+    white-space: nowrap;
+}
+
+.mg-appt-meta {
+    list-style: none;
+    margin: 0.55rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.32rem;
+}
+
+.mg-appt-meta li {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: #6e7c96;
+    font-size: 0.82rem;
+}
+
+.mg-appt-meta svg {
+    width: 15px;
+    height: 15px;
+    color: #93a0b6;
+}
+
+.mg-announcement {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    padding: 0.55rem 0.1rem;
+    border: 0;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    border-radius: 12px;
+}
+
+.mg-announcement + .mg-announcement {
+    border-top: 1px solid var(--mg-border-soft);
+}
+
+.mg-announcement:hover {
+    background: #f7fbff;
+}
+
+.mg-announcement-icon {
+    width: 18px;
+    height: 18px;
+    color: #93a0b6;
+    margin-top: 0.12rem;
+    flex-shrink: 0;
+}
+
+.mg-announcement-copy {
+    flex: 1;
+    min-width: 0;
+}
+
+.mg-announcement-title {
+    margin: 0;
+    font-size: 0.88rem;
+    font-weight: 800;
+    color: var(--mg-navy);
+}
+
+.mg-announcement-date {
+    margin-left: 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #9aa8bd;
+}
+
+.mg-announcement-body {
+    margin: 0.12rem 0 0;
+    font-size: 0.78rem;
+    color: #7d8aa3;
+    line-height: 1.4;
+}
+
+.mg-announcement-chevron {
+    color: #c0cad8;
+    margin-top: 0.2rem;
+}
+
+.mg-footer {
+    text-align: center;
+    padding: 0.5rem 1.75rem 1.4rem;
+    color: #9aa8bd;
+    font-size: 0.75rem;
+    line-height: 1.45;
+}
+
+.mg-footer strong {
+    display: block;
+    font-weight: 700;
+    color: #8b97ad;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Responsive                                                                  */
+/* -------------------------------------------------------------------------- */
+
+@media (max-width: 1199.98px) {
+    .mg-qa-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .mg-qa-desc {
+        max-width: none;
+    }
+}
+
+@media (max-width: 991.98px) {
+    .mg-menu-btn {
+        display: inline-flex;
+    }
+
+    .mg-sidebar {
+        height: 100%;
+        max-width: min(var(--mg-sidebar-width), 86vw);
+        width: min(var(--mg-sidebar-width), 86vw);
+    }
+
+    .lower-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .mg-hero {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .mg-verse {
+        text-align: left;
+        max-width: none;
+    }
+
+    .mg-header,
+    .mg-content,
+    .mg-footer {
+        padding-left: 1.1rem;
+        padding-right: 1.1rem;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .mg-qa-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .mg-wordmark {
+        font-size: 1.28rem;
+    }
+
+    .mg-greeting {
+        font-size: 1.5rem;
+    }
+
+    .mg-user-meta {
+        display: none;
+    }
+
+    .mg-composer-row {
+        flex-wrap: wrap;
+    }
+
+    .mg-composer-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .mg-appt {
+        flex-direction: column;
+    }
+
+    .mg-header-right {
+        gap: 0.35rem;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .mg-chips {
+        width: 100%;
+    }
+
+    .mg-hero::after {
+        width: 240px;
+        height: 140px;
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Auth / Registration                                                         */
+/* -------------------------------------------------------------------------- */
+
+.mg-auth {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: minmax(280px, 0.9fr) 1.2fr;
+    background: var(--mg-canvas);
+}
+
+.mg-auth-brand {
+    background: linear-gradient(180deg, #f8fbfe 0%, #e7f1fb 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2.5rem 1.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.mg-auth-brand-inner {
+    text-align: center;
+    max-width: 320px;
+    position: relative;
+    z-index: 1;
+}
+
+.mg-auth-logo {
+    width: 108px;
+    height: auto;
+    margin: 0 auto 1rem;
+    object-fit: contain;
+}
+
+.mg-auth-tagline {
+    white-space: normal;
+    font-size: 0.78rem;
+    margin-top: 0.55rem;
+}
+
+.mg-auth-mary {
+    width: 220px;
+    max-width: 100%;
+    margin-top: 1.75rem;
+    opacity: 0.92;
+    pointer-events: none;
+}
+
+.mg-auth-hospital {
+    display: block;
+    width: 100%;
+    max-width: 280px;
+    height: auto;
+    margin: 1.75rem auto 0;
+    border-radius: 16px;
+    object-fit: contain;
+}
+
+.mg-auth-panel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.5rem;
+}
+
+.mg-auth-card {
+    width: 100%;
+    max-width: 640px;
+    background: #fff;
+    border: 1px solid var(--mg-border);
+    border-radius: 24px;
+    box-shadow: var(--mg-shadow);
+    padding: 2rem 1.85rem 1.6rem;
+}
+
+.mg-auth-title {
+    margin: 1.15rem 0 0.35rem;
+    font-size: 1.7rem;
+    font-weight: 800;
+    color: var(--mg-navy);
+    letter-spacing: -0.04em;
+}
+
+.mg-auth-lead {
+    margin: 0 0 1.35rem;
+    color: #6a7894;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.mg-field-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.mg-auth-forgot {
+    color: var(--mg-primary);
+    font-size: 0.78rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.mg-auth-forgot:hover {
+    text-decoration: underline;
+}
+
+.mg-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.1rem 0 0;
+    color: var(--mg-navy);
+    font-size: 0.86rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.mg-check input {
+    width: 1.05rem;
+    height: 1.05rem;
+    accent-color: var(--mg-primary);
+}
+
+.mg-auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.mg-auth-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.85rem;
+}
+
+.mg-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.38rem;
+}
+
+.mg-label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--mg-navy);
+}
+
+.mg-required {
+    color: var(--mg-danger);
+    margin-left: 0.15rem;
+}
+
+.mg-input-wrap {
+    position: relative;
+}
+
+.mg-input,
+select.mg-input {
+    width: 100%;
+    border: 1px solid var(--mg-border);
+    border-radius: 14px;
+    background: #fbfcfe;
+    color: var(--mg-navy);
+    padding: 0.72rem 0.9rem;
+    font-size: 0.94rem;
+    outline: none;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.mg-input:focus {
+    border-color: var(--mg-primary);
+    box-shadow: 0 0 0 4px rgba(46, 110, 210, 0.12);
+    background: #fff;
+}
+
+.mg-input.is-invalid {
+    border-color: #f2a4ad;
+    background: #fff7f8;
+}
+
+.mg-input.is-invalid:focus {
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12);
+}
+
+.mg-field-error {
+    margin: 0;
+    color: #d13b4c;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.mg-field-help {
+    margin: 0;
+    color: var(--mg-muted);
+    font-size: 0.75rem;
+}
+
+.mg-password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 0.55rem;
+    transform: translateY(-50%);
+    border: 0;
+    background: transparent;
+    color: #7b8aa8;
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+}
+
+.mg-password-toggle:hover,
+.mg-password-toggle:focus-visible {
+    background: var(--mg-primary-soft);
+    color: var(--mg-primary);
+}
+
+.mg-password-icon {
+    width: 18px;
+    height: 18px;
+}
+
+.mg-input-wrap:has(.mg-password-toggle) .mg-input {
+    padding-right: 2.8rem;
+}
+
+.mg-input-icon {
+    position: absolute;
+    top: 50%;
+    left: 0.9rem;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    color: #9aa8bd;
+    pointer-events: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mg-input-icon svg {
+    width: 18px;
+    height: 18px;
+}
+
+.mg-input-wrap:has(.mg-input-icon) .mg-input {
+    padding-left: 2.7rem;
+}
+
+.mg-password-rules {
+    list-style: none;
+    margin: -0.25rem 0 0.15rem;
+    padding: 0.7rem 0.9rem;
+    border-radius: 14px;
+    background: #f7fbff;
+    border: 1px solid var(--mg-border-soft);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.35rem 0.8rem;
+}
+
+.mg-password-rules li {
+    position: relative;
+    padding-left: 1.15rem;
+    font-size: 0.78rem;
+    color: #7b8aa8;
+    font-weight: 600;
+}
+
+.mg-password-rules li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.28rem;
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 50%;
+    border: 2px solid #c5d0e0;
+    background: #fff;
+}
+
+.mg-password-rules li.is-met {
+    color: var(--mg-confirmed-text);
+}
+
+.mg-password-rules li.is-met::before {
+    border-color: var(--mg-teal);
+    background: var(--mg-teal);
+}
+
+.mg-auth-submit {
+    margin-top: 0.35rem;
+    width: 100%;
+    border: 0;
+    border-radius: 14px;
+    background: var(--mg-primary);
+    color: #fff;
+    font-size: 0.98rem;
+    font-weight: 700;
+    padding: 0.85rem 1rem;
+    box-shadow: 0 8px 16px rgba(46, 110, 210, 0.22);
+}
+
+.mg-auth-submit:hover {
+    background: var(--mg-primary-deep);
+}
+
+.mg-auth-submit:focus-visible {
+    outline: 3px solid rgba(46, 110, 210, 0.28);
+    outline-offset: 2px;
+}
+
+.mg-auth-submit:disabled {
+    opacity: 0.7;
+}
+
+.mg-auth-footnote {
+    margin: 1.1rem 0 0;
+    text-align: center;
+    color: #7b8aa8;
+    font-size: 0.86rem;
+}
+
+.mg-auth-footnote a {
+    color: var(--mg-primary);
+    font-weight: 700;
+}
+
+.mg-auth-footnote a:hover {
+    text-decoration: underline;
+}
+
+.mg-alert-success {
+    background: var(--mg-confirmed-bg);
+    color: var(--mg-confirmed-text);
+    border-radius: 14px;
+    padding: 0.9rem 1rem;
+    font-size: 0.92rem;
+    font-weight: 600;
+    line-height: 1.45;
+    margin-bottom: 0.35rem;
+}
+
+@media (max-width: 991.98px) {
+    .mg-auth {
+        grid-template-columns: 1fr;
+    }
+
+    .mg-auth-brand {
+        padding: 1.5rem 1rem 0.5rem;
+    }
+
+    .mg-auth-mary,
+    .mg-auth-hospital {
+        display: none;
+    }
+
+    .mg-auth-logo {
+        width: 78px;
+    }
+
+    .mg-auth-panel {
+        padding: 1rem 1rem 2rem;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .mg-auth-grid,
+    .mg-password-rules {
+        grid-template-columns: 1fr;
+    }
+
+    .mg-auth-card {
+        padding: 1.4rem 1.1rem 1.2rem;
+        border-radius: 20px;
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Login (approved split-screen design)                                        */
+/* -------------------------------------------------------------------------- */
+
+.mg-login {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    background: #fff;
+}
+
+.mg-login-blob {
+    position: absolute;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.mg-login-blob-a {
+    width: 340px;
+    height: 260px;
+    top: -90px;
+    left: -110px;
+    border-radius: 64% 36% 58% 42%;
+    background: rgba(255, 255, 255, 0.55);
+}
+
+.mg-login-blob-b {
+    width: 220px;
+    height: 180px;
+    top: 36px;
+    right: -70px;
+    border-radius: 42% 58% 37% 63%;
+    background: rgba(186, 221, 247, 0.7);
+}
+
+.mg-login-blob-c {
+    width: 280px;
+    height: 170px;
+    bottom: 92px;
+    left: -80px;
+    border-radius: 48% 52% 40% 60%;
+    background: rgba(255, 255, 255, 0.38);
+}
+
+.mg-login-blob-d {
+    width: 260px;
+    height: 210px;
+    top: -80px;
+    right: -70px;
+    border-radius: 58% 42% 62% 38%;
+    background: #eef6fd;
+}
+
+.mg-login-blob-e {
+    width: 190px;
+    height: 160px;
+    top: 28%;
+    right: -50px;
+    border-radius: 40% 60% 55% 45%;
+    background: #f4f9fe;
+}
+
+.mg-login-blob-f {
+    width: 320px;
+    height: 220px;
+    bottom: -90px;
+    left: -80px;
+    border-radius: 55% 45% 60% 40%;
+    background: #eef6fd;
+}
+
+.mg-login-brand {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    padding: 2rem 2.4rem 1.5rem;
+    background:
+        radial-gradient(900px 420px at 12% -10%, rgba(255, 255, 255, 0.85), transparent 58%),
+        linear-gradient(180deg, #eaf5fd 0%, #d5ebfb 42%, #c5e3f8 100%);
+}
+
+.mg-login-brand-top,
+.mg-login-photo-wrap,
+.mg-login-values {
+    position: relative;
+    z-index: 1;
+}
+
+.mg-login-brand-top {
+    text-align: center;
+    flex: 0 0 auto;
+}
+
+.mg-login-logo {
+    width: 132px;
+    height: auto;
+    margin: 0 auto 0.85rem;
+    object-fit: contain;
+    mix-blend-mode: multiply;
+    filter: drop-shadow(0 8px 18px rgba(31, 64, 128, 0.12));
+}
+
+.mg-login-hospital {
+    margin: 0;
+    font-family: "Playfair Display", Georgia, serif;
+    font-size: 1.72rem;
+    font-weight: 700;
+    line-height: 1.12;
+    color: #16315f;
+}
+
+.mg-login-hospital span {
+    display: block;
+    font-size: 1.18rem;
+    font-weight: 600;
+    margin-top: 0.12rem;
+}
+
+.mg-login-tagline {
+    margin: 0.55rem 0 0;
+    font-family: "Playfair Display", Georgia, serif;
+    font-style: italic;
+    font-size: 0.92rem;
+    color: #5d7394;
+    position: relative;
+    display: inline-block;
+    padding-bottom: 0.7rem;
+}
+
+.mg-login-tagline::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: 86px;
+    height: 1px;
+    background: #8eabc8;
+    transform: translateX(-50%);
+}
+
+.mg-login-photo-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    margin: 1.15rem 0 1.1rem;
+    display: flex;
+    align-items: stretch;
+}
+
+.mg-login-photo {
+    width: 100%;
+    height: 100%;
+    min-height: 200px;
+    max-height: 340px;
+    object-fit: cover;
+    object-position: center 58%;
+    border-radius: 22px;
+    box-shadow: 0 18px 40px rgba(30, 74, 128, 0.18);
+}
+
+.mg-login-values {
+    list-style: none;
+    margin: 0;
+    padding: 0.2rem 0 0.35rem;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    color: #1f4f86;
+}
+
+.mg-login-values li {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.35rem;
+}
+
+.mg-login-value-icon {
+    width: 22px;
+    height: 22px;
+    stroke-width: 1.7;
+    fill: currentColor;
+}
+
+.mg-login-values span {
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1.25;
+    color: #21548d;
+}
+
+.mg-login-panel {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 4.5rem 4.25rem 4rem;
+    background: #fff;
+}
+
+.mg-login-top-account {
+    position: absolute;
+    top: 1.6rem;
+    right: 1.8rem;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0;
+    color: #8b9bb3;
+    font-size: 0.82rem;
+    font-weight: 500;
+}
+
+.mg-login-create-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 36px;
+    padding: 0.35rem 0.95rem;
+    border: 1.5px solid #7eb4ea;
+    border-radius: 10px;
+    color: #2e6ed2;
+    font-size: 0.82rem;
+    font-weight: 700;
+    background: #fff;
+}
+
+.mg-login-create-btn:hover {
+    background: #f4f9fe;
+}
+
+.mg-login-form-wrap {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 430px;
+}
+
+.mg-login-wordmark {
+    margin: 0 0 0.85rem;
+    font-size: 2.55rem;
+    font-weight: 800;
+    color: #16315f;
+    letter-spacing: -0.05em;
+    line-height: 1;
+}
+
+.mg-login-wordmark span {
+    color: #2e6ed2;
+}
+
+.mg-login-title {
+    margin: 0;
+    font-size: 2.05rem;
+    font-weight: 800;
+    color: #16315f;
+    letter-spacing: -0.045em;
+    line-height: 1.15;
+}
+
+.mg-login-lead {
+    margin: 0.4rem 0 1.45rem;
+    color: #7b8aa8;
+    font-size: 0.98rem;
+}
+
+.mg-login .mg-required {
+    display: none;
+}
+
+.mg-login .mg-alert-success {
+    margin-bottom: 1rem;
+}
+
+.mg-login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.95rem;
+}
+
+.mg-login .mg-label {
+    font-size: 0.86rem;
+}
+
+.mg-login .mg-input {
+    min-height: 48px;
+    border-radius: 12px;
+    background: #fff;
+    padding-top: 0.78rem;
+    padding-bottom: 0.78rem;
+}
+
+.mg-login-options {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: -0.15rem;
+}
+
+.mg-login .mg-auth-forgot {
+    font-size: 0.84rem;
+}
+
+.mg-login-submit {
+    margin-top: 0.35rem;
+    width: 100%;
+    min-height: 50px;
+    border: 0;
+    border-radius: 12px;
+    background: #2e6ed2;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    box-shadow: 0 10px 22px rgba(46, 110, 210, 0.28);
+}
+
+.mg-login-submit:hover {
+    background: #1f5bb8;
+}
+
+.mg-login-submit:focus-visible {
+    outline: 3px solid rgba(46, 110, 210, 0.28);
+    outline-offset: 2px;
+}
+
+.mg-login-submit-icon {
+    width: 18px;
+    height: 18px;
+}
+
+.mg-login-or {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    margin: 1.35rem 0 1.05rem;
+    color: #9aa8bd;
+    font-size: 0.86rem;
+}
+
+.mg-login-or::before,
+.mg-login-or::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: #e6eef6;
+}
+
+.mg-login-footnote {
+    margin: 0;
+    text-align: center;
+    color: #8b9bb3;
+    font-size: 0.88rem;
+}
+
+.mg-login-footnote a {
+    color: #2e6ed2;
+    font-weight: 700;
+}
+
+.mg-login-footnote a:hover {
+    text-decoration: underline;
+}
+
+.mg-login-mission {
+    position: absolute;
+    right: 2.4rem;
+    bottom: 1.5rem;
+    z-index: 1;
+    margin: 0;
+    font-family: "Playfair Display", Georgia, serif;
+    font-style: italic;
+    font-size: 1.55rem;
+    line-height: 1.2;
+    color: #c5d6ea;
+    text-align: right;
+    pointer-events: none;
+}
+
+@media (max-width: 1199.98px) {
+    .mg-login-panel {
+        padding: 4.5rem 2.5rem 3.5rem;
+    }
+
+    .mg-login-hospital {
+        font-size: 1.48rem;
+    }
+
+    .mg-login-wordmark {
+        font-size: 2.2rem;
+    }
+}
+
+@media (max-width: 991.98px) {
+    .mg-login {
+        grid-template-columns: 1fr;
+    }
+
+    .mg-login-brand {
+        min-height: auto;
+        padding: 1.5rem 1.25rem 1rem;
+    }
+
+    .mg-login-logo {
+        width: 92px;
+    }
+
+    .mg-login-photo-wrap,
+    .mg-login-values {
+        display: none;
+    }
+
+    .mg-login-panel {
+        min-height: auto;
+        padding: 1.25rem 1.25rem 5rem;
+        justify-content: flex-start;
+    }
+
+    .mg-login-top-account {
+        position: static;
+        justify-content: flex-end;
+        margin-bottom: 1.25rem;
+    }
+
+    .mg-login-mission {
+        font-size: 1.2rem;
+        right: 1.25rem;
+        bottom: 1rem;
+    }
+}
+
