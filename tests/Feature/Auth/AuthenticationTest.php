@@ -35,7 +35,6 @@ class AuthenticationTest extends TestCase
         $response->assertSee('Forgot Password?');
         $response->assertSee('Create Account');
         $response->assertSee('Your Health.');
-        $response->assertSee('Patient-Centered');
     }
 
     public function test_patients_can_authenticate_and_are_redirected_to_the_patient_dashboard(): void

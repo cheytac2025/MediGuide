@@ -35,5 +35,6 @@
 
         <script src="{{ asset('vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
         <script src="{{ asset('js/patient.js') }}"></script>
+        @stack('scripts')
     </body>
 </html>

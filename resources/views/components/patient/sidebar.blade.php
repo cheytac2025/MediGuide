@@ -6,7 +6,7 @@
 @php
     $links = [
         ['key' => 'home', 'label' => 'Home', 'icon' => 'home', 'route' => 'patient.dashboard'],
-        ['key' => 'front-desk', 'label' => 'AI Virtual Front Desk', 'icon' => 'chat', 'href' => '#'],
+        ['key' => 'front-desk', 'label' => 'AI Virtual Front Desk', 'icon' => 'chat', 'route' => 'patient.ai-front-desk'],
         ['key' => 'book', 'label' => 'Book Appointment', 'icon' => 'calendar', 'href' => '#'],
         ['key' => 'appointments', 'label' => 'My Appointments', 'icon' => 'clipboard', 'href' => '#'],
         ['key' => 'notifications', 'label' => 'Notifications', 'icon' => 'bell', 'href' => '#'],

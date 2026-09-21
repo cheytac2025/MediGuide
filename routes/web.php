@@ -3,6 +3,7 @@
 use App\Enums\RoleName;
 use App\Http\Controllers\Auth\RegisteredPatientController;
 use App\Http\Controllers\DashboardUnavailableController;
+use App\Http\Controllers\Patient\AiFrontDeskController;
 use App\Http\Controllers\Patient\DashboardController;
 use Illuminate\Support\Facades\Route;
 
@@ -17,6 +18,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/patient/dashboard', DashboardController::class)
         ->middleware('role:'.RoleName::Patient->value)
         ->name('patient.dashboard');
+
+    Route::get('/patient/ai-front-desk', AiFrontDeskController::class)
+        ->middleware('role:'.RoleName::Patient->value)
+        ->name('patient.ai-front-desk');
 });
 
 Route::middleware('guest')->group(function () {
