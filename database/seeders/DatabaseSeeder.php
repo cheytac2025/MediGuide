@@ -21,5 +21,8 @@ class DatabaseSeeder extends Seeder
             'name' => 'Test User',
             'email' => 'test@example.com',
         ]);
+
+        // DEVELOPMENT ONLY: placeholder departments. Replace with verified hospital data when available.
+        $this->call(DevelopmentDepartmentSeeder::class);
     }
 }
