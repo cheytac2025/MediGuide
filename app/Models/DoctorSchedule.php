@@ -6,8 +6,10 @@ use App\Enums\DayOfWeek;
 use App\Enums\DoctorScheduleStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 
@@ -22,6 +24,7 @@ use Illuminate\Validation\ValidationException;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Doctor $doctor
+ * @property-read Collection<int, Appointment> $appointments
  */
 #[Fillable(['doctor_id', 'day_of_week', 'start_time', 'end_time', 'slot_duration', 'status'])]
 class DoctorSchedule extends Model
@@ -32,6 +35,14 @@ class DoctorSchedule extends Model
     public function doctor(): BelongsTo
     {
         return $this->belongsTo(Doctor::class);
+    }
+
+    /**
+     * @return HasMany<Appointment, $this>
+     */
+    public function appointments(): HasMany
+    {
+        return $this->hasMany(Appointment::class);
     }
 
     /**

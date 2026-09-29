@@ -22,6 +22,7 @@ use Illuminate\Support\Carbon;
  * @property-read Clinic $clinic
  * @property-read User|null $user
  * @property-read Collection<int, DoctorSchedule> $schedules
+ * @property-read Collection<int, Appointment> $appointments
  */
 #[Fillable(['clinic_id', 'user_id', 'display_name', 'specialization', 'status'])]
 class Doctor extends Model
@@ -48,6 +49,14 @@ class Doctor extends Model
     public function schedules(): HasMany
     {
         return $this->hasMany(DoctorSchedule::class);
+    }
+
+    /**
+     * @return HasMany<Appointment, $this>
+     */
+    public function appointments(): HasMany
+    {
+        return $this->hasMany(Appointment::class);
     }
 
     /**
