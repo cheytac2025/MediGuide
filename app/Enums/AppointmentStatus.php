@@ -32,6 +32,17 @@ enum AppointmentStatus: string
         };
     }
 
+    public function staffLabel(): string
+    {
+        return match ($this) {
+            self::Pending => 'Pending Review',
+            self::Confirmed => 'Confirmed',
+            self::Completed => 'Completed',
+            self::Cancelled => 'Cancelled',
+            self::Rejected => 'Rejected',
+        };
+    }
+
     public function isUpcoming(): bool
     {
         return $this === self::Pending || $this === self::Confirmed;

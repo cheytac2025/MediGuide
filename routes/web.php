@@ -9,6 +9,7 @@ use App\Http\Controllers\Patient\BookAppointmentController;
 use App\Http\Controllers\Patient\DashboardController;
 use App\Http\Controllers\Patient\PatientAppointmentController;
 use App\Http\Controllers\Staff\DashboardController as StaffDashboardController;
+use App\Http\Controllers\Staff\StaffAppointmentController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [AiDisclaimerController::class, 'show'])->name('home');
@@ -50,6 +51,12 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:'.RoleName::HospitalStaff->value)->group(function () {
         Route::get('/staff/dashboard', StaffDashboardController::class)
             ->name('staff.dashboard');
+
+        Route::get('/staff/appointments', [StaffAppointmentController::class, 'index'])
+            ->name('staff.appointments');
+        Route::get('/staff/appointments/{appointment}', [StaffAppointmentController::class, 'show'])
+            ->whereNumber('appointment')
+            ->name('staff.appointments.show');
     });
 });
 
