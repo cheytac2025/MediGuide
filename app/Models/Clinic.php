@@ -4,8 +4,10 @@ namespace App\Models;
 
 use App\Enums\ClinicStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -17,6 +19,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Department $department
+ * @property-read Collection<int, Doctor> $doctors
  */
 #[Fillable(['department_id', 'name', 'description', 'status'])]
 class Clinic extends Model
@@ -27,6 +30,14 @@ class Clinic extends Model
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
+    }
+
+    /**
+     * @return HasMany<Doctor, $this>
+     */
+    public function doctors(): HasMany
+    {
+        return $this->hasMany(Doctor::class);
     }
 
     /**

@@ -36,6 +36,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property Carbon|null $updated_at
  * @property-read Role|null $role
  * @property-read Patient|null $patient
+ * @property-read Doctor|null $doctor
  */
 #[Fillable([
     'role_id',
@@ -67,6 +68,14 @@ class User extends Authenticatable implements PasskeyUser
     public function patient(): HasOne
     {
         return $this->hasOne(Patient::class);
+    }
+
+    /**
+     * @return HasOne<Doctor, $this>
+     */
+    public function doctor(): HasOne
+    {
+        return $this->hasOne(Doctor::class);
     }
 
     public function hasRole(RoleName $role): bool
