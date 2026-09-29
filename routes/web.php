@@ -5,6 +5,8 @@ use App\Http\Controllers\AiDisclaimerController;
 use App\Http\Controllers\Auth\RegisteredPatientController;
 use App\Http\Controllers\DashboardUnavailableController;
 use App\Http\Controllers\Patient\AiFrontDeskController;
+use App\Http\Controllers\Patient\AppointmentRequestController;
+use App\Http\Controllers\Patient\BookAppointmentController;
 use App\Http\Controllers\Patient\DashboardController;
 use Illuminate\Support\Facades\Route;
 
@@ -23,9 +25,20 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard/unavailable', DashboardUnavailableController::class)
         ->name('dashboard.unavailable');
 
-    Route::get('/patient/dashboard', DashboardController::class)
-        ->middleware('role:'.RoleName::Patient->value)
-        ->name('patient.dashboard');
+    Route::middleware('role:'.RoleName::Patient->value)->group(function () {
+        Route::get('/patient/dashboard', DashboardController::class)
+            ->name('patient.dashboard');
+
+        Route::get('/patient/book-appointment', [BookAppointmentController::class, 'create'])
+            ->name('patient.book-appointment');
+        Route::post('/patient/book-appointment/review', [BookAppointmentController::class, 'review'])
+            ->name('patient.book-appointment.review');
+        Route::post('/patient/book-appointment', [BookAppointmentController::class, 'store'])
+            ->name('patient.book-appointment.store');
+
+        Route::get('/patient/appointments', AppointmentRequestController::class)
+            ->name('patient.appointments');
+    });
 });
 
 Route::middleware('guest')->group(function () {

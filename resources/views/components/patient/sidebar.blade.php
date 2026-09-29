@@ -7,8 +7,8 @@
     $links = [
         ['key' => 'home', 'label' => 'Home', 'icon' => 'home', 'route' => 'patient.dashboard'],
         ['key' => 'front-desk', 'label' => 'AI Virtual Front Desk', 'icon' => 'chat', 'route' => 'ai-front-desk'],
-        ['key' => 'book', 'label' => 'Book Appointment', 'icon' => 'calendar', 'href' => '#'],
-        ['key' => 'appointments', 'label' => 'My Appointments', 'icon' => 'clipboard', 'href' => '#'],
+        ['key' => 'book', 'label' => 'Book Appointment', 'icon' => 'calendar', 'route' => 'patient.book-appointment'],
+        ['key' => 'appointments', 'label' => 'My Appointments', 'icon' => 'clipboard', 'route' => 'patient.appointments'],
         ['key' => 'notifications', 'label' => 'Notifications', 'icon' => 'bell', 'href' => '#'],
         ['key' => 'profile', 'label' => 'Profile', 'icon' => 'user', 'href' => '#'],
         ['key' => 'help', 'label' => 'Help & Support', 'icon' => 'help', 'href' => '#'],

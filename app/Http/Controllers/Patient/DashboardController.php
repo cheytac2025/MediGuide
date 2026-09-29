@@ -39,7 +39,7 @@ class DashboardController extends Controller
                 'description' => 'Schedule with your preferred doctor.',
                 'variant' => 'green',
                 'icon' => 'calendar',
-                'href' => '#',
+                'href' => route('patient.book-appointment'),
             ],
             [
                 'title' => 'View My Appointments',
