@@ -20,6 +20,7 @@ class AuthenticatedHome
         return match ($user->role?->slug) {
             RoleName::Patient->value => route('patient.dashboard'),
             RoleName::HospitalStaff->value => route('staff.dashboard'),
+            RoleName::Doctor->value => route('doctor.dashboard'),
             default => route('dashboard.unavailable'),
         };
     }

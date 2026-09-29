@@ -221,6 +221,23 @@ class AuthenticationTest extends TestCase
         $response->assertRedirect(route('staff.dashboard'));
     }
 
+    public function test_doctors_can_authenticate_and_are_redirected_to_the_doctor_dashboard(): void
+    {
+        $user = User::factory()->role(RoleName::Doctor)->create([
+            'first_name' => 'Dev',
+            'last_name' => 'Doctor',
+            'name' => 'Dev Doctor',
+        ]);
+
+        $response = $this->post(route('login.store'), [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
+
+        $this->assertAuthenticatedAs($user);
+        $response->assertRedirect(route('doctor.dashboard'));
+    }
+
     #[DataProvider('rolesWithoutDashboard')]
     public function test_roles_without_dashboards_are_redirected_to_the_unavailable_dashboard(RoleName $role): void
     {
@@ -356,7 +373,6 @@ class AuthenticationTest extends TestCase
     public static function rolesWithoutDashboard(): array
     {
         return [
-            'doctor' => [RoleName::Doctor],
             'it administrator' => [RoleName::ItAdministrator],
         ];
     }

@@ -12,6 +12,9 @@ use App\Http\Controllers\Patient\DashboardController;
 use App\Http\Controllers\Patient\NotificationController;
 use App\Http\Controllers\Patient\PatientAppointmentController;
 use App\Http\Controllers\Patient\ProfileController;
+use App\Http\Controllers\Doctor\DashboardController as DoctorDashboardController;
+use App\Http\Controllers\Doctor\DoctorAppointmentController;
+use App\Http\Controllers\Doctor\DoctorScheduleController;
 use App\Http\Controllers\Staff\DashboardController as StaffDashboardController;
 use App\Http\Controllers\Staff\StaffAppointmentController;
 use Illuminate\Support\Facades\Route;
@@ -70,6 +73,20 @@ Route::middleware('auth')->group(function () {
         Route::patch('/patient/appointments/{appointment}/cancel', [PatientAppointmentController::class, 'cancel'])
             ->whereNumber('appointment')
             ->name('patient.appointments.cancel');
+    });
+
+    Route::middleware('role:'.RoleName::Doctor->value)->group(function () {
+        Route::get('/doctor/dashboard', DoctorDashboardController::class)
+            ->name('doctor.dashboard');
+
+        Route::get('/doctor/appointments', [DoctorAppointmentController::class, 'index'])
+            ->name('doctor.appointments');
+        Route::get('/doctor/appointments/{appointment}', [DoctorAppointmentController::class, 'show'])
+            ->whereNumber('appointment')
+            ->name('doctor.appointments.show');
+
+        Route::get('/doctor/schedule', DoctorScheduleController::class)
+            ->name('doctor.schedule');
     });
 
     Route::middleware('role:'.RoleName::HospitalStaff->value)->group(function () {
