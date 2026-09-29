@@ -34,7 +34,40 @@ class AiFrontDeskTest extends TestCase
         $response = $this->get(route('home'));
 
         $response->assertOk();
+        $this->assertNotEquals(route('login'), $response->headers->get('Location'));
         $this->assertDisclaimerContent($response);
+    }
+
+    public function test_guest_root_does_not_redirect_to_login(): void
+    {
+        $response = $this->get('/');
+
+        $response->assertOk();
+        $this->assertNotEquals(route('login'), $response->headers->get('Location'));
+        $response->assertSee('Before You Continue');
+    }
+
+    public function test_guest_with_acknowledged_disclaimer_reaches_ai_front_desk_from_root(): void
+    {
+        $this->withSession([AiDisclaimer::SESSION_KEY => true])
+            ->get('/')
+            ->assertRedirect(route('ai-front-desk'));
+
+        $this->withSession([AiDisclaimer::SESSION_KEY => true])
+            ->get(route('ai-front-desk'))
+            ->assertOk()
+            ->assertSee('AI Virtual Front Desk');
+    }
+
+    public function test_guests_can_still_access_login_and_register(): void
+    {
+        $this->get(route('login'))
+            ->assertOk()
+            ->assertSee('Welcome Back');
+
+        $this->get(route('register'))
+            ->assertOk()
+            ->assertSee('Create Your Account');
     }
 
     public function test_guests_can_reach_the_dedicated_ai_disclaimer_route(): void
@@ -154,6 +187,12 @@ class AiFrontDeskTest extends TestCase
     public function test_patient_dashboard_remains_protected(): void
     {
         $this->get(route('patient.dashboard'))
+            ->assertRedirect(route('login'));
+    }
+
+    public function test_guest_book_appointment_remains_protected(): void
+    {
+        $this->get(route('patient.book-appointment'))
             ->assertRedirect(route('login'));
     }
 
