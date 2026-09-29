@@ -46,7 +46,7 @@ class DashboardController extends Controller
                 'description' => 'Check upcoming and past appointments.',
                 'variant' => 'purple',
                 'icon' => 'clipboard',
-                'href' => '#',
+                'href' => route('patient.appointments'),
             ],
             [
                 'title' => 'Manage My Profile',

@@ -5,9 +5,9 @@ use App\Http\Controllers\AiDisclaimerController;
 use App\Http\Controllers\Auth\RegisteredPatientController;
 use App\Http\Controllers\DashboardUnavailableController;
 use App\Http\Controllers\Patient\AiFrontDeskController;
-use App\Http\Controllers\Patient\AppointmentRequestController;
 use App\Http\Controllers\Patient\BookAppointmentController;
 use App\Http\Controllers\Patient\DashboardController;
+use App\Http\Controllers\Patient\PatientAppointmentController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [AiDisclaimerController::class, 'show'])->name('home');
@@ -36,8 +36,14 @@ Route::middleware('auth')->group(function () {
         Route::post('/patient/book-appointment', [BookAppointmentController::class, 'store'])
             ->name('patient.book-appointment.store');
 
-        Route::get('/patient/appointments', AppointmentRequestController::class)
+        Route::get('/patient/appointments', [PatientAppointmentController::class, 'index'])
             ->name('patient.appointments');
+        Route::get('/patient/appointments/{appointment}', [PatientAppointmentController::class, 'show'])
+            ->whereNumber('appointment')
+            ->name('patient.appointments.show');
+        Route::patch('/patient/appointments/{appointment}/cancel', [PatientAppointmentController::class, 'cancel'])
+            ->whereNumber('appointment')
+            ->name('patient.appointments.cancel');
     });
 });
 

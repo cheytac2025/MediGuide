@@ -20,4 +20,25 @@ enum AppointmentStatus: string
             self::Rejected => 'REJECTED',
         };
     }
+
+    public function patientLabel(): string
+    {
+        return match ($this) {
+            self::Pending => 'Pending hospital confirmation',
+            self::Confirmed => 'Confirmed',
+            self::Completed => 'Completed',
+            self::Cancelled => 'Cancelled',
+            self::Rejected => 'Rejected',
+        };
+    }
+
+    public function isUpcoming(): bool
+    {
+        return $this === self::Pending || $this === self::Confirmed;
+    }
+
+    public function canBeCancelledByPatient(): bool
+    {
+        return $this->isUpcoming();
+    }
 }

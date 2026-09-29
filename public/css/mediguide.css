@@ -928,6 +928,8 @@ textarea {
     }
 
     .mg-sidebar {
+        position: fixed;
+        z-index: 1045;
         height: 100%;
         max-width: min(var(--mg-sidebar-width), 86vw);
         width: min(var(--mg-sidebar-width), 86vw);
@@ -2887,5 +2889,233 @@ select.mg-input {
 
     .mg-slot-grid {
         grid-template-columns: 1fr;
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/* My Appointments                                                             */
+/* -------------------------------------------------------------------------- */
+
+.mg-appt-page {
+    width: min(860px, 100%);
+    margin: 0 auto;
+}
+
+.mg-appt-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.mg-appt-subtitle {
+    margin: 0.35rem 0 0;
+    color: var(--mg-muted);
+    font-size: 0.92rem;
+}
+
+.mg-appt-book,
+.mg-appt-details,
+.mg-appt-back,
+.mg-appt-keep,
+.mg-appt-cancel {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
+    padding: 0.65rem 1rem;
+    border-radius: 14px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    text-align: center;
+}
+
+.mg-appt-book,
+.mg-appt-details {
+    background: var(--mg-primary);
+    color: #fff;
+}
+
+.mg-appt-book:hover,
+.mg-appt-details:hover {
+    background: var(--mg-primary-deep);
+    color: #fff;
+}
+
+.mg-appt-back,
+.mg-appt-keep {
+    border: 1px solid var(--mg-border);
+    background: #fff;
+    color: var(--mg-navy);
+}
+
+.mg-appt-group + .mg-appt-group {
+    margin-top: 1.4rem;
+}
+
+.mg-appt-list {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.mg-appt-card {
+    display: grid;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 1px solid var(--mg-border);
+    border-radius: var(--mg-radius-sm);
+    background: #fff;
+}
+
+.mg-appt-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.mg-appt-card h3,
+.mg-appt-card p {
+    margin: 0;
+}
+
+.mg-appt-card h3 {
+    color: var(--mg-navy);
+    font-size: 1.02rem;
+    font-weight: 800;
+}
+
+.mg-appt-muted,
+.mg-appt-concern {
+    color: var(--mg-muted);
+    font-size: 0.88rem;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.mg-appt-facts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 0;
+}
+
+.mg-appt-detail-list {
+    margin-top: 1rem;
+}
+
+.mg-appt-facts dt {
+    color: var(--mg-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.mg-appt-facts dd {
+    margin: 0.15rem 0 0;
+    color: var(--mg-navy);
+    font-weight: 700;
+}
+
+.mg-appt-status {
+    white-space: normal;
+    text-align: center;
+    max-width: 12rem;
+}
+
+.mg-status.is-pending {
+    background: #fff4d8;
+    color: #8a5a12;
+}
+
+.mg-status.is-confirmed {
+    background: var(--mg-confirmed-bg);
+    color: var(--mg-confirmed-text);
+}
+
+.mg-status.is-completed {
+    background: var(--mg-primary-soft);
+    color: var(--mg-primary-deep);
+}
+
+.mg-status.is-cancelled {
+    background: var(--mg-border-soft);
+    color: var(--mg-muted);
+}
+
+.mg-status.is-rejected {
+    background: #fdecee;
+    color: #9f3040;
+}
+
+.mg-appt-empty {
+    display: grid;
+    justify-items: start;
+    gap: 0.85rem;
+}
+
+.mg-appt-empty p {
+    margin: 0;
+    color: var(--mg-text);
+    font-size: 1rem;
+}
+
+.mg-appt-cancel {
+    border: 0;
+    background: #fdecee;
+    color: #9f3040;
+    cursor: pointer;
+}
+
+.mg-cancel-dialog {
+    margin-top: 1rem;
+    padding: 1rem;
+    border: 1px solid #f3c9d0;
+    border-radius: var(--mg-radius-sm);
+    background: #fff7f8;
+}
+
+.mg-cancel-dialog p {
+    margin: 0 0 0.85rem;
+    color: var(--mg-navy);
+    font-weight: 700;
+}
+
+.mg-cancel-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7rem;
+}
+
+.mg-cancel-actions form {
+    margin: 0;
+}
+
+@media (max-width: 767.98px) {
+    .mg-appt-head,
+    .mg-appt-card-top,
+    .mg-cancel-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .mg-appt-facts {
+        grid-template-columns: 1fr;
+    }
+
+    .mg-appt-book,
+    .mg-appt-details,
+    .mg-appt-back,
+    .mg-appt-keep,
+    .mg-appt-cancel,
+    .mg-cancel-actions form,
+    .mg-cancel-actions button {
+        width: 100%;
+    }
+
+    .mg-appt-status {
+        max-width: none;
     }
 }
