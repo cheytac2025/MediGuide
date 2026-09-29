@@ -3119,3 +3119,97 @@ select.mg-input {
         max-width: none;
     }
 }
+
+/* -------------------------------------------------------------------------- */
+/* Hospital Staff Dashboard                                                    */
+/* -------------------------------------------------------------------------- */
+
+.mg-nav-link.is-disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    pointer-events: none;
+    color: var(--mg-muted);
+}
+
+.mg-staff-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.85rem;
+    margin-top: 0.35rem;
+}
+
+.mg-staff-stat {
+    background: var(--mg-card);
+    border: 1px solid var(--mg-border);
+    border-radius: var(--mg-radius-sm);
+    box-shadow: var(--mg-shadow-soft);
+    padding: 1rem 1.05rem;
+    min-width: 0;
+}
+
+.mg-staff-stat-label {
+    margin: 0;
+    color: var(--mg-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.mg-staff-stat-value {
+    margin: 0.45rem 0 0;
+    color: var(--mg-navy);
+    font-size: 1.85rem;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1;
+}
+
+.mg-staff-request-list {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.mg-staff-request-card {
+    display: grid;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 1px solid var(--mg-border);
+    border-radius: var(--mg-radius-sm);
+    background: #fff;
+}
+
+.mg-staff-request-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.mg-staff-request-card h3,
+.mg-staff-request-card p {
+    margin: 0;
+}
+
+.mg-staff-request-card h3 {
+    color: var(--mg-navy);
+    font-size: 1.02rem;
+    font-weight: 800;
+}
+
+@media (max-width: 991.98px) {
+    .mg-staff-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 575.98px) {
+    .mg-staff-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .mg-staff-request-top {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}

@@ -22,10 +22,11 @@ class DatabaseSeeder extends Seeder
             'email' => 'test@example.com',
         ]);
 
-        // DEVELOPMENT ONLY: placeholder departments, clinics, doctors, and schedules. Replace with verified hospital data when available.
+        // DEVELOPMENT ONLY: placeholder departments, clinics, doctors, schedules, and staff account. Replace with verified hospital data when available.
         $this->call(DevelopmentDepartmentSeeder::class);
         $this->call(DevelopmentClinicSeeder::class);
         $this->call(DevelopmentDoctorSeeder::class);
         $this->call(DevelopmentDoctorScheduleSeeder::class);
+        $this->call(DevelopmentHospitalStaffSeeder::class);
     }
 }

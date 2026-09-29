@@ -204,8 +204,25 @@ class AuthenticationTest extends TestCase
             ->assertForbidden();
     }
 
-    #[DataProvider('nonPatientRoles')]
-    public function test_non_patients_are_redirected_to_the_unavailable_dashboard(RoleName $role): void
+    public function test_hospital_staff_can_authenticate_and_are_redirected_to_the_staff_dashboard(): void
+    {
+        $user = User::factory()->role(RoleName::HospitalStaff)->create([
+            'first_name' => 'Dev',
+            'last_name' => 'Staff',
+            'name' => 'Dev Staff',
+        ]);
+
+        $response = $this->post(route('login.store'), [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
+
+        $this->assertAuthenticatedAs($user);
+        $response->assertRedirect(route('staff.dashboard'));
+    }
+
+    #[DataProvider('rolesWithoutDashboard')]
+    public function test_roles_without_dashboards_are_redirected_to_the_unavailable_dashboard(RoleName $role): void
     {
         $user = User::factory()->role($role)->create();
 
@@ -328,6 +345,17 @@ class AuthenticationTest extends TestCase
     {
         return [
             'hospital staff' => [RoleName::HospitalStaff],
+            'doctor' => [RoleName::Doctor],
+            'it administrator' => [RoleName::ItAdministrator],
+        ];
+    }
+
+    /**
+     * @return array<string, array{0: RoleName}>
+     */
+    public static function rolesWithoutDashboard(): array
+    {
+        return [
             'doctor' => [RoleName::Doctor],
             'it administrator' => [RoleName::ItAdministrator],
         ];
