@@ -11,6 +11,7 @@ use App\Models\Doctor;
 use App\Models\DoctorSchedule;
 use App\Models\Patient;
 use App\Models\User;
+use App\Services\AppointmentBookingService;
 use Database\Seeders\DevelopmentClinicSeeder;
 use Database\Seeders\DevelopmentDepartmentSeeder;
 use Database\Seeders\DevelopmentDoctorScheduleSeeder;
@@ -18,6 +19,7 @@ use Database\Seeders\DevelopmentDoctorSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -216,9 +218,8 @@ class StaffAppointmentTest extends TestCase
             ->assertSee('09:00 AM')
             ->assertSee('09:30 AM')
             ->assertSee('Persistent headache')
-            ->assertDontSee('Confirm Appointment')
-            ->assertDontSee('Reject Appointment')
-            ->assertDontSee('Complete Appointment');
+            ->assertSee('Confirm Appointment')
+            ->assertSee('Reject Appointment');
     }
 
     #[DataProvider('nonStaffRoles')]
@@ -246,6 +247,268 @@ class StaffAppointmentTest extends TestCase
             ->assertDontSee('View Details');
     }
 
+    public function test_hospital_staff_can_confirm_a_pending_appointment(): void
+    {
+        $appointment = $this->place(
+            $this->patientUser()->patient,
+            AppointmentStatus::Pending,
+            '2026-10-12',
+            '09:00:00',
+            '09:30:00',
+        );
+
+        $this->actingAs($this->staffUser())
+            ->from(route('staff.appointments.show', $appointment))
+            ->patch(route('staff.appointments.confirm', $appointment))
+            ->assertRedirect(route('staff.appointments.show', $appointment))
+            ->assertSessionHas('appointment_status', 'Appointment confirmed successfully.');
+
+        $this->assertSame(AppointmentStatus::Confirmed, $appointment->fresh()->status);
+    }
+
+    public function test_hospital_staff_can_reject_a_pending_appointment(): void
+    {
+        $appointment = $this->place(
+            $this->patientUser()->patient,
+            AppointmentStatus::Pending,
+            '2026-10-12',
+            '09:00:00',
+            '09:30:00',
+        );
+
+        $this->actingAs($this->staffUser())
+            ->from(route('staff.appointments.show', $appointment))
+            ->patch(route('staff.appointments.reject', $appointment))
+            ->assertRedirect(route('staff.appointments.show', $appointment))
+            ->assertSessionHas('appointment_status', 'Appointment request rejected.');
+
+        $this->assertSame(AppointmentStatus::Rejected, $appointment->fresh()->status);
+    }
+
+    #[DataProvider('nonPendingStatuses')]
+    public function test_non_pending_appointments_cannot_be_confirmed(AppointmentStatus $status): void
+    {
+        $appointment = $this->place(
+            $this->patientUser()->patient,
+            $status,
+            $status->isUpcoming() ? '2026-10-12' : '2026-09-28',
+            '09:00:00',
+            '09:30:00',
+        );
+
+        $this->actingAs($this->staffUser())
+            ->patch(route('staff.appointments.confirm', $appointment))
+            ->assertRedirect(route('staff.appointments.show', $appointment))
+            ->assertSessionHas(
+                'appointment_error',
+                'This appointment is no longer pending and cannot be confirmed.',
+            );
+
+        $this->assertSame($status, $appointment->fresh()->status);
+    }
+
+    #[DataProvider('nonPendingStatuses')]
+    public function test_non_pending_appointments_cannot_be_rejected(AppointmentStatus $status): void
+    {
+        $appointment = $this->place(
+            $this->patientUser()->patient,
+            $status,
+            $status->isUpcoming() ? '2026-10-12' : '2026-09-28',
+            '09:00:00',
+            '09:30:00',
+        );
+
+        $this->actingAs($this->staffUser())
+            ->patch(route('staff.appointments.reject', $appointment))
+            ->assertRedirect(route('staff.appointments.show', $appointment))
+            ->assertSessionHas(
+                'appointment_error',
+                'This appointment is no longer pending and cannot be rejected.',
+            );
+
+        $this->assertSame($status, $appointment->fresh()->status);
+    }
+
+    #[DataProvider('nonStaffRoles')]
+    public function test_non_staff_roles_cannot_confirm_appointments(RoleName $role): void
+    {
+        $appointment = $this->place(
+            $this->patientUser()->patient,
+            AppointmentStatus::Pending,
+            '2026-10-12',
+            '09:00:00',
+            '09:30:00',
+        );
+
+        $this->actingAs(User::factory()->role($role)->create())
+            ->patch(route('staff.appointments.confirm', $appointment))
+            ->assertForbidden();
+
+        $this->assertSame(AppointmentStatus::Pending, $appointment->fresh()->status);
+    }
+
+    #[DataProvider('nonStaffRoles')]
+    public function test_non_staff_roles_cannot_reject_appointments(RoleName $role): void
+    {
+        $appointment = $this->place(
+            $this->patientUser()->patient,
+            AppointmentStatus::Pending,
+            '2026-10-12',
+            '09:00:00',
+            '09:30:00',
+        );
+
+        $this->actingAs(User::factory()->role($role)->create())
+            ->patch(route('staff.appointments.reject', $appointment))
+            ->assertForbidden();
+
+        $this->assertSame(AppointmentStatus::Pending, $appointment->fresh()->status);
+    }
+
+    public function test_guests_cannot_confirm_or_reject_appointments(): void
+    {
+        $appointment = $this->place(
+            $this->patientUser()->patient,
+            AppointmentStatus::Pending,
+            '2026-10-12',
+            '09:00:00',
+            '09:30:00',
+        );
+
+        $this->patch(route('staff.appointments.confirm', $appointment))
+            ->assertRedirect(route('login'));
+
+        $this->patch(route('staff.appointments.reject', $appointment))
+            ->assertRedirect(route('login'));
+
+        $this->assertSame(AppointmentStatus::Pending, $appointment->fresh()->status);
+    }
+
+    public function test_rejected_appointment_releases_doctor_slot(): void
+    {
+        $appointment = $this->place(
+            $this->patientUser()->patient,
+            AppointmentStatus::Pending,
+            '2026-10-12',
+            '09:00:00',
+            '09:30:00',
+        );
+
+        $this->actingAs($this->staffUser())
+            ->patch(route('staff.appointments.reject', $appointment))
+            ->assertRedirect(route('staff.appointments.show', $appointment));
+
+        $replacement = app(AppointmentBookingService::class)->book(
+            $this->patientUser()->patient,
+            $this->doctor(),
+            $this->mondaySchedule(),
+            '2026-10-12',
+            '09:00',
+        );
+
+        $this->assertSame(AppointmentStatus::Rejected, $appointment->fresh()->status);
+        $this->assertSame(AppointmentStatus::Pending, $replacement->status);
+        $this->assertSame(2, Appointment::query()->where('start_time', '09:00:00')->count());
+    }
+
+    public function test_confirmed_appointment_continues_blocking_doctor_slot(): void
+    {
+        $appointment = $this->place(
+            $this->patientUser()->patient,
+            AppointmentStatus::Pending,
+            '2026-10-12',
+            '09:00:00',
+            '09:30:00',
+        );
+
+        $this->actingAs($this->staffUser())
+            ->patch(route('staff.appointments.confirm', $appointment))
+            ->assertRedirect(route('staff.appointments.show', $appointment));
+
+        try {
+            app(AppointmentBookingService::class)->book(
+                $this->patientUser()->patient,
+                $this->doctor(),
+                $this->mondaySchedule(),
+                '2026-10-12',
+                '09:00',
+            );
+            $this->fail('A confirmed appointment should continue blocking the doctor slot.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('start_time', $exception->errors());
+        }
+
+        $this->assertSame(AppointmentStatus::Confirmed, $appointment->fresh()->status);
+        $this->assertSame(1, Appointment::query()->count());
+    }
+
+    public function test_patient_my_appointments_reflects_confirmed_status(): void
+    {
+        $patientUser = $this->patientUser();
+        $appointment = $this->place(
+            $patientUser->patient,
+            AppointmentStatus::Pending,
+            '2026-10-12',
+            '09:00:00',
+            '09:30:00',
+            'Confirmed concern',
+        );
+
+        $this->actingAs($this->staffUser())
+            ->patch(route('staff.appointments.confirm', $appointment));
+
+        $this->actingAs($patientUser)
+            ->get(route('patient.appointments'))
+            ->assertOk()
+            ->assertSee('Confirmed')
+            ->assertSee('Confirmed concern');
+    }
+
+    public function test_patient_my_appointments_reflects_rejected_status(): void
+    {
+        $patientUser = $this->patientUser();
+        $appointment = $this->place(
+            $patientUser->patient,
+            AppointmentStatus::Pending,
+            '2026-10-12',
+            '09:00:00',
+            '09:30:00',
+            'Rejected concern',
+        );
+
+        $this->actingAs($this->staffUser())
+            ->patch(route('staff.appointments.reject', $appointment));
+
+        $this->actingAs($patientUser)
+            ->get(route('patient.appointments'))
+            ->assertOk()
+            ->assertSee('Rejected')
+            ->assertSee('Rejected concern');
+    }
+
+    public function test_stale_pending_page_cannot_override_a_patient_cancellation(): void
+    {
+        $appointment = $this->place(
+            $this->patientUser()->patient,
+            AppointmentStatus::Pending,
+            '2026-10-12',
+            '09:00:00',
+            '09:30:00',
+        );
+
+        $appointment->update(['status' => AppointmentStatus::Cancelled]);
+
+        $this->actingAs($this->staffUser())
+            ->patch(route('staff.appointments.confirm', $appointment))
+            ->assertRedirect(route('staff.appointments.show', $appointment))
+            ->assertSessionHas(
+                'appointment_error',
+                'This appointment is no longer pending and cannot be confirmed.',
+            );
+
+        $this->assertSame(AppointmentStatus::Cancelled, $appointment->fresh()->status);
+    }
+
     /**
      * @return array<string, array{0: AppointmentStatus, 1: string, 2: string}>
      */
@@ -256,6 +519,19 @@ class StaffAppointmentTest extends TestCase
             'completed' => [AppointmentStatus::Completed, '2026-09-28', 'No completed appointments.'],
             'cancelled' => [AppointmentStatus::Cancelled, '2026-09-21', 'No cancelled appointments.'],
             'rejected' => [AppointmentStatus::Rejected, '2026-09-14', 'No rejected appointments.'],
+        ];
+    }
+
+    /**
+     * @return array<string, array{0: AppointmentStatus}>
+     */
+    public static function nonPendingStatuses(): array
+    {
+        return [
+            'confirmed' => [AppointmentStatus::Confirmed],
+            'cancelled' => [AppointmentStatus::Cancelled],
+            'rejected' => [AppointmentStatus::Rejected],
+            'completed' => [AppointmentStatus::Completed],
         ];
     }
 

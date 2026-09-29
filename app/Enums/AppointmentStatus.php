@@ -52,4 +52,14 @@ enum AppointmentStatus: string
     {
         return $this->isUpcoming();
     }
+
+    public function canStaffConfirm(): bool
+    {
+        return $this === self::Pending;
+    }
+
+    public function canStaffReject(): bool
+    {
+        return $this === self::Pending;
+    }
 }

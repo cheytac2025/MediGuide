@@ -2,8 +2,13 @@
 
 namespace Tests\Feature\Patient;
 
+use App\Models\Clinic;
 use App\Models\User;
 use App\Support\AiDisclaimer;
+use Database\Seeders\DevelopmentClinicSeeder;
+use Database\Seeders\DevelopmentDepartmentSeeder;
+use Database\Seeders\DevelopmentDoctorScheduleSeeder;
+use Database\Seeders\DevelopmentDoctorSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
@@ -18,6 +23,10 @@ class AiFrontDeskTest extends TestCase
         parent::setUp();
 
         $this->seed(RoleSeeder::class);
+        $this->seed(DevelopmentDepartmentSeeder::class);
+        $this->seed(DevelopmentClinicSeeder::class);
+        $this->seed(DevelopmentDoctorSeeder::class);
+        $this->seed(DevelopmentDoctorScheduleSeeder::class);
     }
 
     public function test_guests_can_reach_the_ai_disclaimer_from_the_home_page(): void
@@ -76,11 +85,19 @@ class AiFrontDeskTest extends TestCase
         $response->assertSee('AI-Assisted Patient Navigation');
         $response->assertSee('Describe your symptoms or health concern in your own words');
         $response->assertSee('I have a headache');
-        $response->assertSee('Development Department');
-        $response->assertSee('Test Specialist');
+        $response->assertSee('Development Clinic A');
+        $response->assertSee('Development Department A');
+        $response->assertSee('View Available Doctors');
         $response->assertSee('MediGuide provides patient navigation assistance only');
         $response->assertDontSee('Before You Continue');
         $response->assertDontSee('Continue to MediGuide');
+
+        $clinic = Clinic::query()->where('name', 'Development Clinic A')->firstOrFail();
+        $config = $response->viewData('frontDeskConfig');
+        $this->assertSame($clinic->id, $config['mockRecommendation']['clinic_id']);
+        $this->assertSame('Development Clinic A', $config['mockRecommendation']['clinic']);
+        $this->assertSame('Development Department A', $config['mockRecommendation']['department']);
+        $this->assertTrue($config['mockRecommendation']['development']);
     }
 
     public function test_guest_ai_front_desk_shows_login_and_create_account_without_patient_identity(): void

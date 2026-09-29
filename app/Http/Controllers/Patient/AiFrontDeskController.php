@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers\Patient;
 
+use App\Enums\ClinicStatus;
+use App\Enums\DepartmentStatus;
 use App\Enums\RoleName;
 use App\Http\Controllers\Controller;
+use App\Models\Clinic;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -42,19 +45,29 @@ class AiFrontDeskController extends Controller
             "I'm not sure which specialist I need",
         ];
 
+        $clinic = $this->resolveMockClinic();
+
         $mockRecommendation = [
             'development' => true,
             'source' => 'DEVELOPMENT DATA',
             'title' => 'Mock Recommendation',
-            'department' => 'Development Department',
-            'specialist' => 'Test Specialist',
+            'clinic_id' => $clinic?->id,
+            'clinic' => $clinic?->name,
+            'department' => $clinic?->department?->name,
             'summary' => 'Based on the information you provided, this type of concern may be handled by this department.',
+            'doctors_url' => $clinic instanceof Clinic
+                ? route('ai-front-desk.clinics.doctors', $clinic)
+                : null,
+            'booking_intent_url' => route('ai-front-desk.booking-intent'),
+            'book_appointment_url' => route('patient.book-appointment'),
+            'is_authenticated_patient' => $isPatient,
         ];
 
         $frontDeskConfig = [
             'maxLength' => 1000,
             'patientInitials' => $authenticatedUser?->initials() ?: 'Y',
             'mockRecommendation' => $mockRecommendation,
+            'csrfToken' => csrf_token(),
             'processingLabel' => 'Analyzing your concern...',
             'processingSteps' => [
                 'Understanding your description',
@@ -73,5 +86,19 @@ class AiFrontDeskController extends Controller
             'maxLength' => 1000,
             'frontDeskConfig' => $frontDeskConfig,
         ]);
+    }
+
+    /**
+     * Resolve a single ACTIVE development clinic with an ACTIVE department.
+     * No clinic/department IDs are hardcoded.
+     */
+    private function resolveMockClinic(): ?Clinic
+    {
+        return Clinic::query()
+            ->with('department')
+            ->where('status', ClinicStatus::Active)
+            ->whereHas('department', fn ($query) => $query->where('status', DepartmentStatus::Active))
+            ->orderBy('id')
+            ->first();
     }
 }

@@ -103,17 +103,46 @@
                 <h2 class="mg-recommend-title">Recommended Service</h2>
                 <p class="mg-recommend-department">
                     <x-patient.icon name="building" />
-                    <span data-mg-department></span>
+                    <span data-mg-clinic></span>
                 </p>
-                <p class="mg-recommend-specialist" data-mg-specialist></p>
+                <p class="mg-recommend-specialist" data-mg-department></p>
                 <p class="mg-recommend-summary" data-mg-summary></p>
-                <button type="button" class="mg-recommend-btn" disabled title="Appointment booking is not available yet">
+                <button type="button" class="mg-recommend-btn" data-mg-view-doctors disabled>
                     View Available Doctors
                 </button>
                 <button type="button" class="mg-recommend-link" data-mg-preview-fallback>
                     Preview staff-assistance fallback
                 </button>
             </div>
+        </article>
+    </template>
+
+    <template data-mg-tpl="doctors">
+        <article class="mg-chat-row mg-chat-row-ai">
+            <span class="mg-chat-avatar" aria-hidden="true">
+                <x-patient.icon name="sparkle" />
+            </span>
+            <div class="mg-doctors-card">
+                <p class="mg-recommend-kicker">
+                    <span>Available Doctors</span>
+                    <span class="mg-recommend-tag">Development data</span>
+                </p>
+                <h2 class="mg-recommend-title" data-mg-doctors-clinic></h2>
+                <p class="mg-doctors-message" data-mg-doctors-message hidden></p>
+                <div class="mg-doctors-list" data-mg-doctors-list></div>
+            </div>
+        </article>
+    </template>
+
+    <template data-mg-tpl="doctor-item">
+        <article class="mg-doctor-item">
+            <h3 class="mg-doctor-name" data-mg-doctor-name></h3>
+            <p class="mg-doctor-meta" data-mg-doctor-specialization></p>
+            <p class="mg-doctor-meta" data-mg-doctor-clinic></p>
+            <p class="mg-doctor-availability" data-mg-doctor-availability></p>
+            <button type="button" class="mg-recommend-btn" data-mg-book-appointment>
+                Book Appointment
+            </button>
         </article>
     </template>
 

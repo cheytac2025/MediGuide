@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -52,6 +53,51 @@ class StaffAppointmentController extends Controller
             'active' => 'appointments',
             'appointment' => $record,
         ]);
+    }
+
+    public function confirm(Request $request, int $appointment): RedirectResponse
+    {
+        $record = $this->findAppointment($appointment);
+
+        if (! $record->status->canStaffConfirm()) {
+            return redirect()
+                ->route('staff.appointments.show', $record)
+                ->with('appointment_error', 'This appointment is no longer pending and cannot be confirmed.');
+        }
+
+        $record->update([
+            'status' => AppointmentStatus::Confirmed,
+        ]);
+
+        return redirect()
+            ->route('staff.appointments.show', $record)
+            ->with('appointment_status', 'Appointment confirmed successfully.');
+    }
+
+    public function reject(Request $request, int $appointment): RedirectResponse
+    {
+        $record = $this->findAppointment($appointment);
+
+        if (! $record->status->canStaffReject()) {
+            return redirect()
+                ->route('staff.appointments.show', $record)
+                ->with('appointment_error', 'This appointment is no longer pending and cannot be rejected.');
+        }
+
+        $record->update([
+            'status' => AppointmentStatus::Rejected,
+        ]);
+
+        return redirect()
+            ->route('staff.appointments.show', $record)
+            ->with('appointment_status', 'Appointment request rejected.');
+    }
+
+    private function findAppointment(int $appointmentId): Appointment
+    {
+        return Appointment::query()
+            ->whereKey($appointmentId)
+            ->firstOrFail();
     }
 
     private function resolvedStatus(mixed $value): ?AppointmentStatus

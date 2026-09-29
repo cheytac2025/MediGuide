@@ -4,6 +4,8 @@ use App\Enums\RoleName;
 use App\Http\Controllers\AiDisclaimerController;
 use App\Http\Controllers\Auth\RegisteredPatientController;
 use App\Http\Controllers\DashboardUnavailableController;
+use App\Http\Controllers\Patient\AiBookingIntentController;
+use App\Http\Controllers\Patient\AiClinicDoctorsController;
 use App\Http\Controllers\Patient\AiFrontDeskController;
 use App\Http\Controllers\Patient\BookAppointmentController;
 use App\Http\Controllers\Patient\DashboardController;
@@ -17,9 +19,17 @@ Route::get('/', [AiDisclaimerController::class, 'show'])->name('home');
 Route::get('/ai-disclaimer', [AiDisclaimerController::class, 'show'])->name('ai-disclaimer');
 Route::post('/ai-disclaimer', [AiDisclaimerController::class, 'store'])->name('ai-disclaimer.acknowledge');
 
-Route::get('/ai-front-desk', AiFrontDeskController::class)
-    ->middleware('ai.disclaimer')
-    ->name('ai-front-desk');
+Route::middleware('ai.disclaimer')->group(function () {
+    Route::get('/ai-front-desk', AiFrontDeskController::class)
+        ->name('ai-front-desk');
+
+    Route::get('/ai-front-desk/clinics/{clinic}/doctors', AiClinicDoctorsController::class)
+        ->whereNumber('clinic')
+        ->name('ai-front-desk.clinics.doctors');
+
+    Route::post('/ai-front-desk/booking-intent', [AiBookingIntentController::class, 'store'])
+        ->name('ai-front-desk.booking-intent');
+});
 
 Route::redirect('/patient/ai-front-desk', '/ai-front-desk')->name('patient.ai-front-desk');
 
@@ -57,6 +67,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/staff/appointments/{appointment}', [StaffAppointmentController::class, 'show'])
             ->whereNumber('appointment')
             ->name('staff.appointments.show');
+        Route::patch('/staff/appointments/{appointment}/confirm', [StaffAppointmentController::class, 'confirm'])
+            ->whereNumber('appointment')
+            ->name('staff.appointments.confirm');
+        Route::patch('/staff/appointments/{appointment}/reject', [StaffAppointmentController::class, 'reject'])
+            ->whereNumber('appointment')
+            ->name('staff.appointments.reject');
     });
 });
 
