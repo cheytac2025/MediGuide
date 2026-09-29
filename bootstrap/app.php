@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureAiDisclaimerAcknowledged;
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -27,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'role' => EnsureUserHasRole::class,
+            'ai.disclaimer' => EnsureAiDisclaimerAcknowledged::class,
         ]);
 
         $middleware->redirectUsersTo(fn (Request $request) => AuthenticatedHome::route($request->user()));

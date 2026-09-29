@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Patient;
 
+use App\Enums\RoleName;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -15,16 +16,24 @@ class AiFrontDeskController extends Controller
      */
     public function __invoke(Request $request): View
     {
-        /** @var User $user */
         $user = $request->user();
+        $authenticatedUser = $user instanceof User ? $user : null;
+        $isPatient = $authenticatedUser !== null && $authenticatedUser->hasRole(RoleName::Patient);
 
-        $patient = [
-            'name' => $user->name,
-            'first_name' => $user->first_name ?: Str::before($user->name, ' '),
-            'role' => 'Patient',
-            'initials' => $user->initials(),
-            'unread_notifications' => 1,
-        ];
+        $patient = null;
+        $greetingName = null;
+
+        if ($isPatient) {
+            $firstName = $authenticatedUser->first_name ?: Str::before($authenticatedUser->name, ' ');
+            $patient = [
+                'name' => $authenticatedUser->name,
+                'first_name' => $firstName,
+                'role' => 'Patient',
+                'initials' => $authenticatedUser->initials(),
+                'unread_notifications' => 1,
+            ];
+            $greetingName = $firstName;
+        }
 
         $quickPrompts = [
             'I have a headache',
@@ -44,7 +53,7 @@ class AiFrontDeskController extends Controller
 
         $frontDeskConfig = [
             'maxLength' => 1000,
-            'patientInitials' => $patient['initials'],
+            'patientInitials' => $authenticatedUser?->initials() ?: 'Y',
             'mockRecommendation' => $mockRecommendation,
             'processingLabel' => 'Analyzing your concern...',
             'processingSteps' => [
@@ -55,8 +64,10 @@ class AiFrontDeskController extends Controller
         ];
 
         return view('patient.ai-front-desk', [
+            'layout' => $isPatient ? 'layouts.patient' : 'layouts.public',
             'patient' => $patient,
             'active' => 'front-desk',
+            'greetingName' => $greetingName,
             'quickPrompts' => $quickPrompts,
             'mockRecommendation' => $mockRecommendation,
             'maxLength' => 1000,

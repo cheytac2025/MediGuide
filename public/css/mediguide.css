@@ -2446,3 +2446,229 @@ select.mg-input {
         max-height: calc(100vh - 22rem);
     }
 }
+
+/* -------------------------------------------------------------------------- */
+/* Public AI Front Desk / Disclaimer                                           */
+/* -------------------------------------------------------------------------- */
+
+.mg-public {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background:
+        radial-gradient(1200px 420px at 78% -8%, rgba(255, 255, 255, 0.9), transparent 60%),
+        var(--mg-canvas);
+}
+
+.mg-public-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.85rem 1.5rem;
+    background: #fff;
+    border-bottom: 1px solid var(--mg-border);
+}
+
+.mg-public-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+.mg-public-logo {
+    width: 52px;
+    height: auto;
+    flex: 0 0 auto;
+}
+
+.mg-public-brand-copy {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.mg-public-hospital {
+    color: var(--mg-navy);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
+
+.mg-public-header .mg-wordmark {
+    font-size: 1.2rem;
+}
+
+.mg-public-nav {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.65rem;
+}
+
+.mg-public-nav-link {
+    color: var(--mg-navy);
+    font-size: 0.88rem;
+    font-weight: 700;
+    padding: 0.35rem 0.2rem;
+}
+
+.mg-public-nav-link:hover,
+.mg-public-nav-link.is-active {
+    color: var(--mg-primary);
+}
+
+.mg-public-user {
+    color: var(--mg-navy);
+    font-size: 0.88rem;
+    font-weight: 700;
+}
+
+.mg-public-logout {
+    margin: 0;
+}
+
+.mg-public-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    padding: 0.48rem 1.15rem;
+    border-radius: 12px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.mg-public-btn-ghost {
+    border: 1.5px solid #72aae5;
+    background: #fff;
+    color: #1767c7;
+}
+
+.mg-public-btn-ghost:hover {
+    background: #f4f9fe;
+    border-color: #2e6ed2;
+}
+
+.mg-public-btn-primary {
+    border: 0;
+    background: var(--mg-primary);
+    color: #fff;
+    box-shadow: 0 8px 16px rgba(46, 110, 210, 0.22);
+}
+
+.mg-public-btn-primary:hover {
+    background: var(--mg-primary-deep);
+    color: #fff;
+}
+
+.mg-public-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 1rem 1.5rem 1.25rem;
+}
+
+.mg-disclaimer-page {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 0 1rem;
+}
+
+.mg-disclaimer-card {
+    width: 100%;
+    max-width: 680px;
+    background: #fff;
+    border: 1px solid var(--mg-border);
+    border-radius: 24px;
+    box-shadow: var(--mg-shadow);
+    padding: 2rem 1.85rem 1.7rem;
+}
+
+.mg-disclaimer-logo {
+    display: block;
+    width: 78px;
+    height: auto;
+    margin: 0 auto 0.7rem;
+}
+
+.mg-disclaimer-card .mg-wordmark,
+.mg-disclaimer-card .mg-wordmark-sub {
+    text-align: center;
+}
+
+.mg-disclaimer-title {
+    margin: 1.15rem 0 0.85rem;
+    font-size: 1.7rem;
+    font-weight: 800;
+    color: var(--mg-navy);
+    letter-spacing: -0.04em;
+    text-align: center;
+}
+
+.mg-disclaimer-copy {
+    display: grid;
+    gap: 0.85rem;
+    margin: 0 0 1.25rem;
+}
+
+.mg-disclaimer-copy p {
+    margin: 0;
+    color: var(--mg-text);
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+.mg-disclaimer-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.mg-disclaimer-check {
+    align-items: flex-start;
+    color: var(--mg-navy);
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+
+.mg-disclaimer-check input {
+    margin-top: 0.15rem;
+    flex: 0 0 auto;
+}
+
+.mg-disclaimer-form .mg-auth-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #9db6d8;
+    box-shadow: none;
+}
+
+@media (max-width: 767.98px) {
+    .mg-public-header {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 0.85rem 1rem;
+    }
+
+    .mg-public-nav {
+        justify-content: flex-start;
+    }
+
+    .mg-public-hospital {
+        white-space: normal;
+    }
+
+    .mg-public-main {
+        padding: 0.85rem 1rem 1rem;
+    }
+
+    .mg-disclaimer-card {
+        padding: 1.5rem 1.15rem 1.3rem;
+    }
+}

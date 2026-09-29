@@ -1,4 +1,4 @@
-@extends('layouts.patient')
+@extends($layout)
 
 @section('title', 'AI Virtual Front Desk')
 
@@ -21,7 +21,11 @@
                         <x-patient.icon name="sparkle" />
                     </span>
                     <div class="mg-chat-bubble">
-                        Hi, {{ $patient['first_name'] }}. I'm MediGuide, your AI-assisted virtual front desk. Tell me what you're currently experiencing, and I'll help guide you to the appropriate hospital department or specialist.
+                        @if ($greetingName)
+                            Hi, {{ $greetingName }}. I'm MediGuide, your AI-assisted virtual front desk. Tell me what you're currently experiencing, and I'll help guide you to the appropriate hospital department or specialist.
+                        @else
+                            Hi! I'm MediGuide. Tell me what you're currently experiencing, and I'll help guide you to the appropriate hospital department or specialist.
+                        @endif
                     </div>
                 </article>
             </div>
@@ -103,7 +107,7 @@
                 </p>
                 <p class="mg-recommend-specialist" data-mg-specialist></p>
                 <p class="mg-recommend-summary" data-mg-summary></p>
-                <button type="button" class="mg-recommend-btn" disabled title="Doctor directory is not available yet">
+                <button type="button" class="mg-recommend-btn" disabled title="Appointment booking is not available yet">
                     View Available Doctors
                 </button>
                 <button type="button" class="mg-recommend-link" data-mg-preview-fallback>
