@@ -91,19 +91,19 @@ class DoctorSchedule extends Model
     {
         if ($this->slot_duration < 1) {
             throw ValidationException::withMessages([
-                'slot_duration' => 'The slot duration must be greater than 0 minutes.',
+                'slot_duration' => 'Slot duration must be greater than zero.',
             ]);
         }
 
         if ($this->start_time >= $this->end_time) {
             throw ValidationException::withMessages([
-                'end_time' => 'The end time must be after the start time.',
+                'end_time' => 'End time must be after start time.',
             ]);
         }
 
         if ($this->overlapsActiveSchedule()) {
             throw ValidationException::withMessages([
-                'start_time' => 'This schedule overlaps an existing active schedule for the same doctor and day.',
+                'start_time' => 'This schedule overlaps another active schedule for this doctor.',
             ]);
         }
     }

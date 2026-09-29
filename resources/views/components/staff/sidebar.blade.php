@@ -7,6 +7,7 @@
     $links = [
         ['key' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'home', 'route' => 'staff.dashboard'],
         ['key' => 'appointments', 'label' => 'Appointments', 'icon' => 'clipboard', 'route' => 'staff.appointments'],
+        ['key' => 'doctor-schedules', 'label' => 'Doctor Schedules', 'icon' => 'calendar', 'route' => 'staff.doctor-schedules'],
     ];
 @endphp
 

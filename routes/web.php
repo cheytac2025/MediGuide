@@ -17,6 +17,7 @@ use App\Http\Controllers\Doctor\DoctorAppointmentController;
 use App\Http\Controllers\Doctor\DoctorScheduleController;
 use App\Http\Controllers\Staff\DashboardController as StaffDashboardController;
 use App\Http\Controllers\Staff\StaffAppointmentController;
+use App\Http\Controllers\Staff\StaffDoctorScheduleController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [AiDisclaimerController::class, 'show'])->name('home');
@@ -104,6 +105,21 @@ Route::middleware('auth')->group(function () {
         Route::patch('/staff/appointments/{appointment}/reject', [StaffAppointmentController::class, 'reject'])
             ->whereNumber('appointment')
             ->name('staff.appointments.reject');
+
+        Route::get('/staff/doctor-schedules', [StaffDoctorScheduleController::class, 'index'])
+            ->name('staff.doctor-schedules');
+        Route::get('/staff/doctor-schedules/{doctor}', [StaffDoctorScheduleController::class, 'show'])
+            ->whereNumber('doctor')
+            ->name('staff.doctor-schedules.show');
+        Route::post('/staff/doctor-schedules/{doctor}', [StaffDoctorScheduleController::class, 'store'])
+            ->whereNumber('doctor')
+            ->name('staff.doctor-schedules.store');
+        Route::patch('/staff/doctor-schedules/{doctorSchedule}', [StaffDoctorScheduleController::class, 'update'])
+            ->whereNumber('doctorSchedule')
+            ->name('staff.doctor-schedules.update');
+        Route::patch('/staff/doctor-schedules/{doctorSchedule}/status', [StaffDoctorScheduleController::class, 'updateStatus'])
+            ->whereNumber('doctorSchedule')
+            ->name('staff.doctor-schedules.status');
     });
 });
 

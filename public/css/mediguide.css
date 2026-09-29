@@ -3369,6 +3369,40 @@ select.mg-input {
     }
 }
 
+.mg-staff-schedule-form {
+    display: grid;
+    gap: 1rem;
+}
+
+.mg-staff-schedule-grid {
+    display: grid;
+    gap: 0.9rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.mg-staff-schedule-grid .mg-book-label {
+    display: grid;
+    gap: 0.35rem;
+}
+
+.mg-staff-schedule-grid select,
+.mg-staff-schedule-grid input[type="time"],
+.mg-staff-schedule-grid input[type="number"] {
+    width: 100%;
+    min-height: 44px;
+    border: 1px solid #c5daf6;
+    border-radius: 10px;
+    padding: 0.55rem 0.75rem;
+    color: #123b72;
+    background: #fff;
+}
+
+@media (max-width: 767.98px) {
+    .mg-staff-schedule-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 .mg-profile-page {
     display: grid;
     gap: 1rem;
