@@ -8,8 +8,8 @@ use App\Enums\RoleName;
 use App\Http\Controllers\Controller;
 use App\Models\Clinic;
 use App\Models\User;
+use App\Support\PatientHeader;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class AiFrontDeskController extends Controller
@@ -27,15 +27,8 @@ class AiFrontDeskController extends Controller
         $greetingName = null;
 
         if ($isPatient) {
-            $firstName = $authenticatedUser->first_name ?: Str::before($authenticatedUser->name, ' ');
-            $patient = [
-                'name' => $authenticatedUser->name,
-                'first_name' => $firstName,
-                'role' => 'Patient',
-                'initials' => $authenticatedUser->initials(),
-                'unread_notifications' => 1,
-            ];
-            $greetingName = $firstName;
+            $patient = PatientHeader::from($authenticatedUser);
+            $greetingName = $patient['first_name'];
         }
 
         $quickPrompts = [

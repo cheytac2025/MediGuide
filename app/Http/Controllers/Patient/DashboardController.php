@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Patient;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\PatientHeader;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
@@ -18,13 +18,7 @@ class DashboardController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        $patient = [
-            'name' => $user->name,
-            'first_name' => $user->first_name ?: Str::before($user->name, ' '),
-            'role' => 'Patient',
-            'initials' => $user->initials(),
-            'unread_notifications' => 1,
-        ];
+        $patient = PatientHeader::from($user);
 
         $quickActions = [
             [
@@ -50,10 +44,10 @@ class DashboardController extends Controller
             ],
             [
                 'title' => 'Manage My Profile',
-                'description' => 'Update your personal information.',
+                'description' => 'View your registered information.',
                 'variant' => 'pink',
                 'icon' => 'user',
-                'href' => '#',
+                'href' => route('patient.profile'),
             ],
         ];
 

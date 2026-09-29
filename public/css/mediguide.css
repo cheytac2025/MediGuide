@@ -3347,3 +3347,138 @@ select.mg-input {
         width: 100%;
     }
 }
+
+.mg-profile-page {
+    display: grid;
+    gap: 1rem;
+}
+
+.mg-profile-grid {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+@media (min-width: 992px) {
+    .mg-profile-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: start;
+    }
+}
+
+.mg-profile-card {
+    border: 1px solid var(--mg-border);
+    border-radius: 14px;
+    background: #f8fbff;
+    padding: 1rem;
+}
+
+.mg-profile-card-title {
+    margin: 0 0 0.85rem;
+    color: var(--mg-navy);
+    font-size: 0.98rem;
+    font-weight: 800;
+}
+
+.mg-profile-card .mg-review-list {
+    margin-bottom: 0;
+}
+
+.mg-profile-note {
+    margin: 1rem 0 0;
+    color: var(--mg-muted);
+    font-size: 0.86rem;
+    line-height: 1.5;
+}
+
+.mg-notifications-page {
+    display: grid;
+    gap: 1rem;
+}
+
+.mg-notification-list {
+    list-style: none;
+    margin: 1rem 0 0;
+    padding: 0;
+    display: grid;
+    gap: 0.75rem;
+}
+
+.mg-notification-item {
+    display: grid;
+    gap: 0.75rem;
+    border: 1px solid var(--mg-border);
+    border-radius: 14px;
+    background: #f8fbff;
+    padding: 0.9rem 1rem;
+}
+
+.mg-notification-item.is-unread {
+    border-color: #b7d0ef;
+    background: #eef5ff;
+}
+
+.mg-notification-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.mg-notification-title {
+    margin: 0;
+    color: var(--mg-navy);
+    font-size: 0.95rem;
+    font-weight: 800;
+}
+
+.mg-notification-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    background: var(--mg-primary-soft);
+    color: var(--mg-primary-deep);
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.15rem 0.5rem;
+}
+
+.mg-notification-message {
+    margin: 0.35rem 0 0;
+    color: var(--mg-text);
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+
+.mg-notification-time {
+    margin: 0.4rem 0 0;
+    color: var(--mg-muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.mg-notification-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.mg-notification-actions .mg-recommend-link {
+    width: auto;
+    margin: 0;
+    text-align: left;
+    padding: 0;
+}
+
+@media (min-width: 768px) {
+    .mg-notification-item {
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+    }
+
+    .mg-notification-actions {
+        justify-content: flex-end;
+    }
+}
+

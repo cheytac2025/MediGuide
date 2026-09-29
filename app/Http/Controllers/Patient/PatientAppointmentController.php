@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\Patient;
 use App\Models\User;
+use App\Support\PatientHeader;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -119,16 +120,8 @@ class PatientAppointmentController extends Controller
         return is_string($submitted) ? $submitted : null;
     }
 
-    /**
-     * @return array{name: string, role: string, initials: string, unread_notifications: int}
-     */
     private function patientHeader(User $user): array
     {
-        return [
-            'name' => $user->name,
-            'role' => 'Patient',
-            'initials' => $user->initials(),
-            'unread_notifications' => 0,
-        ];
+        return PatientHeader::from($user);
     }
 }

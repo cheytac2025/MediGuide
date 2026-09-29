@@ -6,6 +6,8 @@ use App\Enums\AppointmentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\User;
+use App\Notifications\AppointmentConfirmedNotification;
+use App\Notifications\AppointmentRejectedNotification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -69,6 +71,9 @@ class StaffAppointmentController extends Controller
             'status' => AppointmentStatus::Confirmed,
         ]);
 
+        $record->loadMissing(['doctor', 'patient.user']);
+        $record->patient?->user?->notify(new AppointmentConfirmedNotification($record));
+
         return redirect()
             ->route('staff.appointments.show', $record)
             ->with('appointment_status', 'Appointment confirmed successfully.');
@@ -87,6 +92,9 @@ class StaffAppointmentController extends Controller
         $record->update([
             'status' => AppointmentStatus::Rejected,
         ]);
+
+        $record->loadMissing(['doctor', 'patient.user']);
+        $record->patient?->user?->notify(new AppointmentRejectedNotification($record));
 
         return redirect()
             ->route('staff.appointments.show', $record)

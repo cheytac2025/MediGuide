@@ -9,7 +9,9 @@ use App\Http\Controllers\Patient\AiClinicDoctorsController;
 use App\Http\Controllers\Patient\AiFrontDeskController;
 use App\Http\Controllers\Patient\BookAppointmentController;
 use App\Http\Controllers\Patient\DashboardController;
+use App\Http\Controllers\Patient\NotificationController;
 use App\Http\Controllers\Patient\PatientAppointmentController;
+use App\Http\Controllers\Patient\ProfileController;
 use App\Http\Controllers\Staff\DashboardController as StaffDashboardController;
 use App\Http\Controllers\Staff\StaffAppointmentController;
 use Illuminate\Support\Facades\Route;
@@ -40,6 +42,18 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:'.RoleName::Patient->value)->group(function () {
         Route::get('/patient/dashboard', DashboardController::class)
             ->name('patient.dashboard');
+
+        Route::get('/patient/profile', ProfileController::class)
+            ->name('patient.profile');
+
+        Route::get('/patient/notifications', [NotificationController::class, 'index'])
+            ->name('patient.notifications');
+        Route::patch('/patient/notifications/read-all', [NotificationController::class, 'markAllRead'])
+            ->name('patient.notifications.read-all');
+        Route::patch('/patient/notifications/{notification}/read', [NotificationController::class, 'markRead'])
+            ->name('patient.notifications.read');
+        Route::get('/patient/notifications/{notification}/open', [NotificationController::class, 'open'])
+            ->name('patient.notifications.open');
 
         Route::get('/patient/book-appointment', [BookAppointmentController::class, 'create'])
             ->name('patient.book-appointment');

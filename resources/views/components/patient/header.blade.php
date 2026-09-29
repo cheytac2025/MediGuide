@@ -22,7 +22,7 @@
     </div>
 
     <div class="mg-header-right">
-        <a href="#" class="mg-icon-btn" aria-label="Notifications">
+        <a href="{{ route('patient.notifications') }}" class="mg-icon-btn" aria-label="Notifications">
             <x-patient.icon name="bell" width="22" height="22" />
             @if (($patient['unread_notifications'] ?? 0) > 0)
                 <span class="mg-badge-dot">{{ $patient['unread_notifications'] }}</span>
@@ -51,7 +51,7 @@
                         <strong>{{ $patient['name'] }}</strong>
                     </span>
                 </li>
-                <li><a class="dropdown-item" href="#">Profile</a></li>
+                <li><a class="dropdown-item" href="{{ route('patient.profile') }}">Profile</a></li>
                 <li><a class="dropdown-item" href="#">Help &amp; Support</a></li>
                 <li><hr class="dropdown-divider"></li>
                 <li>

@@ -12,7 +12,9 @@ use App\Models\Doctor;
 use App\Models\DoctorSchedule;
 use App\Models\Patient;
 use App\Models\User;
+use App\Notifications\AppointmentSubmittedNotification;
 use App\Services\AppointmentBookingService;
+use App\Support\PatientHeader;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -167,7 +169,7 @@ class BookAppointmentController extends Controller
         }
 
         try {
-            $this->booking->book(
+            $appointment = $this->booking->book(
                 $resolved['patient'],
                 $resolved['doctor'],
                 $resolved['schedule'],
@@ -178,6 +180,8 @@ class BookAppointmentController extends Controller
         } catch (ValidationException $exception) {
             return $this->bookingFailed($input, $this->friendlyBookingError($exception));
         }
+
+        $user->notify(new AppointmentSubmittedNotification($appointment->loadMissing('doctor')));
 
         session()->forget('patient_booking_draft');
 
@@ -552,18 +556,9 @@ class BookAppointmentController extends Controller
         return Carbon::createFromFormat('!H:i', $start)->format('h:i A');
     }
 
-    /**
-     * @return array{name: string, first_name: string, role: string, initials: string, unread_notifications: int}
-     */
     private function patientHeader(User $user): array
     {
-        return [
-            'name' => $user->name,
-            'first_name' => $user->first_name ?: '',
-            'role' => 'Patient',
-            'initials' => $user->initials(),
-            'unread_notifications' => 0,
-        ];
+        return PatientHeader::from($user);
     }
 
     /**
