@@ -35,6 +35,21 @@ class AuthenticationTest extends TestCase
         $response->assertSee('Forgot Password?');
         $response->assertSee('Create Account');
         $response->assertSee('Your Health.');
+        $response->assertSee('← Back to AI Virtual Front Desk');
+        $response->assertSee(route('home'), false);
+    }
+
+    public function test_guest_can_follow_login_back_link_without_authentication(): void
+    {
+        $this->get(route('login'))
+            ->assertOk()
+            ->assertSee(route('home'), false);
+
+        $this->get(route('home'))
+            ->assertOk()
+            ->assertSee('I have read and understand the disclaimer above.');
+
+        $this->assertGuest();
     }
 
     public function test_patients_can_authenticate_and_are_redirected_to_the_patient_dashboard(): void

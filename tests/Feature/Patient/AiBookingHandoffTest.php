@@ -388,6 +388,43 @@ class AiBookingHandoffTest extends TestCase
         ]));
     }
 
+    public function test_booking_intent_is_not_cleared_when_returning_to_public_home_with_acknowledged_disclaimer(): void
+    {
+        $clinic = $this->clinicA();
+        $doctor = $this->doctor1();
+
+        $this->withSession([
+            AiDisclaimer::SESSION_KEY => true,
+            BookingIntent::SESSION_KEY => [
+                'clinic_id' => $clinic->id,
+                'doctor_id' => $doctor->id,
+            ],
+        ])->get(route('home'))
+            ->assertRedirect(route('ai-front-desk'))
+            ->assertSessionHas(BookingIntent::SESSION_KEY, [
+                'clinic_id' => $clinic->id,
+                'doctor_id' => $doctor->id,
+            ]);
+    }
+
+    public function test_booking_intent_is_not_cleared_when_returning_to_public_home_without_disclaimer(): void
+    {
+        $clinic = $this->clinicA();
+        $doctor = $this->doctor1();
+
+        $this->withSession([
+            BookingIntent::SESSION_KEY => [
+                'clinic_id' => $clinic->id,
+                'doctor_id' => $doctor->id,
+            ],
+        ])->get(route('home'))
+            ->assertOk()
+            ->assertSessionHas(BookingIntent::SESSION_KEY, [
+                'clinic_id' => $clinic->id,
+                'doctor_id' => $doctor->id,
+            ]);
+    }
+
     public function test_ai_doctors_endpoint_cannot_bypass_disclaimer(): void
     {
         $clinic = $this->clinicA();

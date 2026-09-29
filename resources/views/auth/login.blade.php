@@ -31,6 +31,10 @@
                 <h1 class="mg-login-title">Welcome Back</h1>
                 <p class="mg-login-lead">Sign in to continue to MediGuide.</p>
 
+                <p class="mg-login-back-wrap">
+                    <a href="{{ route('home') }}" class="mg-login-back">← Back to AI Virtual Front Desk</a>
+                </p>
+
                 @if (session('status'))
                     <div class="mg-alert-success" role="status">
                         {{ session('status') }}
