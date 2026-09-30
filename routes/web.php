@@ -3,6 +3,7 @@
 use App\Enums\RoleName;
 use App\Http\Controllers\Admin\ClinicController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\DoctorController as AdminDoctorController;
 use App\Http\Controllers\AiDisclaimerController;
 use App\Http\Controllers\Auth\RegisteredPatientController;
 use App\Http\Controllers\DashboardUnavailableController;
@@ -143,6 +144,22 @@ Route::middleware('auth')->group(function () {
         Route::patch('/admin/clinics/{clinic}/status', [ClinicController::class, 'updateStatus'])
             ->whereNumber('clinic')
             ->name('admin.clinics.status');
+
+        Route::get('/admin/doctors', [AdminDoctorController::class, 'index'])
+            ->name('admin.doctors');
+        Route::get('/admin/doctors/create', [AdminDoctorController::class, 'create'])
+            ->name('admin.doctors.create');
+        Route::post('/admin/doctors', [AdminDoctorController::class, 'store'])
+            ->name('admin.doctors.store');
+        Route::get('/admin/doctors/{doctor}/edit', [AdminDoctorController::class, 'edit'])
+            ->whereNumber('doctor')
+            ->name('admin.doctors.edit');
+        Route::patch('/admin/doctors/{doctor}', [AdminDoctorController::class, 'update'])
+            ->whereNumber('doctor')
+            ->name('admin.doctors.update');
+        Route::patch('/admin/doctors/{doctor}/status', [AdminDoctorController::class, 'updateStatus'])
+            ->whereNumber('doctor')
+            ->name('admin.doctors.status');
     });
 });
 
