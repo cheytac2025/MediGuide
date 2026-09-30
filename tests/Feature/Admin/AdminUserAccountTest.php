@@ -9,6 +9,7 @@ use App\Enums\RoleName;
 use App\Enums\Sex;
 use App\Enums\UserStatus;
 use App\Models\Appointment;
+use App\Models\Department;
 use App\Models\Doctor;
 use App\Models\DoctorSchedule;
 use App\Models\Role;
@@ -111,6 +112,7 @@ class AdminUserAccountTest extends TestCase
                 'email' => 'mina.reyes@mediguide.test',
                 'status' => UserStatus::Active->value,
                 'role_id' => Role::query()->where('slug', RoleName::Doctor->value)->value('id'),
+                'departments' => [$this->departmentId('Development Department A')],
             ])
             ->assertRedirect(route('admin.users'))
             ->assertSessionHas('account_status', 'Account updated successfully.');
@@ -133,6 +135,7 @@ class AdminUserAccountTest extends TestCase
                 'last_name' => 'Santos',
                 'email' => $other->email,
                 'status' => UserStatus::Active->value,
+                'departments' => [$this->departmentId('Development Department A')],
             ])
             ->assertSessionHasErrors('email');
     }
@@ -318,7 +321,13 @@ class AdminUserAccountTest extends TestCase
             'password' => 'MediGuide@Staff1',
             'password_confirmation' => 'MediGuide@Staff1',
             'status' => UserStatus::Active->value,
+            'departments' => [$this->departmentId('Development Department A')],
         ], $overrides);
+    }
+
+    private function departmentId(string $name): int
+    {
+        return (int) Department::query()->where('name', $name)->value('id');
     }
 
     private function admin(): User

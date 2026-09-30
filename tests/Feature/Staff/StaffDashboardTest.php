@@ -7,6 +7,7 @@ use App\Enums\DayOfWeek;
 use App\Enums\RoleName;
 use App\Enums\Sex;
 use App\Models\Appointment;
+use App\Models\Department;
 use App\Models\Doctor;
 use App\Models\DoctorSchedule;
 use App\Models\Patient;
@@ -213,6 +214,12 @@ class StaffDashboardTest extends TestCase
         $this->assertNotNull($user);
         $this->assertTrue($user->hasRole(RoleName::HospitalStaff));
         $this->assertTrue(Hash::check(DevelopmentHospitalStaffSeeder::PASSWORD, $user->password));
+        $user->load('hospitalStaff.departments');
+        $this->assertNotNull($user->hospitalStaff);
+        $this->assertEqualsCanonicalizing(
+            ['Development Department A', 'Development Department B'],
+            $user->hospitalStaff->departments->pluck('name')->all(),
+        );
     }
 
     public function test_development_hospital_staff_seeder_is_safe_to_rerun(): void
@@ -220,10 +227,14 @@ class StaffDashboardTest extends TestCase
         $this->seed(DevelopmentHospitalStaffSeeder::class);
         $this->seed(DevelopmentHospitalStaffSeeder::class);
 
+        $user = User::query()->where('email', DevelopmentHospitalStaffSeeder::EMAIL)->firstOrFail();
+
         $this->assertSame(
             1,
             User::query()->where('email', DevelopmentHospitalStaffSeeder::EMAIL)->count(),
         );
+        $this->assertSame(1, $user->hospitalStaff()->count());
+        $this->assertSame(2, $user->hospitalStaff->departments()->count());
     }
 
     private function place(
@@ -260,12 +271,21 @@ class StaffDashboardTest extends TestCase
 
     private function staffUser(): User
     {
-        return User::factory()->role(RoleName::HospitalStaff)->create([
+        $user = User::factory()->role(RoleName::HospitalStaff)->create([
             'first_name' => 'Dev',
             'last_name' => 'Staff',
             'name' => 'Dev Staff',
             'email' => 'staff-dashboard@example.com',
         ]);
+
+        $user->hospitalStaff()->create()->departments()->sync(
+            Department::query()->whereIn('name', [
+                'Development Department A',
+                'Development Department B',
+            ])->pluck('id'),
+        );
+
+        return $user;
     }
 
     private function patientUser(string $firstName = 'Juan', string $lastName = 'Dela Cruz'): User

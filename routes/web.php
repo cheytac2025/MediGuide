@@ -162,6 +162,9 @@ Route::middleware('auth')->group(function () {
             ->whereNumber('doctor')
             ->name('admin.doctors.status');
 
+        Route::get('/admin/hospital-staff', [UserAccountController::class, 'hospitalStaff'])
+            ->name('admin.hospital-staff');
+
         Route::get('/admin/users', [UserAccountController::class, 'index'])
             ->name('admin.users');
         Route::get('/admin/users/staff/create', [UserAccountController::class, 'createStaff'])

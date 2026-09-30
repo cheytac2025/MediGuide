@@ -50,6 +50,23 @@
                     </label>
                 </div>
 
+                @if ($account->hasRole(\App\Enums\RoleName::HospitalStaff))
+                    <div class="mg-book-label">
+                        <span>Assigned Departments</span>
+                        @foreach ($departments as $department)
+                            <label>
+                                <input
+                                    type="checkbox"
+                                    name="departments[]"
+                                    value="{{ $department->id }}"
+                                    @checked(collect(old('departments', $assignedDepartmentIds))->map(fn ($id) => (int) $id)->contains($department->id))
+                                >
+                                {{ $department->name }}
+                            </label>
+                        @endforeach
+                    </div>
+                @endif
+
                 <div class="mg-staff-actions">
                     <button type="submit" class="mg-appt-details">Save Changes</button>
                 </div>

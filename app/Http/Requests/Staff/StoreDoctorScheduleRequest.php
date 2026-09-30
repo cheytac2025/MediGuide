@@ -4,6 +4,9 @@ namespace App\Http\Requests\Staff;
 
 use App\Enums\DayOfWeek;
 use App\Enums\DoctorScheduleStatus;
+use App\Models\Doctor;
+use App\Models\User;
+use App\Services\HospitalStaffScope;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -11,6 +14,15 @@ class StoreDoctorScheduleRequest extends FormRequest
 {
     public function authorize(): bool
     {
+        $user = $this->user();
+        $doctor = $this->route('doctor');
+
+        if (! $user instanceof User || ! $doctor instanceof Doctor) {
+            return false;
+        }
+
+        app(HospitalStaffScope::class)->ensureDoctor($user, $doctor);
+
         return true;
     }
 

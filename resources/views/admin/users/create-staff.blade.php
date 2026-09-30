@@ -57,6 +57,21 @@
                     </label>
                 </div>
 
+                <div class="mg-book-label">
+                    <span>Assigned Departments</span>
+                    @foreach ($departments as $department)
+                        <label>
+                            <input
+                                type="checkbox"
+                                name="departments[]"
+                                value="{{ $department->id }}"
+                                @checked(collect(old('departments', []))->map(fn ($id) => (int) $id)->contains($department->id))
+                            >
+                            {{ $department->name }}
+                        </label>
+                    @endforeach
+                </div>
+
                 <div class="mg-staff-actions">
                     <button type="submit" class="mg-appt-details">+ Add Hospital Staff</button>
                 </div>

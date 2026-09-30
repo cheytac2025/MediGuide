@@ -9,6 +9,7 @@ use App\Enums\DoctorStatus;
 use App\Enums\RoleName;
 use App\Enums\Sex;
 use App\Models\Appointment;
+use App\Models\Department;
 use App\Models\Doctor;
 use App\Models\DoctorSchedule;
 use App\Models\Patient;
@@ -666,12 +667,21 @@ class StaffDoctorScheduleTest extends TestCase
 
     private function staffUser(): User
     {
-        return User::factory()->role(RoleName::HospitalStaff)->create([
+        $user = User::factory()->role(RoleName::HospitalStaff)->create([
             'first_name' => 'Dev',
             'last_name' => 'Staff',
             'name' => 'Dev Staff',
             'email' => 'staff-schedules@example.com',
         ]);
+
+        $user->hospitalStaff()->create()->departments()->sync(
+            Department::query()->whereIn('name', [
+                'Development Department A',
+                'Development Department B',
+            ])->pluck('id'),
+        );
+
+        return $user;
     }
 
     private function patient(): Patient

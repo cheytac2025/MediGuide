@@ -8,6 +8,7 @@ use App\Models\Appointment;
 use App\Models\User;
 use App\Notifications\AppointmentConfirmedNotification;
 use App\Notifications\AppointmentRejectedNotification;
+use App\Services\HospitalStaffScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,13 +16,17 @@ use Illuminate\View\View;
 
 class StaffAppointmentController extends Controller
 {
+    public function __construct(
+        private readonly HospitalStaffScope $scope,
+    ) {}
+
     public function index(Request $request): View
     {
         /** @var User $user */
         $user = $request->user();
         $statusFilter = $this->resolvedStatus($request->query('status'));
 
-        $appointments = Appointment::query()
+        $appointments = $this->scope->appointments($user)
             ->with(['patient.user', 'doctor.clinic'])
             ->when(
                 $statusFilter instanceof AppointmentStatus,
@@ -45,10 +50,8 @@ class StaffAppointmentController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        $record = Appointment::query()
-            ->with(['patient.user', 'doctor.clinic.department'])
-            ->whereKey($appointment)
-            ->firstOrFail();
+        $record = $this->scope->appointment($user, $appointment);
+        $record->load(['patient.user', 'doctor.clinic.department']);
 
         return view('staff.appointment-show', [
             'staff' => $this->staffHeader($user),
@@ -59,7 +62,9 @@ class StaffAppointmentController extends Controller
 
     public function confirm(Request $request, int $appointment): RedirectResponse
     {
-        $record = $this->findAppointment($appointment);
+        /** @var User $user */
+        $user = $request->user();
+        $record = $this->scope->appointment($user, $appointment);
 
         if (! $record->status->canStaffConfirm()) {
             return redirect()
@@ -81,7 +86,9 @@ class StaffAppointmentController extends Controller
 
     public function reject(Request $request, int $appointment): RedirectResponse
     {
-        $record = $this->findAppointment($appointment);
+        /** @var User $user */
+        $user = $request->user();
+        $record = $this->scope->appointment($user, $appointment);
 
         if (! $record->status->canStaffReject()) {
             return redirect()
@@ -99,13 +106,6 @@ class StaffAppointmentController extends Controller
         return redirect()
             ->route('staff.appointments.show', $record)
             ->with('appointment_status', 'Appointment request rejected.');
-    }
-
-    private function findAppointment(int $appointmentId): Appointment
-    {
-        return Appointment::query()
-            ->whereKey($appointmentId)
-            ->firstOrFail();
     }
 
     private function resolvedStatus(mixed $value): ?AppointmentStatus

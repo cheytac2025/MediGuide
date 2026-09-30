@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Enums\RoleName;
 use App\Enums\UserStatus;
+use App\Models\Department;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -37,7 +38,7 @@ class DevelopmentHospitalStaffSeeder extends Seeder
             ['name' => RoleName::HospitalStaff->label()],
         );
 
-        User::query()->updateOrCreate(
+        $user = User::query()->updateOrCreate(
             ['email' => self::EMAIL],
             [
                 'role_id' => $role->id,
@@ -50,5 +51,16 @@ class DevelopmentHospitalStaffSeeder extends Seeder
                 'email_verified_at' => now(),
             ],
         );
+
+        $profile = $user->hospitalStaff()->firstOrCreate([]);
+
+        $departmentIds = Department::query()
+            ->whereIn('name', [
+                'Development Department A',
+                'Development Department B',
+            ])
+            ->pluck('id');
+
+        $profile->departments()->sync($departmentIds);
     }
 }

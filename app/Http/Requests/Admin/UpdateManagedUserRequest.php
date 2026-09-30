@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Enums\RoleName;
 use App\Enums\UserStatus;
 use App\Models\User;
 use App\Rules\ValidPersonName;
@@ -33,13 +34,20 @@ class UpdateManagedUserRequest extends FormRequest
         $user = $this->route('user');
         $userId = $user instanceof User ? $user->id : null;
 
-        return [
+        $rules = [
             'first_name' => ['required', 'string', 'max:100', new ValidPersonName],
             'middle_name' => ['nullable', 'string', 'max:100', new ValidPersonName],
             'last_name' => ['required', 'string', 'max:100', new ValidPersonName],
             'email' => ['required', 'string', 'email:filter', 'max:255', Rule::unique('users', 'email')->ignore($userId)],
             'status' => ['required', Rule::enum(UserStatus::class)],
         ];
+
+        if ($user instanceof User && $user->loadMissing('role')->hasRole(RoleName::HospitalStaff)) {
+            $rules['departments'] = ['required', 'array', 'min:1'];
+            $rules['departments.*'] = ['integer', 'distinct', Rule::exists('departments', 'id')];
+        }
+
+        return $rules;
     }
 
     /**
@@ -53,6 +61,11 @@ class UpdateManagedUserRequest extends FormRequest
             'email.required' => 'Email address is required.',
             'email.unique' => 'An account with this email already exists.',
             'status.required' => 'Account status is required.',
+            'departments.required' => 'Assign at least one department.',
+            'departments.min' => 'Assign at least one department.',
+            'departments.*.distinct' => 'Duplicate department assignments are not allowed.',
+            'departments.*.exists' => 'Select a valid department.',
+            'departments.*.integer' => 'Select a valid department.',
         ];
     }
 
@@ -68,6 +81,14 @@ class UpdateManagedUserRequest extends FormRequest
             'email' => (string) $this->validated('email'),
             'status' => (string) $this->validated('status'),
         ];
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function departmentIds(): array
+    {
+        return array_map(intval(...), $this->validated('departments'));
     }
 
     private function trimmed(string $key): mixed

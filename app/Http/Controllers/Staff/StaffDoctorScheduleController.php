@@ -13,6 +13,7 @@ use App\Models\Doctor;
 use App\Models\DoctorSchedule;
 use App\Models\User;
 use App\Services\DoctorScheduleManagementService;
+use App\Services\HospitalStaffScope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -22,6 +23,7 @@ class StaffDoctorScheduleController extends Controller
 {
     public function __construct(
         private readonly DoctorScheduleManagementService $schedules,
+        private readonly HospitalStaffScope $scope,
     ) {}
 
     public function index(Request $request): View
@@ -29,7 +31,7 @@ class StaffDoctorScheduleController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        $doctors = Doctor::query()
+        $doctors = $this->scope->doctors($user)
             ->where('status', DoctorStatus::Active)
             ->with(['clinic.department'])
             ->withCount([
@@ -50,6 +52,7 @@ class StaffDoctorScheduleController extends Controller
     {
         /** @var User $user */
         $user = $request->user();
+        $this->scope->ensureDoctor($user, $doctor);
 
         $doctor->load(['clinic.department']);
 
@@ -81,6 +84,10 @@ class StaffDoctorScheduleController extends Controller
 
     public function store(StoreDoctorScheduleRequest $request, Doctor $doctor): RedirectResponse
     {
+        /** @var User $user */
+        $user = $request->user();
+        $this->scope->ensureDoctor($user, $doctor);
+
         try {
             $this->schedules->create($doctor, $request->scheduleAttributes());
         } catch (ValidationException $exception) {
@@ -98,6 +105,10 @@ class StaffDoctorScheduleController extends Controller
 
     public function update(UpdateDoctorScheduleRequest $request, DoctorSchedule $doctorSchedule): RedirectResponse
     {
+        /** @var User $user */
+        $user = $request->user();
+        $this->scope->ensureSchedule($user, $doctorSchedule);
+
         $doctor = $doctorSchedule->doctor;
 
         try {
@@ -120,6 +131,10 @@ class StaffDoctorScheduleController extends Controller
 
     public function updateStatus(UpdateDoctorScheduleStatusRequest $request, DoctorSchedule $doctorSchedule): RedirectResponse
     {
+        /** @var User $user */
+        $user = $request->user();
+        $this->scope->ensureSchedule($user, $doctorSchedule);
+
         $doctor = $doctorSchedule->doctor;
         $status = DoctorScheduleStatus::from((string) $request->validated('status'));
 

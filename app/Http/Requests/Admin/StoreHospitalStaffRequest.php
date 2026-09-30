@@ -42,6 +42,8 @@ class StoreHospitalStaffRequest extends FormRequest
                 Password::min(8)->mixedCase()->letters()->numbers()->symbols(),
             ],
             'status' => ['required', Rule::enum(UserStatus::class)],
+            'departments' => ['required', 'array', 'min:1'],
+            'departments.*' => ['integer', 'distinct', Rule::exists('departments', 'id')],
         ];
     }
 
@@ -56,6 +58,11 @@ class StoreHospitalStaffRequest extends FormRequest
             'email.required' => 'Email address is required.',
             'email.unique' => 'An account with this email already exists.',
             'status.required' => 'Account status is required.',
+            'departments.required' => 'Assign at least one department.',
+            'departments.min' => 'Assign at least one department.',
+            'departments.*.distinct' => 'Duplicate department assignments are not allowed.',
+            'departments.*.exists' => 'Select a valid department.',
+            'departments.*.integer' => 'Select a valid department.',
         ];
     }
 
@@ -72,6 +79,14 @@ class StoreHospitalStaffRequest extends FormRequest
             'password' => (string) $this->validated('password'),
             'status' => (string) $this->validated('status'),
         ];
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function departmentIds(): array
+    {
+        return array_map(intval(...), $this->validated('departments'));
     }
 
     private function trimmed(string $key): mixed

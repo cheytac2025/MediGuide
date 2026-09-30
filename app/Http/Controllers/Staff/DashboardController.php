@@ -6,6 +6,7 @@ use App\Enums\AppointmentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\User;
+use App\Services\HospitalStaffScope;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -13,6 +14,10 @@ use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
+    public function __construct(
+        private readonly HospitalStaffScope $scope,
+    ) {}
+
     /**
      * Display the hospital staff dashboard.
      */
@@ -25,30 +30,30 @@ class DashboardController extends Controller
         return view('staff.dashboard', [
             'staff' => $this->staffHeader($user),
             'active' => 'dashboard',
-            'pendingCount' => Appointment::query()
+            'pendingCount' => $this->scope->appointments($user)
                 ->where('status', AppointmentStatus::Pending)
                 ->count(),
-            'todaysCount' => Appointment::query()
+            'todaysCount' => $this->scope->appointments($user)
                 ->where('status', AppointmentStatus::Confirmed)
                 ->whereDate('appointment_date', $today)
                 ->count(),
-            'upcomingCount' => Appointment::query()
+            'upcomingCount' => $this->scope->appointments($user)
                 ->where('status', AppointmentStatus::Confirmed)
                 ->whereDate('appointment_date', '>', $today)
                 ->count(),
-            'completedCount' => Appointment::query()
+            'completedCount' => $this->scope->appointments($user)
                 ->where('status', AppointmentStatus::Completed)
                 ->count(),
-            'recentPending' => $this->recentPendingRequests(),
+            'recentPending' => $this->recentPendingRequests($user),
         ]);
     }
 
     /**
      * @return Collection<int, Appointment>
      */
-    private function recentPendingRequests(): Collection
+    private function recentPendingRequests(User $user): Collection
     {
-        return Appointment::query()
+        return $this->scope->appointments($user)
             ->where('status', AppointmentStatus::Pending)
             ->with(['patient.user', 'doctor.clinic'])
             ->latest('id')

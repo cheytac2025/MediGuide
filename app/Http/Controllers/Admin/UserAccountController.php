@@ -8,10 +8,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreHospitalStaffRequest;
 use App\Http\Requests\Admin\UpdateManagedUserRequest;
 use App\Http\Requests\Admin\UpdateManagedUserStatusRequest;
+use App\Models\Department;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -49,6 +51,24 @@ class UserAccountController extends Controller
         ]);
     }
 
+    public function hospitalStaff(Request $request): View
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        $accounts = User::query()
+            ->with(['hospitalStaff.departments' => fn ($query) => $query->orderBy('name')])
+            ->whereHas('role', fn ($query) => $query->where('slug', RoleName::HospitalStaff->value))
+            ->orderBy('name')
+            ->get();
+
+        return view('admin.hospital-staff.index', [
+            'admin' => $this->adminHeader($user),
+            'active' => 'hospital-staff',
+            'accounts' => $accounts,
+        ]);
+    }
+
     public function createStaff(Request $request): View
     {
         /** @var User $user */
@@ -58,6 +78,7 @@ class UserAccountController extends Controller
             'admin' => $this->adminHeader($user),
             'active' => 'accounts',
             'statuses' => UserStatus::cases(),
+            'departments' => Department::query()->orderBy('name')->get(),
         ]);
     }
 
@@ -66,17 +87,21 @@ class UserAccountController extends Controller
         $attributes = $request->accountAttributes();
         $role = Role::query()->where('slug', RoleName::HospitalStaff->value)->firstOrFail();
 
-        User::query()->create([
-            'role_id' => $role->id,
-            'first_name' => $attributes['first_name'],
-            'middle_name' => $attributes['middle_name'],
-            'last_name' => $attributes['last_name'],
-            'name' => $this->fullName($attributes['first_name'], $attributes['middle_name'], $attributes['last_name']),
-            'email' => $attributes['email'],
-            'password' => $attributes['password'],
-            'status' => $attributes['status'],
-            'email_verified_at' => now(),
-        ]);
+        DB::transaction(function () use ($attributes, $request, $role): void {
+            $user = User::query()->create([
+                'role_id' => $role->id,
+                'first_name' => $attributes['first_name'],
+                'middle_name' => $attributes['middle_name'],
+                'last_name' => $attributes['last_name'],
+                'name' => $this->fullName($attributes['first_name'], $attributes['middle_name'], $attributes['last_name']),
+                'email' => $attributes['email'],
+                'password' => $attributes['password'],
+                'status' => $attributes['status'],
+                'email_verified_at' => now(),
+            ]);
+
+            $this->syncStaffDepartments($user, $request->departmentIds());
+        });
 
         return redirect()
             ->route('admin.users')
@@ -89,13 +114,18 @@ class UserAccountController extends Controller
 
         /** @var User $admin */
         $admin = $request->user();
-        $user->load(['role', 'doctor']);
+        $user->load(['role', 'doctor', 'hospitalStaff.departments']);
+        $isStaff = $user->hasRole(RoleName::HospitalStaff);
 
         return view('admin.users.edit', [
             'admin' => $this->adminHeader($admin),
             'active' => 'accounts',
             'account' => $user,
             'statuses' => UserStatus::cases(),
+            'departments' => $isStaff ? Department::query()->orderBy('name')->get() : collect(),
+            'assignedDepartmentIds' => $isStaff
+                ? ($user->hospitalStaff?->departments->pluck('id')->map(fn (mixed $id): int => (int) $id)->all() ?? [])
+                : [],
         ]);
     }
 
@@ -105,14 +135,20 @@ class UserAccountController extends Controller
 
         $attributes = $request->accountAttributes();
 
-        $user->update([
-            'first_name' => $attributes['first_name'],
-            'middle_name' => $attributes['middle_name'],
-            'last_name' => $attributes['last_name'],
-            'name' => $this->fullName($attributes['first_name'], $attributes['middle_name'], $attributes['last_name']),
-            'email' => $attributes['email'],
-            'status' => $attributes['status'],
-        ]);
+        DB::transaction(function () use ($attributes, $request, $user): void {
+            $user->update([
+                'first_name' => $attributes['first_name'],
+                'middle_name' => $attributes['middle_name'],
+                'last_name' => $attributes['last_name'],
+                'name' => $this->fullName($attributes['first_name'], $attributes['middle_name'], $attributes['last_name']),
+                'email' => $attributes['email'],
+                'status' => $attributes['status'],
+            ]);
+
+            if ($user->hasRole(RoleName::HospitalStaff)) {
+                $this->syncStaffDepartments($user, $request->departmentIds());
+            }
+        });
 
         return redirect()
             ->route('admin.users')
@@ -134,6 +170,15 @@ class UserAccountController extends Controller
                     ? 'Account activated successfully.'
                     : 'Account deactivated successfully.',
             );
+    }
+
+    /**
+     * @param  list<int>  $departmentIds
+     */
+    private function syncStaffDepartments(User $user, array $departmentIds): void
+    {
+        $profile = $user->hospitalStaff()->firstOrCreate([]);
+        $profile->departments()->sync($departmentIds);
     }
 
     private function ensureManagedAccount(Request $request, User $user): void
