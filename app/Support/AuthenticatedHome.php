@@ -21,6 +21,7 @@ class AuthenticatedHome
             RoleName::Patient->value => route('patient.dashboard'),
             RoleName::HospitalStaff->value => route('staff.dashboard'),
             RoleName::Doctor->value => route('doctor.dashboard'),
+            RoleName::ItAdministrator->value => route('admin.dashboard'),
             default => route('dashboard.unavailable'),
         };
     }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\RoleName;
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\AiDisclaimerController;
 use App\Http\Controllers\Auth\RegisteredPatientController;
 use App\Http\Controllers\DashboardUnavailableController;
@@ -120,6 +121,11 @@ Route::middleware('auth')->group(function () {
         Route::patch('/staff/doctor-schedules/{doctorSchedule}/status', [StaffDoctorScheduleController::class, 'updateStatus'])
             ->whereNumber('doctorSchedule')
             ->name('staff.doctor-schedules.status');
+    });
+
+    Route::middleware('role:'.RoleName::ItAdministrator->value)->group(function () {
+        Route::get('/admin/dashboard', AdminDashboardController::class)
+            ->name('admin.dashboard');
     });
 });
 

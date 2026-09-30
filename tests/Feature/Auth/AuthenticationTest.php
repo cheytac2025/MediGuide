@@ -253,10 +253,13 @@ class AuthenticationTest extends TestCase
         $response->assertRedirect(route('doctor.dashboard'));
     }
 
-    #[DataProvider('rolesWithoutDashboard')]
-    public function test_roles_without_dashboards_are_redirected_to_the_unavailable_dashboard(RoleName $role): void
+    public function test_it_administrators_can_authenticate_and_are_redirected_to_the_admin_dashboard(): void
     {
-        $user = User::factory()->role($role)->create();
+        $user = User::factory()->role(RoleName::ItAdministrator)->create([
+            'first_name' => 'Dev',
+            'last_name' => 'Admin',
+            'name' => 'Dev Admin',
+        ]);
 
         $response = $this->post(route('login.store'), [
             'email' => $user->email,
@@ -264,11 +267,7 @@ class AuthenticationTest extends TestCase
         ]);
 
         $this->assertAuthenticatedAs($user);
-        $response->assertRedirect(route('dashboard.unavailable'));
-
-        $this->get(route('dashboard.unavailable'))
-            ->assertOk()
-            ->assertSee('Your dashboard is currently under development.');
+        $response->assertRedirect(route('admin.dashboard'));
     }
 
     public function test_session_id_is_regenerated_after_login(): void
@@ -382,13 +381,4 @@ class AuthenticationTest extends TestCase
         ];
     }
 
-    /**
-     * @return array<string, array{0: RoleName}>
-     */
-    public static function rolesWithoutDashboard(): array
-    {
-        return [
-            'it administrator' => [RoleName::ItAdministrator],
-        ];
-    }
 }
