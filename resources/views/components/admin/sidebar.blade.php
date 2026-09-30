@@ -6,7 +6,7 @@
 @php
     $links = [
         ['key' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'home', 'route' => 'admin.dashboard', 'enabled' => true],
-        ['key' => 'clinics', 'label' => 'Clinics', 'icon' => 'badge', 'enabled' => false],
+        ['key' => 'clinics', 'label' => 'Clinics', 'icon' => 'badge', 'route' => 'admin.clinics', 'enabled' => true],
         ['key' => 'doctors', 'label' => 'Doctors', 'icon' => 'user', 'enabled' => false],
         ['key' => 'accounts', 'label' => 'User Accounts', 'icon' => 'clipboard', 'enabled' => false],
     ];

@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\RoleName;
+use App\Http\Controllers\Admin\ClinicController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\AiDisclaimerController;
 use App\Http\Controllers\Auth\RegisteredPatientController;
@@ -126,6 +127,22 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:'.RoleName::ItAdministrator->value)->group(function () {
         Route::get('/admin/dashboard', AdminDashboardController::class)
             ->name('admin.dashboard');
+
+        Route::get('/admin/clinics', [ClinicController::class, 'index'])
+            ->name('admin.clinics');
+        Route::get('/admin/clinics/create', [ClinicController::class, 'create'])
+            ->name('admin.clinics.create');
+        Route::post('/admin/clinics', [ClinicController::class, 'store'])
+            ->name('admin.clinics.store');
+        Route::get('/admin/clinics/{clinic}/edit', [ClinicController::class, 'edit'])
+            ->whereNumber('clinic')
+            ->name('admin.clinics.edit');
+        Route::patch('/admin/clinics/{clinic}', [ClinicController::class, 'update'])
+            ->whereNumber('clinic')
+            ->name('admin.clinics.update');
+        Route::patch('/admin/clinics/{clinic}/status', [ClinicController::class, 'updateStatus'])
+            ->whereNumber('clinic')
+            ->name('admin.clinics.status');
     });
 });
 
