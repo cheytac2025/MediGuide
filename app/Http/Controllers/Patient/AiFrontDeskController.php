@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers\Patient;
 
-use App\Enums\ClinicStatus;
-use App\Enums\DepartmentStatus;
 use App\Enums\RoleName;
 use App\Http\Controllers\Controller;
-use App\Models\Clinic;
 use App\Models\User;
+use App\Services\Ai\ClaudeGuidanceService;
+use App\Support\AiConversationContext;
 use App\Support\PatientHeader;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -15,7 +14,7 @@ use Illuminate\View\View;
 class AiFrontDeskController extends Controller
 {
     /**
-     * Display the AI-assisted virtual front desk (UI + mock interaction only).
+     * Display the AI virtual front desk. Guidance is requested from the backend.
      */
     public function __invoke(Request $request): View
     {
@@ -38,29 +37,14 @@ class AiFrontDeskController extends Controller
             "I'm not sure which specialist I need",
         ];
 
-        $clinic = $this->resolveMockClinic();
-
-        $mockRecommendation = [
-            'development' => true,
-            'source' => 'DEVELOPMENT DATA',
-            'title' => 'Mock Recommendation',
-            'clinic_id' => $clinic?->id,
-            'clinic' => $clinic?->name,
-            'department' => $clinic?->department?->name,
-            'summary' => 'Based on the information you provided, this type of concern may be handled by this department.',
-            'doctors_url' => $clinic instanceof Clinic
-                ? route('ai-front-desk.clinics.doctors', $clinic)
-                : null,
-            'booking_intent_url' => route('ai-front-desk.booking-intent'),
-            'book_appointment_url' => route('patient.book-appointment'),
-            'is_authenticated_patient' => $isPatient,
-        ];
-
         $frontDeskConfig = [
-            'maxLength' => 1000,
+            'maxLength' => AiConversationContext::MAX_CHARACTERS,
             'patientInitials' => $authenticatedUser?->initials() ?: 'Y',
-            'mockRecommendation' => $mockRecommendation,
             'csrfToken' => csrf_token(),
+            'guidanceUrl' => route('ai-front-desk.guidance'),
+            'clearConversationUrl' => route('ai-front-desk.conversation.clear'),
+            'fallbackMessage' => ClaudeGuidanceService::PROCESSING_FALLBACK_MESSAGE,
+            'rateLimitMessage' => AiGuidanceController::RATE_LIMIT_MESSAGE,
             'processingLabel' => 'Analyzing your concern...',
             'processingSteps' => [
                 'Understanding your description',
@@ -75,23 +59,8 @@ class AiFrontDeskController extends Controller
             'active' => 'front-desk',
             'greetingName' => $greetingName,
             'quickPrompts' => $quickPrompts,
-            'mockRecommendation' => $mockRecommendation,
-            'maxLength' => 1000,
+            'maxLength' => AiConversationContext::MAX_CHARACTERS,
             'frontDeskConfig' => $frontDeskConfig,
         ]);
-    }
-
-    /**
-     * Resolve a single ACTIVE development clinic with an ACTIVE department.
-     * No clinic/department IDs are hardcoded.
-     */
-    private function resolveMockClinic(): ?Clinic
-    {
-        return Clinic::query()
-            ->with('department')
-            ->where('status', ClinicStatus::Active)
-            ->whereHas('department', fn ($query) => $query->where('status', DepartmentStatus::Active))
-            ->orderBy('id')
-            ->first();
     }
 }

@@ -379,17 +379,17 @@ class AdminClinicTest extends TestCase
             ->assertSee('Appointment #'.$appointment->id);
     }
 
-    public function test_ai_recommendation_excludes_an_inactive_clinic(): void
+    public function test_ai_front_desk_does_not_preload_a_clinic_recommendation(): void
     {
         $this->clinic('Development Clinic A')->update(['status' => ClinicStatus::Inactive]);
 
         $response = $this->withSession([AiDisclaimer::SESSION_KEY => true])
             ->get(route('ai-front-desk'));
 
-        $mock = $response->viewData('frontDeskConfig')['mockRecommendation'];
-
-        $this->assertNotSame('Development Clinic A', $mock['clinic']);
-        $this->assertSame('Development Clinic B', $mock['clinic']);
+        $response->assertOk();
+        $this->assertArrayNotHasKey('mockRecommendation', $response->viewData('frontDeskConfig'));
+        $response->assertDontSee('Development Clinic A');
+        $response->assertDontSee('Development Clinic B');
     }
 
     public function test_status_filters_work(): void

@@ -19,6 +19,7 @@ use Database\Seeders\DevelopmentDoctorScheduleSeeder;
 use Database\Seeders\DevelopmentDoctorSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class AiBookingHandoffTest extends TestCase
@@ -41,29 +42,34 @@ class AiBookingHandoffTest extends TestCase
     public function test_ai_recommendation_resolves_to_an_active_development_clinic(): void
     {
         $clinic = Clinic::query()->where('name', 'Development Clinic A')->firstOrFail();
+        $this->fakeGuidanceRecommendation($clinic);
 
-        $response = $this->withSession([AiDisclaimer::SESSION_KEY => true])
-            ->get(route('ai-front-desk'));
+        $this->withSession([AiDisclaimer::SESSION_KEY => true])
+            ->postJson(route('ai-front-desk.guidance'), [
+                'message' => 'I have a headache.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('type', 'recommendation')
+            ->assertJsonPath('clinic.id', $clinic->id)
+            ->assertJsonPath('clinic.name', 'Development Clinic A')
+            ->assertJsonPath('data_source', 'development');
 
-        $response->assertOk();
-        $mock = $response->viewData('frontDeskConfig')['mockRecommendation'];
-
-        $this->assertSame($clinic->id, $mock['clinic_id']);
         $this->assertSame(ClinicStatus::Active, $clinic->status);
-        $this->assertSame('Development Clinic A', $mock['clinic']);
-        $this->assertSame('DEVELOPMENT DATA', $mock['source']);
     }
 
     public function test_recommended_clinic_belongs_to_an_active_department(): void
     {
-        $response = $this->withSession([AiDisclaimer::SESSION_KEY => true])
-            ->get(route('ai-front-desk'));
+        $clinic = Clinic::query()->with('department')->where('name', 'Development Clinic A')->firstOrFail();
+        $this->fakeGuidanceRecommendation($clinic);
 
-        $mock = $response->viewData('frontDeskConfig')['mockRecommendation'];
-        $clinic = Clinic::query()->with('department')->findOrFail($mock['clinic_id']);
+        $this->withSession([AiDisclaimer::SESSION_KEY => true])
+            ->postJson(route('ai-front-desk.guidance'), [
+                'message' => 'I have a headache.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('clinic.department', 'Development Department A');
 
         $this->assertSame(DepartmentStatus::Active, $clinic->department->status);
-        $this->assertSame('Development Department A', $mock['department']);
     }
 
     public function test_view_available_doctors_requires_disclaimer_acknowledgement(): void
@@ -455,6 +461,30 @@ class AiBookingHandoffTest extends TestCase
             ->assertOk()
             ->assertJsonPath('message', 'No available doctors for this clinic at the moment.')
             ->assertJsonCount(0, 'doctors');
+    }
+
+    private function fakeGuidanceRecommendation(Clinic $clinic): void
+    {
+        config([
+            'services.anthropic.key' => 'test-anthropic-key',
+            'services.anthropic.model' => 'claude-sonnet-5',
+        ]);
+
+        Http::preventStrayRequests();
+        Http::fake([
+            'api.anthropic.com/*' => Http::response([
+                'stop_reason' => 'end_turn',
+                'content' => [[
+                    'type' => 'text',
+                    'text' => json_encode([
+                        'type' => 'recommendation',
+                        'clinic_id' => $clinic->id,
+                        'reason' => 'The stored clinic description supports this service.',
+                        'confidence' => null,
+                    ], JSON_THROW_ON_ERROR),
+                ]],
+            ]),
+        ]);
     }
 
     private function clinicA(): Clinic

@@ -11,12 +11,17 @@
                     Describe what you're experiencing and MediGuide will help guide you to the appropriate hospital service.
                 </p>
             </div>
-            <span class="mg-front-desk-badge">AI-Assisted Patient Navigation</span>
+            <div class="mg-front-desk-tools">
+                <button type="button" class="mg-front-desk-clear" data-mg-clear-conversation>
+                    New Conversation
+                </button>
+                <span class="mg-front-desk-badge">AI-Assisted Patient Navigation</span>
+            </div>
         </header>
 
         <div class="mg-chat-shell mg-panel">
             <div class="mg-chat-log" data-mg-chat-log aria-live="polite">
-                <article class="mg-chat-row mg-chat-row-ai">
+                <article class="mg-chat-row mg-chat-row-ai" data-mg-greeting>
                     <span class="mg-chat-avatar" aria-hidden="true">
                         <x-patient.icon name="sparkle" />
                     </span>
@@ -98,7 +103,7 @@
             <div class="mg-recommend-card">
                 <p class="mg-recommend-kicker">
                     <span data-mg-source></span>
-                    <span class="mg-recommend-tag">Development data</span>
+                    <span class="mg-recommend-tag" data-mg-development-tag hidden>Development data</span>
                 </p>
                 <h2 class="mg-recommend-title">Recommended Service</h2>
                 <p class="mg-recommend-department">
@@ -109,9 +114,6 @@
                 <p class="mg-recommend-summary" data-mg-summary></p>
                 <button type="button" class="mg-recommend-btn" data-mg-view-doctors disabled>
                     View Available Doctors
-                </button>
-                <button type="button" class="mg-recommend-link" data-mg-preview-fallback>
-                    Preview staff-assistance fallback
                 </button>
             </div>
         </article>
@@ -143,6 +145,27 @@
             <button type="button" class="mg-recommend-btn" data-mg-book-appointment>
                 Book Appointment
             </button>
+        </article>
+    </template>
+
+    <template data-mg-tpl="assistant">
+        <article class="mg-chat-row mg-chat-row-ai">
+            <span class="mg-chat-avatar" aria-hidden="true">
+                <x-patient.icon name="sparkle" />
+            </span>
+            <div class="mg-chat-bubble" data-mg-text></div>
+        </article>
+    </template>
+
+    <template data-mg-tpl="safety">
+        <article class="mg-chat-row mg-chat-row-ai">
+            <span class="mg-chat-avatar" aria-hidden="true">
+                <x-patient.icon name="exclamation-triangle" />
+            </span>
+            <div class="mg-safety-card">
+                <h2 class="mg-recommend-title">Safety guidance</h2>
+                <p data-mg-text></p>
+            </div>
         </article>
     </template>
 

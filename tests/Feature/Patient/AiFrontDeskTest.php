@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Patient;
 
-use App\Models\Clinic;
 use App\Models\User;
 use App\Support\AiDisclaimer;
 use Database\Seeders\DevelopmentClinicSeeder;
@@ -118,19 +117,16 @@ class AiFrontDeskTest extends TestCase
         $response->assertSee('AI-Assisted Patient Navigation');
         $response->assertSee('Describe your symptoms or health concern in your own words');
         $response->assertSee('I have a headache');
-        $response->assertSee('Development Clinic A');
-        $response->assertSee('Development Department A');
+        $response->assertSee('New Conversation');
         $response->assertSee('View Available Doctors');
         $response->assertSee('MediGuide provides patient navigation assistance only');
+        $response->assertDontSee('Development Clinic A');
         $response->assertDontSee('Before You Continue');
         $response->assertDontSee('Continue to MediGuide');
 
-        $clinic = Clinic::query()->where('name', 'Development Clinic A')->firstOrFail();
         $config = $response->viewData('frontDeskConfig');
-        $this->assertSame($clinic->id, $config['mockRecommendation']['clinic_id']);
-        $this->assertSame('Development Clinic A', $config['mockRecommendation']['clinic']);
-        $this->assertSame('Development Department A', $config['mockRecommendation']['department']);
-        $this->assertTrue($config['mockRecommendation']['development']);
+        $this->assertArrayNotHasKey('mockRecommendation', $config);
+        $this->assertSame(route('ai-front-desk.guidance'), $config['guidanceUrl']);
     }
 
     public function test_guest_ai_front_desk_shows_login_and_create_account_without_patient_identity(): void

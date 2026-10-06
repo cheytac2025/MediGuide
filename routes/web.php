@@ -8,17 +8,18 @@ use App\Http\Controllers\Admin\UserAccountController;
 use App\Http\Controllers\AiDisclaimerController;
 use App\Http\Controllers\Auth\RegisteredPatientController;
 use App\Http\Controllers\DashboardUnavailableController;
+use App\Http\Controllers\Doctor\DashboardController as DoctorDashboardController;
+use App\Http\Controllers\Doctor\DoctorAppointmentController;
+use App\Http\Controllers\Doctor\DoctorScheduleController;
 use App\Http\Controllers\Patient\AiBookingIntentController;
 use App\Http\Controllers\Patient\AiClinicDoctorsController;
 use App\Http\Controllers\Patient\AiFrontDeskController;
+use App\Http\Controllers\Patient\AiGuidanceController;
 use App\Http\Controllers\Patient\BookAppointmentController;
 use App\Http\Controllers\Patient\DashboardController;
 use App\Http\Controllers\Patient\NotificationController;
 use App\Http\Controllers\Patient\PatientAppointmentController;
 use App\Http\Controllers\Patient\ProfileController;
-use App\Http\Controllers\Doctor\DashboardController as DoctorDashboardController;
-use App\Http\Controllers\Doctor\DoctorAppointmentController;
-use App\Http\Controllers\Doctor\DoctorScheduleController;
 use App\Http\Controllers\Staff\DashboardController as StaffDashboardController;
 use App\Http\Controllers\Staff\StaffAppointmentController;
 use App\Http\Controllers\Staff\StaffDoctorScheduleController;
@@ -32,6 +33,13 @@ Route::post('/ai-disclaimer', [AiDisclaimerController::class, 'store'])->name('a
 Route::middleware('ai.disclaimer')->group(function () {
     Route::get('/ai-front-desk', AiFrontDeskController::class)
         ->name('ai-front-desk');
+
+    Route::post('/ai-front-desk/guidance', [AiGuidanceController::class, 'store'])
+        ->middleware('throttle:ai-guidance')
+        ->name('ai-front-desk.guidance');
+
+    Route::post('/ai-front-desk/conversation/clear', [AiGuidanceController::class, 'clear'])
+        ->name('ai-front-desk.conversation.clear');
 
     Route::get('/ai-front-desk/clinics/{clinic}/doctors', AiClinicDoctorsController::class)
         ->whereNumber('clinic')

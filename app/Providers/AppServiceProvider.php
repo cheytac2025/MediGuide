@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Http\Controllers\Patient\AiGuidanceController;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -52,6 +53,17 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('register', function (Request $request) {
             return Limit::perMinute(5)->by($request->ip());
+        });
+
+        RateLimiter::for('ai-guidance', function (Request $request) {
+            return Limit::perMinute(6)
+                ->by((string) $request->ip())
+                ->response(function (Request $request, array $headers) {
+                    return response()->json([
+                        'type' => 'uncertain',
+                        'message' => AiGuidanceController::RATE_LIMIT_MESSAGE,
+                    ], 429, $headers);
+                });
         });
     }
 }
