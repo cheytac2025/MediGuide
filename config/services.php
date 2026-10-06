@@ -35,4 +35,15 @@ return [
         ],
     ],
 
+    /*
+    | The real Anthropic key belongs in the local .env file only.
+    | ANTHROPIC_MODEL may be empty; an empty value uses the default model below.
+    */
+    'anthropic' => [
+        'key' => env('ANTHROPIC_API_KEY'),
+        'model' => env('ANTHROPIC_MODEL') ?: 'claude-sonnet-5',
+        'version' => '2023-06-01',
+        'timeout' => (int) env('ANTHROPIC_TIMEOUT', 20),
+    ],
+
 ];
