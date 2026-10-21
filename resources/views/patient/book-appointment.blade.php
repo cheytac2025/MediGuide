@@ -118,43 +118,114 @@
                 @endif
             @endif
 
-            @if ($step === 3 && $clinic && $doctor)
-                <h2 class="mg-book-heading">Select a date</h2>
-                @if ($dates === [])
-                    <p class="mg-book-empty">No upcoming dates are available for this doctor.</p>
-                @else
-                    <div class="mg-choice-list">
-                        @foreach ($dates as $choice)
-                            <a
-                                class="mg-choice"
-                                href="{{ route('patient.book-appointment', ['clinic_id' => $clinic->id, 'doctor_id' => $doctor->id, 'appointment_date' => $choice->toDateString()]) }}"
-                            >
-                                <strong>{{ $choice->format('l, F j, Y') }}</strong>
-                            </a>
-                        @endforeach
-                    </div>
-                @endif
-            @endif
+            @if (($step === 3 || $step === 4) && $clinic && $doctor && is_array($calendar))
+                @php
+                    $doctorQuery = ['clinic_id' => $clinic->id, 'doctor_id' => $doctor->id];
+                    $monthQuery = array_filter([...$doctorQuery, 'appointment_date' => $date?->toDateString()]);
+                @endphp
 
-            @if ($step === 4 && $clinic && $doctor && $date)
-                <h2 class="mg-book-heading">Select a time</h2>
-                @if ($slots === [])
-                    <p class="mg-book-empty">No times are available on this date.</p>
-                @else
-                    <div class="mg-slot-grid">
-                        @foreach ($slots as $choice)
-                            <a
-                                class="mg-slot"
-                                href="{{ route('patient.book-appointment', [
-                                    'clinic_id' => $clinic->id,
-                                    'doctor_id' => $doctor->id,
-                                    'appointment_date' => $date->toDateString(),
-                                    'start_time' => $choice['start'],
-                                ]) }}"
-                            >{{ $choice['label'] }}</a>
-                        @endforeach
+                <h2 class="mg-book-heading">Select a date and time</h2>
+
+                <div class="mg-sched-wrap" data-mg-sched>
+                    <div class="mg-sched">
+                        <div class="mg-cal">
+                            <div class="mg-cal-head">
+                                @if ($calendar['prev'])
+                                    <a class="mg-cal-nav" href="{{ route('patient.book-appointment', [...$monthQuery, 'month' => $calendar['prev']]) }}" aria-label="Previous month">
+                                        <x-patient.icon name="chevron-right" class="mg-cal-prev" width="18" height="18" />
+                                    </a>
+                                @else
+                                    <button type="button" class="mg-cal-nav" aria-label="Previous month" disabled>
+                                        <x-patient.icon name="chevron-right" class="mg-cal-prev" width="18" height="18" />
+                                    </button>
+                                @endif
+
+                                <h3 class="mg-cal-title">{{ $calendar['label'] }}</h3>
+
+                                @if ($calendar['next'])
+                                    <a class="mg-cal-nav" href="{{ route('patient.book-appointment', [...$monthQuery, 'month' => $calendar['next']]) }}" aria-label="Next month">
+                                        <x-patient.icon name="chevron-right" width="18" height="18" />
+                                    </a>
+                                @else
+                                    <button type="button" class="mg-cal-nav" aria-label="Next month" disabled>
+                                        <x-patient.icon name="chevron-right" width="18" height="18" />
+                                    </button>
+                                @endif
+                            </div>
+
+                            <table class="mg-cal-grid">
+                                <thead>
+                                    <tr>
+                                        @foreach (['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as $weekday)
+                                            <th scope="col" abbr="{{ $weekday }}">{{ substr($weekday, 0, 3) }}</th>
+                                        @endforeach
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($calendar['weeks'] as $week)
+                                        <tr>
+                                            @foreach ($week as $day)
+                                                <td>
+                                                    @if ($day === null)
+                                                        {{-- Outside the displayed month --}}
+                                                    @elseif ($day['available'])
+                                                        <a
+                                                            class="mg-cal-day {{ $day['selected'] ? 'is-selected' : '' }} {{ $day['today'] ? 'is-today' : '' }}"
+                                                            href="{{ route('patient.book-appointment', [...$doctorQuery, 'appointment_date' => $day['date']]) }}"
+                                                            aria-label="{{ $day['label'] }}"
+                                                            @if ($day['selected']) aria-current="date" @endif
+                                                        >{{ $day['day'] }}</a>
+                                                    @else
+                                                        <button
+                                                            type="button"
+                                                            class="mg-cal-day {{ $day['today'] ? 'is-today' : '' }}"
+                                                            aria-label="{{ $day['label'] }}, unavailable"
+                                                            disabled
+                                                        >{{ $day['day'] }}</button>
+                                                    @endif
+                                                </td>
+                                            @endforeach
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="mg-sched-times" @if ($date && ! request()->has('month')) data-mg-sched-reveal @endif>
+                            @if ($date)
+                                <h3 class="mg-sched-title">{{ $date->format('l, F j') }}</h3>
+
+                                @if ($slots === [])
+                                    <p class="mg-sched-empty">No times are available on this date. Please choose another date.</p>
+                                @else
+                                    <div class="mg-sched-slots">
+                                        @foreach ($timeSlots as $choice)
+                                            @if ($choice['available'])
+                                                <a
+                                                    class="mg-sched-slot"
+                                                    data-slot-at="{{ $choice['starts_at'] }}"
+                                                    href="{{ route('patient.book-appointment', [
+                                                        ...$doctorQuery,
+                                                        'appointment_date' => $date->toDateString(),
+                                                        'start_time' => $choice['start'],
+                                                    ]) }}"
+                                                >{{ $choice['label'] }}</a>
+                                            @else
+                                                <button type="button" class="mg-sched-slot" aria-label="{{ $choice['label'] }}, unavailable" disabled>{{ $choice['label'] }}</button>
+                                            @endif
+                                        @endforeach
+                                    </div>
+                                @endif
+                            @elseif ($dates === [])
+                                <h3 class="mg-sched-title">Available times</h3>
+                                <p class="mg-sched-empty">No upcoming dates are available for this doctor. Please check again later or choose another doctor.</p>
+                            @else
+                                <h3 class="mg-sched-title">Available times</h3>
+                                <p class="mg-sched-empty">Select an available date to see open times.</p>
+                            @endif
+                        </div>
                     </div>
-                @endif
+                </div>
             @endif
 
             @if ($step === 5 && $clinic && $doctor && $date && is_array($slot))
@@ -263,5 +334,60 @@
             button.setAttribute('aria-busy', 'true');
             button.textContent = 'Submitting...';
         });
+
+        (() => {
+            const times = document.querySelector('[data-mg-sched-reveal]');
+
+            if (times && times.getBoundingClientRect().top > window.innerHeight * 0.7) {
+                times.scrollIntoView({ block: 'start' });
+            }
+        })();
+
+        (() => {
+            const schedule = document.querySelector('[data-mg-sched]');
+
+            if (!schedule) {
+                return;
+            }
+
+            const disableExpiredSlots = () => {
+                const now = Date.now();
+                const expiredAt = [];
+
+                schedule.querySelectorAll('a[data-slot-at]').forEach((link) => {
+                    const startsAt = Date.parse(link.dataset.slotAt);
+
+                    if (Number.isNaN(startsAt) || startsAt > now) {
+                        return;
+                    }
+
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'mg-sched-slot';
+                    button.disabled = true;
+                    button.textContent = link.textContent;
+                    button.setAttribute('aria-label', `${link.textContent.trim()}, unavailable`);
+                    link.replaceWith(button);
+                    expiredAt.push(link.dataset.slotAt);
+                });
+
+                if (expiredAt.length === 0) {
+                    return;
+                }
+
+                const marker = expiredAt.sort().join('|');
+                const reloadKey = 'mg-sched-expired-reload';
+
+                if (sessionStorage.getItem(reloadKey) === marker) {
+                    return;
+                }
+
+                sessionStorage.setItem(reloadKey, marker);
+                window.location.reload();
+            };
+
+            disableExpiredSlots();
+            window.setInterval(disableExpiredSlots, 15000);
+        })();
     </script>
 @endpush

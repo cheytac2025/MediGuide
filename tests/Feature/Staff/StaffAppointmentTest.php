@@ -461,7 +461,11 @@ class StaffAppointmentTest extends TestCase
         $this->actingAs($patientUser)
             ->get(route('patient.appointments'))
             ->assertOk()
-            ->assertSee('Confirmed')
+            ->assertSee('Confirmed');
+
+        $this->actingAs($patientUser)
+            ->get(route('patient.appointments.show', $appointment))
+            ->assertOk()
             ->assertSee('Confirmed concern');
     }
 
@@ -481,9 +485,13 @@ class StaffAppointmentTest extends TestCase
             ->patch(route('staff.appointments.reject', $appointment));
 
         $this->actingAs($patientUser)
-            ->get(route('patient.appointments'))
+            ->get(route('patient.appointments', ['section' => 'history']))
             ->assertOk()
-            ->assertSee('Rejected')
+            ->assertSee('Rejected');
+
+        $this->actingAs($patientUser)
+            ->get(route('patient.appointments.show', $appointment))
+            ->assertOk()
             ->assertSee('Rejected concern');
     }
 

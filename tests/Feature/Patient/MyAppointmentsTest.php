@@ -81,13 +81,17 @@ class MyAppointmentsTest extends TestCase
         $this->actingAs($owner)
             ->get(route('patient.appointments'))
             ->assertOk()
-            ->assertSee('Only patient A')
+            ->assertSee('09:00 AM')
+            ->assertSee('Test Doctor 1')
+            ->assertSee('Development Clinic A')
+            ->assertDontSee('10:00 AM')
             ->assertDontSee('Only patient B');
 
         $this->actingAs($other)
             ->get(route('patient.appointments'))
             ->assertOk()
-            ->assertSee('Only patient B')
+            ->assertSee('10:00 AM')
+            ->assertDontSee('09:00 AM')
             ->assertDontSee('Only patient A');
     }
 
@@ -111,7 +115,10 @@ class MyAppointmentsTest extends TestCase
             ->get(route('patient.appointments.show', $appointment))
             ->assertOk()
             ->assertSee('Appointment #'.$appointment->id)
-            ->assertSee('Pending hospital confirmation')
+            ->assertSee('Appointment Information')
+            ->assertSee('Doctor and Clinic')
+            ->assertSee('Patient Concern')
+            ->assertSee('Pending Hospital Confirmation')
             ->assertSee('Development Clinic A')
             ->assertSee('Development Department A')
             ->assertSee('Test Doctor 1')
@@ -133,7 +140,8 @@ class MyAppointmentsTest extends TestCase
         $this->actingAs($user)
             ->get(route('patient.appointments'))
             ->assertOk()
-            ->assertSeeInOrder(['Upcoming', 'Pending hospital confirmation', 'Pending visit', 'History']);
+            ->assertSeeInOrder(['Upcoming', 'Monday, October 5, 2026', '09:00 AM', 'Pending Hospital Confirmation'])
+            ->assertDontSee('Pending visit');
     }
 
     public function test_confirmed_appointments_appear_under_upcoming(): void
@@ -144,8 +152,8 @@ class MyAppointmentsTest extends TestCase
         $this->actingAs($user)
             ->get(route('patient.appointments'))
             ->assertOk()
-            ->assertSeeInOrder(['Upcoming', 'Confirmed visit', 'History'])
-            ->assertSee('Confirmed');
+            ->assertSeeInOrder(['Upcoming', 'Confirmed', 'Monday, October 5, 2026', '10:00 AM'])
+            ->assertDontSee('Confirmed visit');
     }
 
     public function test_completed_appointments_appear_in_history(): void
@@ -154,9 +162,10 @@ class MyAppointmentsTest extends TestCase
         $this->place($user->patient, AppointmentStatus::Completed, '2026-09-28', '09:00:00', '09:30:00', 'Completed visit');
 
         $this->actingAs($user)
-            ->get(route('patient.appointments'))
+            ->get(route('patient.appointments', ['section' => 'history']))
             ->assertOk()
-            ->assertSeeInOrder(['History', 'Completed', 'Completed visit']);
+            ->assertSeeInOrder(['History', 'Completed', 'Monday, September 28, 2026'])
+            ->assertDontSee('Completed visit');
     }
 
     public function test_cancelled_appointments_appear_in_history(): void
@@ -165,9 +174,10 @@ class MyAppointmentsTest extends TestCase
         $this->place($user->patient, AppointmentStatus::Cancelled, '2026-09-28', '09:00:00', '09:30:00', 'Cancelled visit');
 
         $this->actingAs($user)
-            ->get(route('patient.appointments'))
+            ->get(route('patient.appointments', ['section' => 'history']))
             ->assertOk()
-            ->assertSeeInOrder(['History', 'Cancelled', 'Cancelled visit']);
+            ->assertSeeInOrder(['History', 'Cancelled', 'Monday, September 28, 2026'])
+            ->assertDontSee('Cancelled visit');
     }
 
     public function test_rejected_appointments_appear_in_history(): void
@@ -176,9 +186,10 @@ class MyAppointmentsTest extends TestCase
         $this->place($user->patient, AppointmentStatus::Rejected, '2026-09-28', '09:00:00', '09:30:00', 'Rejected visit');
 
         $this->actingAs($user)
-            ->get(route('patient.appointments'))
+            ->get(route('patient.appointments', ['section' => 'history']))
             ->assertOk()
-            ->assertSeeInOrder(['History', 'Rejected', 'Rejected visit']);
+            ->assertSeeInOrder(['History', 'Rejected', 'Monday, September 28, 2026'])
+            ->assertDontSee('Rejected visit');
     }
 
     public function test_upcoming_appointments_are_sorted_by_date_and_time(): void
@@ -191,7 +202,7 @@ class MyAppointmentsTest extends TestCase
         $this->actingAs($user)
             ->get(route('patient.appointments'))
             ->assertOk()
-            ->assertSeeInOrder(['Sort early morning', 'Sort late morning', 'Sort next week']);
+            ->assertSeeInOrder(['09:00 AM', '11:00 AM', 'Monday, October 12, 2026']);
     }
 
     public function test_history_appointments_are_sorted_by_date_and_time_descending(): void
@@ -203,13 +214,12 @@ class MyAppointmentsTest extends TestCase
         $this->place($user->patient, AppointmentStatus::Cancelled, '2026-10-08', '09:00:00', '09:30:00', 'History newest');
 
         $this->actingAs($user)
-            ->get(route('patient.appointments'))
+            ->get(route('patient.appointments', ['section' => 'history']))
             ->assertOk()
             ->assertSeeInOrder([
-                'History newest',
-                'History middle late',
-                'History middle early',
-                'History oldest',
+                'October 8, 2026',
+                '03:00 PM',
+                'October 1, 2026',
             ]);
     }
 
@@ -355,11 +365,13 @@ class MyAppointmentsTest extends TestCase
             ->assertSee('Your appointment request has been submitted successfully.')
             ->assertSeeInOrder([
                 'Upcoming',
-                'Development Clinic A',
                 'Test Doctor 1',
-                'Pending hospital confirmation',
-                'Booked through the service',
-            ]);
+                'Development Clinic A',
+                'Development Specialization A',
+                'Pending Hospital Confirmation',
+                'View Details',
+            ])
+            ->assertDontSee('Booked through the service');
     }
 
     public function test_an_empty_state_is_shown_when_the_patient_has_no_appointments(): void
@@ -371,6 +383,124 @@ class MyAppointmentsTest extends TestCase
             ->assertSee('Book an Appointment')
             ->assertDontSee('Upcoming')
             ->assertDontSee('History');
+    }
+
+    public function test_status_filters_limit_the_active_section(): void
+    {
+        $user = $this->patientUser();
+        $this->place($user->patient, AppointmentStatus::Pending, '2026-10-05', '09:00:00', '09:30:00');
+        $this->place($user->patient, AppointmentStatus::Confirmed, '2026-10-12', '10:00:00', '10:30:00');
+        $this->place($user->patient, AppointmentStatus::Completed, '2026-09-28', '09:00:00', '09:30:00');
+        $this->place($user->patient, AppointmentStatus::Cancelled, '2026-09-21', '09:00:00', '09:30:00');
+        $this->place($user->patient, AppointmentStatus::Rejected, '2026-09-14', '09:00:00', '09:30:00');
+
+        $this->actingAs($user)
+            ->get(route('patient.appointments', ['section' => 'upcoming', 'status' => 'pending']))
+            ->assertOk()
+            ->assertSee('Monday, October 5, 2026')
+            ->assertSee('Pending Hospital Confirmation')
+            ->assertDontSee('Monday, October 12, 2026')
+            ->assertDontSee('September 28, 2026');
+
+        $this->actingAs($user)
+            ->get(route('patient.appointments', ['section' => 'upcoming', 'status' => 'confirmed']))
+            ->assertOk()
+            ->assertSee('Monday, October 12, 2026')
+            ->assertDontSee('Monday, October 5, 2026');
+
+        $this->actingAs($user)
+            ->get(route('patient.appointments', ['section' => 'history', 'status' => 'completed']))
+            ->assertOk()
+            ->assertSee('Monday, September 28, 2026')
+            ->assertDontSee('September 21, 2026')
+            ->assertDontSee('September 14, 2026');
+
+        $this->actingAs($user)
+            ->get(route('patient.appointments', ['section' => 'history', 'status' => 'cancelled']))
+            ->assertOk()
+            ->assertSee('Monday, September 21, 2026')
+            ->assertDontSee('September 28, 2026');
+
+        $this->actingAs($user)
+            ->get(route('patient.appointments', ['section' => 'history', 'status' => 'rejected']))
+            ->assertOk()
+            ->assertSee('Monday, September 14, 2026')
+            ->assertDontSee('September 21, 2026');
+    }
+
+    public function test_invalid_filters_fall_back_to_the_full_section(): void
+    {
+        $user = $this->patientUser();
+        $this->place($user->patient, AppointmentStatus::Pending, '2026-10-05', '09:00:00', '09:30:00');
+        $this->place($user->patient, AppointmentStatus::Confirmed, '2026-10-12', '10:00:00', '10:30:00');
+        $this->place($user->patient, AppointmentStatus::Completed, '2026-09-28', '09:00:00', '09:30:00');
+
+        $this->actingAs($user)
+            ->get(route('patient.appointments', ['section' => 'archive', 'status' => 'deleted']))
+            ->assertOk()
+            ->assertSee('Monday, October 5, 2026')
+            ->assertSee('Monday, October 12, 2026')
+            ->assertDontSee('September 28, 2026');
+
+        $this->actingAs($user)
+            ->get(route('patient.appointments', ['section' => 'history', 'status' => 'pending']))
+            ->assertOk()
+            ->assertSee('Monday, September 28, 2026')
+            ->assertDontSee('Monday, October 5, 2026');
+    }
+
+    public function test_section_and_filter_empty_states_are_specific(): void
+    {
+        $historyOnly = $this->patientUser();
+        $this->place($historyOnly->patient, AppointmentStatus::Completed, '2026-09-28', '09:00:00', '09:30:00');
+
+        $this->actingAs($historyOnly)
+            ->get(route('patient.appointments'))
+            ->assertOk()
+            ->assertSee('You have no upcoming appointments.');
+
+        $this->actingAs($historyOnly)
+            ->get(route('patient.appointments', ['section' => 'history']))
+            ->assertOk()
+            ->assertSee('Monday, September 28, 2026')
+            ->assertDontSee('No appointment history yet.');
+
+        $upcomingOnly = $this->patientUser();
+        $this->place($upcomingOnly->patient, AppointmentStatus::Pending, '2026-10-05', '09:00:00', '09:30:00');
+
+        $this->actingAs($upcomingOnly)
+            ->get(route('patient.appointments', ['section' => 'history']))
+            ->assertOk()
+            ->assertSee('No appointment history yet.');
+
+        $this->actingAs($upcomingOnly)
+            ->get(route('patient.appointments', ['status' => 'confirmed']))
+            ->assertOk()
+            ->assertSee('No appointments match this filter.')
+            ->assertDontSee('Monday, October 5, 2026');
+    }
+
+    public function test_a_cancelled_appointment_moves_to_history(): void
+    {
+        $user = $this->patientUser();
+        $appointment = $this->place($user->patient, AppointmentStatus::Confirmed, '2026-10-05', '10:00:00', '10:30:00');
+
+        $this->actingAs($user)
+            ->patch(route('patient.appointments.cancel', $appointment))
+            ->assertRedirect(route('patient.appointments.show', $appointment));
+
+        $this->actingAs($user)
+            ->get(route('patient.appointments'))
+            ->assertOk()
+            ->assertSee('You have no upcoming appointments.')
+            ->assertDontSee('mg-appt-when', false);
+
+        $this->actingAs($user)
+            ->get(route('patient.appointments', ['section' => 'history']))
+            ->assertOk()
+            ->assertSee('Cancelled')
+            ->assertSee('Monday, October 5, 2026')
+            ->assertSee('10:00 AM');
     }
 
     private function place(

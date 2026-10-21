@@ -11,6 +11,7 @@ use App\Models\Appointment;
 use App\Models\Doctor;
 use App\Models\DoctorSchedule;
 use App\Models\Patient;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -25,6 +26,8 @@ use Illuminate\Validation\ValidationException;
  */
 class AppointmentBookingService
 {
+    public const PASSED_SLOT_MESSAGE = 'This appointment time has already passed. Please select another available time.';
+
     public function book(
         Patient $patient,
         Doctor $doctor,
@@ -42,7 +45,7 @@ class AppointmentBookingService
 
             $this->assertScheduleBelongsToDoctor($doctor, $schedule);
             $this->assertHierarchyIsActive($doctor, $schedule);
-            $this->assertDateIsNotInThePast($date);
+            $this->assertDateIsInsideBookingWindow($date);
             $this->assertDayMatchesSchedule($date, $schedule);
 
             $end = $this->resolveSlotEnd($schedule, $start);
@@ -91,7 +94,7 @@ class AppointmentBookingService
             return [];
         }
 
-        if ($date->toDateString() < now()->toDateString() || ! $this->dayMatchesSchedule($date, $schedule)) {
+        if (! $this->dateIsInsideBookingWindow($date) || ! $this->dayMatchesSchedule($date, $schedule)) {
             return [];
         }
 
@@ -107,6 +110,61 @@ class AppointmentBookingService
         }
 
         return $available;
+    }
+
+    /**
+     * Every start time (H:i) the schedule defines, regardless of availability.
+     *
+     * @return list<string>
+     */
+    public function getScheduleSlotStarts(DoctorSchedule $schedule): array
+    {
+        return array_map(
+            fn (array $slot): string => substr($slot['start'], 0, 5),
+            $this->scheduleSlots($schedule),
+        );
+    }
+
+    /**
+     * Days after today that a patient may still book. Today is day 0.
+     */
+    public function bookingWindowDays(): int
+    {
+        $days = config('appointments.booking_window_days', 7);
+
+        if (! is_numeric($days)) {
+            return 7;
+        }
+
+        return max(0, (int) $days);
+    }
+
+    /**
+     * Last calendar date a patient may book, in the hospital timezone.
+     */
+    public function lastBookableDate(): Carbon
+    {
+        return $this->hospitalNow()->copy()->startOfDay()->addDays($this->bookingWindowDays());
+    }
+
+    /**
+     * True when this start is already due on today's hospital date.
+     * Future dates return false so their normal availability rules still apply.
+     */
+    public function appointmentStartHasPassed(string $appointmentDate, string $startTime): bool
+    {
+        if (trim($startTime) === '') {
+            return false;
+        }
+
+        try {
+            return $this->slotHasPassed(
+                $this->parseAppointmentDate($appointmentDate),
+                $this->toHis($startTime),
+            );
+        } catch (ValidationException) {
+            return false;
+        }
     }
 
     /**
@@ -173,13 +231,27 @@ class AppointmentBookingService
         return null;
     }
 
-    private function assertDateIsNotInThePast(Carbon $date): void
+    private function assertDateIsInsideBookingWindow(Carbon $date): void
     {
-        if ($date->toDateString() < now()->toDateString()) {
+        if ($date->toDateString() < $this->hospitalNow()->toDateString()) {
             throw ValidationException::withMessages([
                 'appointment_date' => 'The appointment date cannot be in the past.',
             ]);
         }
+
+        if ($date->toDateString() > $this->lastBookableDate()->toDateString()) {
+            throw ValidationException::withMessages([
+                'appointment_date' => 'The appointment date is outside the booking window.',
+            ]);
+        }
+    }
+
+    private function dateIsInsideBookingWindow(Carbon $date): bool
+    {
+        $day = $date->toDateString();
+
+        return $day >= $this->hospitalNow()->toDateString()
+            && $day <= $this->lastBookableDate()->toDateString();
     }
 
     private function assertDayMatchesSchedule(Carbon $date, DoctorSchedule $schedule): void
@@ -238,7 +310,7 @@ class AppointmentBookingService
     {
         if ($this->slotHasPassed($date, $start)) {
             throw ValidationException::withMessages([
-                'start_time' => 'The appointment start time has already passed.',
+                'start_time' => self::PASSED_SLOT_MESSAGE,
             ]);
         }
     }
@@ -342,19 +414,34 @@ class AppointmentBookingService
             && $this->toHis($end) > $this->toHis($otherStart);
     }
 
+    /**
+     * A slot on today's hospital date is unavailable once its start time is reached.
+     * Future dates are left to the schedule and existing appointments.
+     */
     private function slotHasPassed(Carbon $date, string $start): bool
     {
-        if ($date->toDateString() !== now()->toDateString()) {
+        $now = $this->hospitalNow();
+
+        if ($date->toDateString() !== $now->toDateString()) {
             return false;
         }
 
         try {
-            $slotAt = Carbon::createFromFormat('!Y-m-d H:i:s', $date->toDateString().' '.$this->toHis($start));
+            $slotAt = Carbon::parse($date->toDateString().' '.$this->toHis($start), config('app.timezone'));
         } catch (\Throwable) {
             return true;
         }
 
-        return $slotAt instanceof Carbon && $slotAt->lt(now());
+        if (! $slotAt instanceof CarbonInterface) {
+            return true;
+        }
+
+        return $slotAt->lte($now);
+    }
+
+    private function hospitalNow(): Carbon
+    {
+        return Carbon::now(config('app.timezone'));
     }
 
     private function parseAppointmentDate(string $appointmentDate): Carbon
@@ -362,7 +449,7 @@ class AppointmentBookingService
         $value = trim($appointmentDate);
 
         try {
-            $parsed = Carbon::createFromFormat('!Y-m-d', $value);
+            $parsed = Carbon::createFromFormat('!Y-m-d', $value, config('app.timezone'));
         } catch (\Throwable) {
             $parsed = null;
         }

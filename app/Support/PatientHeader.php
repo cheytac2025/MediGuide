@@ -10,7 +10,7 @@ use Illuminate\Support\Str;
 final class PatientHeader
 {
     /**
-     * @return array{name: string, first_name: string, role: string, initials: string, unread_notifications: int}
+     * @return array{name: string, first_name: string, role: string, initials: string, unread_notifications: int, recent_notifications: list<array{title: string, message: string, time: string, unread: bool, url: string}>}
      */
     public static function from(User $user): array
     {
@@ -20,6 +20,7 @@ final class PatientHeader
             'role' => 'Patient',
             'initials' => $user->initials(),
             'unread_notifications' => $user->unreadNotifications()->count(),
+            'recent_notifications' => PatientNotifications::previews($user),
         ];
     }
 

@@ -6,6 +6,7 @@ use App\Enums\AppointmentStatus;
 use App\Enums\ClinicStatus;
 use App\Enums\DayOfWeek;
 use App\Enums\DepartmentStatus;
+use App\Enums\DoctorScheduleStatus;
 use App\Enums\DoctorStatus;
 use App\Enums\RoleName;
 use App\Enums\Sex;
@@ -153,9 +154,233 @@ class BookAppointmentTest extends TestCase
         $this->actingAs($this->patientUser())
             ->get(route('patient.book-appointment', $this->doctorQuery()))
             ->assertOk()
-            ->assertSee('October 5, 2026')
-            ->assertSee('October 7, 2026')
-            ->assertDontSee('October 6, 2026');
+            ->assertSee('October 2026')
+            ->assertSee($this->dateLink('2026-10-05'), false)
+            ->assertSee($this->dateLink('2026-10-07'), false)
+            ->assertDontSee($this->dateLink('2026-10-06'), false)
+            ->assertSee('aria-label="Tuesday, October 6, 2026, unavailable"', false)
+            ->assertSee('aria-label="Friday, October 2, 2026, unavailable"', false)
+            ->assertSee('Select an available date to see open times.');
+    }
+
+    public function test_calendar_month_navigation_stays_within_the_booking_horizon(): void
+    {
+        $this->assertSame(7, config('appointments.booking_window_days'));
+
+        $user = $this->patientUser();
+
+        $this->actingAs($user)
+            ->get(route('patient.book-appointment', $this->doctorQuery()))
+            ->assertOk()
+            ->assertSee('aria-label="Previous month" disabled', false)
+            ->assertSee('aria-label="Next month" disabled', false)
+            ->assertDontSee('month=2026-11', false)
+            ->assertSee($this->dateLink('2026-10-05'), false)
+            ->assertSee($this->dateLink('2026-10-12'), false)
+            ->assertDontSee($this->dateLink('2026-10-19'), false)
+            ->assertSee('aria-label="Monday, October 19, 2026, unavailable"', false);
+
+        $this->actingAs($user)
+            ->get(route('patient.book-appointment', [...$this->doctorQuery(), 'month' => '2026-11']))
+            ->assertOk()
+            ->assertSee('October 2026')
+            ->assertDontSee('November 2026');
+
+        $this->actingAs($user)
+            ->get(route('patient.book-appointment', [...$this->doctorQuery(), 'month' => '2027-03']))
+            ->assertOk()
+            ->assertSee('October 2026');
+    }
+
+    public function test_booking_window_allows_today_and_day_seven_but_rejects_day_eight(): void
+    {
+        $user = $this->patientUser();
+        $service = app(AppointmentBookingService::class);
+        $doctor = Doctor::query()->where('display_name', 'Test Doctor 1')->firstOrFail();
+        $schedule = $this->mondaySchedule($doctor);
+
+        $this->assertSame(
+            '2026-10-12',
+            $service->lastBookableDate()->toDateString(),
+        );
+        $this->assertContains('09:00', $service->getAvailableSlots($doctor, $schedule, '2026-10-05'));
+        $this->assertContains('09:00', $service->getAvailableSlots($doctor, $schedule, '2026-10-12'));
+        $this->assertSame([], $service->getAvailableSlots($doctor, $schedule, '2026-10-13'));
+        $this->assertSame([], $service->getAvailableSlots($doctor, $schedule, '2026-10-19'));
+
+        $this->actingAs($user)
+            ->post(route('patient.book-appointment.store'), $this->bookingPayload())
+            ->assertRedirect(route('patient.appointments'));
+
+        $this->actingAs($this->patientUser())
+            ->post(route('patient.book-appointment.store'), [
+                ...$this->bookingPayload(),
+                'appointment_date' => '2026-10-12',
+            ])
+            ->assertRedirect(route('patient.appointments'));
+
+        $this->actingAs($this->patientUser())
+            ->post(route('patient.book-appointment.store'), [
+                ...$this->bookingPayload(),
+                'appointment_date' => '2026-10-19',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('booking_error', 'The selected appointment date is no longer available.');
+
+        $this->actingAs($this->patientUser())
+            ->post(route('patient.book-appointment.review'), [
+                ...$this->bookingPayload(),
+                'appointment_date' => '2026-10-19',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('booking_error', 'The selected appointment date is no longer available.');
+
+        $this->assertSame(2, Appointment::query()->count());
+        $this->assertSame(0, Appointment::query()->whereDate('appointment_date', '2026-10-19')->count());
+    }
+
+    public function test_an_expired_time_today_stays_rejected_inside_the_booking_window(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-05 12:00:00', 'Asia/Manila'));
+
+        $this->actingAs($this->patientUser())
+            ->get(route('patient.book-appointment', $this->doctorQuery()))
+            ->assertOk()
+            ->assertDontSee($this->dateLink('2026-10-05'), false)
+            ->assertSee('aria-label="Monday, October 5, 2026, unavailable"', false)
+            ->assertSee($this->dateLink('2026-10-12'), false)
+            ->assertDontSee($this->dateLink('2026-10-19'), false);
+
+        $this->actingAs($this->patientUser())
+            ->post(route('patient.book-appointment.store'), $this->bookingPayload())
+            ->assertRedirect()
+            ->assertSessionHas('booking_error', AppointmentBookingService::PASSED_SLOT_MESSAGE);
+
+        $this->assertSame(0, Appointment::query()->count());
+    }
+
+    public function test_booking_window_crosses_the_month_boundary(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-26 08:00:00', 'Asia/Manila'));
+
+        $doctor = Doctor::query()->where('display_name', 'Test Doctor 1')->firstOrFail();
+        $tuesdayDoctor = Doctor::query()->where('display_name', 'Test Doctor 2')->firstOrFail();
+        $service = app(AppointmentBookingService::class);
+
+        $this->assertSame('2026-11-02', $service->lastBookableDate()->toDateString());
+        $this->assertContains('09:00', $service->getAvailableSlots($doctor, $this->mondaySchedule($doctor), '2026-11-02'));
+        $this->assertSame([], $service->getAvailableSlots($doctor, $this->mondaySchedule($doctor), '2026-11-09'));
+        $this->assertSame(
+            [],
+            $service->getAvailableSlots(
+                $tuesdayDoctor,
+                $this->scheduleOn($tuesdayDoctor, DayOfWeek::Tuesday, '09:00:00'),
+                '2026-11-03',
+            ),
+        );
+
+        $this->actingAs($this->patientUser())
+            ->get(route('patient.book-appointment', $this->doctorQuery()))
+            ->assertOk()
+            ->assertSee('October 2026')
+            ->assertSee('month=2026-11', false)
+            ->assertSee($this->dateLink('2026-10-26'), false)
+            ->assertDontSee($this->dateLink('2026-11-02'), false);
+
+        $this->actingAs($this->patientUser())
+            ->get(route('patient.book-appointment', [...$this->doctorQuery(), 'month' => '2026-11']))
+            ->assertOk()
+            ->assertSee('November 2026')
+            ->assertSee('month=2026-10', false)
+            ->assertSee('aria-label="Next month" disabled', false)
+            ->assertSee($this->dateLink('2026-11-02'), false)
+            ->assertDontSee($this->dateLink('2026-11-09'), false)
+            ->assertSee('aria-label="Monday, November 9, 2026, unavailable"', false);
+
+        $tuesdayQuery = [
+            'clinic_id' => $tuesdayDoctor->clinic_id,
+            'doctor_id' => $tuesdayDoctor->id,
+        ];
+
+        $this->actingAs($this->patientUser())
+            ->get(route('patient.book-appointment', [...$tuesdayQuery, 'month' => '2026-11']))
+            ->assertOk()
+            ->assertDontSee(e(route('patient.book-appointment', [...$tuesdayQuery, 'appointment_date' => '2026-11-03'])).'"', false)
+            ->assertSee('aria-label="Tuesday, November 3, 2026, unavailable"', false);
+
+        $this->actingAs($this->patientUser())
+            ->post(route('patient.book-appointment.store'), [
+                ...$tuesdayQuery,
+                'doctor_schedule_id' => $this->scheduleOn($tuesdayDoctor, DayOfWeek::Tuesday, '09:00:00')->id,
+                'appointment_date' => '2026-11-03',
+                'start_time' => '09:00',
+                'patient_concern' => null,
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('booking_error', 'The selected appointment date is no longer available.');
+
+        $this->assertSame(0, Appointment::query()->count());
+    }
+
+    public function test_booking_window_crosses_the_year_boundary(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-12-28 08:00:00', 'Asia/Manila'));
+
+        $doctor = Doctor::query()->where('display_name', 'Test Doctor 1')->firstOrFail();
+        $service = app(AppointmentBookingService::class);
+        $monday = $this->mondaySchedule($doctor);
+        $wednesday = $this->wednesdaySchedule($doctor);
+
+        $this->assertSame('2027-01-04', $service->lastBookableDate()->toDateString());
+        $this->assertContains('09:00', $service->getAvailableSlots($doctor, $monday, '2026-12-28'));
+        $this->assertContains('13:00', $service->getAvailableSlots($doctor, $wednesday, '2026-12-30'));
+        $this->assertContains('09:00', $service->getAvailableSlots($doctor, $monday, '2027-01-04'));
+        $this->assertSame([], $service->getAvailableSlots($doctor, $wednesday, '2027-01-06'));
+
+        $this->actingAs($this->patientUser())
+            ->get(route('patient.book-appointment', $this->doctorQuery()))
+            ->assertOk()
+            ->assertSee('December 2026')
+            ->assertSee('month=2027-01', false)
+            ->assertSee($this->dateLink('2026-12-28'), false)
+            ->assertSee($this->dateLink('2026-12-30'), false);
+
+        $this->actingAs($this->patientUser())
+            ->get(route('patient.book-appointment', [...$this->doctorQuery(), 'month' => '2027-01']))
+            ->assertOk()
+            ->assertSee('January 2027')
+            ->assertSee('month=2026-12', false)
+            ->assertSee('aria-label="Next month" disabled', false)
+            ->assertSee($this->dateLink('2027-01-04'), false)
+            ->assertDontSee($this->dateLink('2027-01-06'), false)
+            ->assertSee('aria-label="Wednesday, January 6, 2027, unavailable"', false);
+
+        $this->actingAs($this->patientUser())
+            ->get(route('patient.book-appointment', [...$this->doctorQuery(), 'month' => '2027-06']))
+            ->assertOk()
+            ->assertSee('December 2026')
+            ->assertDontSee('June 2027');
+
+        $this->actingAs($this->patientUser())
+            ->post(route('patient.book-appointment.store'), [
+                ...$this->bookingPayload(),
+                'doctor_schedule_id' => $monday->id,
+                'appointment_date' => '2027-01-04',
+            ])
+            ->assertRedirect(route('patient.appointments'));
+
+        $this->actingAs($this->patientUser())
+            ->post(route('patient.book-appointment.store'), [
+                ...$this->bookingPayload(),
+                'doctor_schedule_id' => $wednesday->id,
+                'appointment_date' => '2027-01-06',
+                'start_time' => '13:00',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('booking_error', 'The selected appointment date is no longer available.');
+
+        $this->assertSame(1, Appointment::query()->count());
+        $this->assertSame('2027-01-04', Appointment::query()->firstOrFail()->appointment_date->toDateString());
     }
 
     public function test_past_dates_are_rejected_and_a_same_day_without_future_slots_is_not_offered(): void
@@ -176,8 +401,9 @@ class BookAppointmentTest extends TestCase
         $this->actingAs($user)
             ->get(route('patient.book-appointment', $this->doctorQuery()))
             ->assertOk()
-            ->assertDontSee('October 5, 2026')
-            ->assertSee('October 7, 2026');
+            ->assertDontSee($this->dateLink('2026-10-05'), false)
+            ->assertSee('aria-label="Monday, October 5, 2026, unavailable"', false)
+            ->assertSee($this->dateLink('2026-10-07'), false);
     }
 
     public function test_available_time_slots_are_displayed(): void
@@ -213,8 +439,281 @@ class BookAppointmentTest extends TestCase
                 'appointment_date' => '2026-10-05',
             ]))
             ->assertOk()
-            ->assertDontSee('09:00 AM')
-            ->assertSee('09:30 AM');
+            ->assertDontSee('start_time=09%3A00"', false)
+            ->assertSee('aria-label="09:00 AM, unavailable" disabled', false)
+            ->assertSee('start_time=09%3A30"', false);
+    }
+
+    public function test_a_fully_booked_date_is_disabled_in_the_calendar(): void
+    {
+        $doctor = Doctor::query()->where('display_name', 'Test Doctor 1')->firstOrFail();
+        $schedule = $this->mondaySchedule($doctor);
+        $booking = app(AppointmentBookingService::class);
+
+        foreach (['09:00', '09:30', '10:00', '10:30', '11:00', '11:30'] as $start) {
+            $booking->book($this->patientUser()->patient, $doctor, $schedule, '2026-10-12', $start);
+        }
+
+        $user = $this->patientUser();
+
+        $this->actingAs($user)
+            ->get(route('patient.book-appointment', $this->doctorQuery()))
+            ->assertOk()
+            ->assertDontSee($this->dateLink('2026-10-12'), false)
+            ->assertSee('aria-label="Monday, October 12, 2026, unavailable"', false);
+
+        $this->actingAs($user)
+            ->get(route('patient.book-appointment', [...$this->doctorQuery(), 'appointment_date' => '2026-10-12']))
+            ->assertOk()
+            ->assertSee('The selected appointment date is no longer available.')
+            ->assertDontSee('start_time=', false);
+    }
+
+    public function test_hospital_clock_is_asia_manila(): void
+    {
+        $this->assertSame('Asia/Manila', config('app.timezone'));
+
+        Carbon::setTestNow(Carbon::parse('2026-10-07 05:15:00', 'UTC'));
+
+        $this->assertSame('2026-10-07 13:15', now(config('app.timezone'))->format('Y-m-d H:i'));
+    }
+
+    public function test_one_pm_today_is_disabled_when_the_clock_is_past_it(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-07 05:15:00', 'UTC'));
+
+        $slots = $this->wednesdaySlots();
+
+        $this->assertNotContains('13:00', $slots);
+        $this->assertContains('13:30', $slots);
+
+        $this->actingAs($this->patientUser())
+            ->get(route('patient.book-appointment', $this->wednesdayQuery()))
+            ->assertOk()
+            ->assertSee('aria-label="01:00 PM, unavailable" disabled', false)
+            ->assertDontSee('start_time=13%3A00"', false)
+            ->assertSee('start_time=13%3A30"', false);
+    }
+
+    public function test_one_pm_today_is_disabled_when_the_clock_is_exactly_one_pm(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-07 13:00:00', config('app.timezone')));
+
+        $slots = $this->wednesdaySlots();
+
+        $this->assertNotContains('13:00', $slots);
+        $this->assertContains('13:30', $slots);
+
+        $this->actingAs($this->patientUser())
+            ->get(route('patient.book-appointment', $this->wednesdayQuery()))
+            ->assertOk()
+            ->assertSee('aria-label="01:00 PM, unavailable" disabled', false)
+            ->assertDontSee('start_time=13%3A00"', false);
+    }
+
+    public function test_one_pm_today_is_available_at_twelve_thirty(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-07 12:30:00', config('app.timezone')));
+
+        $this->assertContains('13:00', $this->wednesdaySlots());
+
+        $user = $this->patientUser();
+
+        $this->actingAs($user)
+            ->get(route('patient.book-appointment', $this->wednesdayQuery()))
+            ->assertOk()
+            ->assertSee('start_time=13%3A00"', false)
+            ->assertDontSee('aria-label="01:00 PM, unavailable"', false);
+
+        $this->actingAs($user)
+            ->post(route('patient.book-appointment.store'), $this->wednesdayPayload())
+            ->assertRedirect(route('patient.appointments'));
+
+        $this->assertDatabaseHas('appointments', [
+            'patient_id' => $user->patient->id,
+            'start_time' => '13:00:00',
+            'status' => AppointmentStatus::Pending->value,
+        ]);
+        $this->assertSame('2026-10-07', Appointment::query()->firstOrFail()->appointment_date->toDateString());
+    }
+
+    public function test_tomorrows_one_pm_stays_available_after_todays_one_pm_has_passed(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-07 13:15:00', config('app.timezone')));
+
+        $this->assertNotContains('13:00', $this->wednesdaySlots());
+
+        $doctor = Doctor::query()->where('display_name', 'Test Doctor 2')->firstOrFail();
+        $schedule = DoctorSchedule::query()
+            ->where('doctor_id', $doctor->id)
+            ->where('day_of_week', DayOfWeek::Thursday)
+            ->where('start_time', '13:00:00')
+            ->firstOrFail();
+
+        $tomorrow = app(AppointmentBookingService::class)->getAvailableSlots($doctor, $schedule, '2026-10-08');
+
+        $this->assertContains('13:00', $tomorrow);
+
+        $this->actingAs($this->patientUser())
+            ->get(route('patient.book-appointment', [
+                'clinic_id' => $doctor->clinic_id,
+                'doctor_id' => $doctor->id,
+                'appointment_date' => '2026-10-08',
+            ]))
+            ->assertOk()
+            ->assertSee('start_time=13%3A00"', false)
+            ->assertDontSee('aria-label="01:00 PM, unavailable"', false);
+    }
+
+    public function test_a_manually_submitted_past_time_is_rejected(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-07 13:15:00', config('app.timezone')));
+
+        $this->actingAs($this->patientUser())
+            ->post(route('patient.book-appointment.store'), $this->wednesdayPayload())
+            ->assertRedirect()
+            ->assertSessionHas('booking_error', AppointmentBookingService::PASSED_SLOT_MESSAGE);
+
+        $this->actingAs($this->patientUser())
+            ->post(route('patient.book-appointment.review'), $this->wednesdayPayload())
+            ->assertRedirect()
+            ->assertSessionHas('booking_error', AppointmentBookingService::PASSED_SLOT_MESSAGE);
+
+        $this->actingAs($this->patientUser())
+            ->get(route('patient.book-appointment', [
+                ...$this->wednesdayQuery(),
+                'start_time' => '13:00',
+            ]))
+            ->assertOk()
+            ->assertSee(AppointmentBookingService::PASSED_SLOT_MESSAGE)
+            ->assertDontSee('start_time=13%3A00"', false);
+
+        $this->assertSame(0, Appointment::query()->count());
+    }
+
+    public function test_slots_at_or_before_the_hospital_clock_are_unavailable_at_every_time_of_day(): void
+    {
+        $doctor = Doctor::query()->where('display_name', 'Test Doctor 1')->firstOrFail();
+        $schedule = DoctorSchedule::query()->create([
+            'doctor_id' => $doctor->id,
+            'day_of_week' => DayOfWeek::Friday,
+            'start_time' => '08:00:00',
+            'end_time' => '17:30:00',
+            'slot_duration' => 30,
+            'status' => DoctorScheduleStatus::Active,
+        ]);
+        $service = app(AppointmentBookingService::class);
+        $today = '2026-10-09';
+        $nextFriday = '2026-10-16';
+        $cases = [
+            '08:00' => ['08:00' => false, '08:30' => true, '12:00' => true, '13:00' => true, '14:30' => true, '17:00' => true],
+            '08:15' => ['08:00' => false, '08:30' => true, '12:00' => true, '17:00' => true],
+            '12:00' => ['08:00' => false, '12:00' => false, '12:30' => true, '13:00' => true, '14:30' => true, '17:00' => true],
+            '12:30' => ['12:00' => false, '13:00' => true, '14:30' => true, '17:00' => true],
+            '13:00' => ['08:00' => false, '12:00' => false, '13:00' => false, '13:30' => true, '14:30' => true, '17:00' => true],
+            '13:15' => ['13:00' => false, '13:30' => true, '14:30' => true, '17:00' => true],
+            '14:30' => ['08:00' => false, '12:00' => false, '13:00' => false, '14:30' => false, '15:00' => true, '17:00' => true],
+            '17:00' => ['08:00' => false, '12:00' => false, '13:00' => false, '14:30' => false, '17:00' => false],
+        ];
+
+        foreach ($cases as $clock => $expected) {
+            Carbon::setTestNow(Carbon::parse("{$today} {$clock}:00", 'Asia/Manila'));
+            $open = $service->getAvailableSlots($doctor, $schedule, $today);
+
+            foreach ($expected as $start => $available) {
+                if ($available) {
+                    $this->assertContains($start, $open, "{$start} should stay open at {$clock}.");
+                } else {
+                    $this->assertNotContains($start, $open, "{$start} should be closed at {$clock}.");
+                }
+            }
+
+            $future = $service->getAvailableSlots($doctor, $schedule, $nextFriday);
+
+            $this->assertContains('08:00', $future, "Next Friday 8:00 AM should stay open at {$clock}.");
+            $this->assertContains('12:00', $future);
+            $this->assertContains('13:00', $future);
+            $this->assertContains('14:30', $future);
+            $this->assertContains('17:00', $future);
+        }
+
+        Carbon::setTestNow(Carbon::parse("{$today} 14:30:00", 'Asia/Manila'));
+
+        $this->actingAs($this->patientUser())
+            ->get(route('patient.book-appointment', [
+                ...$this->doctorQuery(),
+                'appointment_date' => $today,
+            ]))
+            ->assertOk()
+            ->assertSee('aria-label="08:00 AM, unavailable" disabled', false)
+            ->assertSee('aria-label="12:00 PM, unavailable" disabled', false)
+            ->assertSee('aria-label="01:00 PM, unavailable" disabled', false)
+            ->assertSee('aria-label="02:30 PM, unavailable" disabled', false)
+            ->assertDontSee('start_time=14%3A30"', false)
+            ->assertSee('start_time=15%3A00"', false)
+            ->assertSee('data-slot-at="2026-10-09T15:00:00+08:00"', false)
+            ->assertSee($this->dateLink($nextFriday), false);
+
+        $payload = [
+            ...$this->doctorQuery(),
+            'doctor_schedule_id' => $schedule->id,
+            'appointment_date' => $today,
+            'start_time' => '14:30',
+            'patient_concern' => null,
+        ];
+
+        $this->actingAs($this->patientUser())
+            ->post(route('patient.book-appointment.store'), $payload)
+            ->assertRedirect()
+            ->assertSessionHas('booking_error', AppointmentBookingService::PASSED_SLOT_MESSAGE);
+
+        $this->actingAs($this->patientUser())
+            ->post(route('patient.book-appointment.store'), [
+                ...$payload,
+                'appointment_date' => $nextFriday,
+                'start_time' => '08:00',
+            ])
+            ->assertRedirect(route('patient.appointments'));
+
+        $booked = Appointment::query()->firstOrFail();
+
+        $this->assertSame($nextFriday, $booked->appointment_date->toDateString());
+        $this->assertSame('08:00:00', $booked->start_time);
+        $this->assertSame(AppointmentStatus::Pending, $booked->status);
+        $this->assertSame(0, Appointment::query()->where('start_time', '14:30:00')->count());
+    }
+
+    public function test_today_is_disabled_when_every_remaining_slot_has_started(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-09 17:00:00', 'Asia/Manila'));
+
+        $doctor = Doctor::query()->where('display_name', 'Test Doctor 1')->firstOrFail();
+
+        DoctorSchedule::query()->create([
+            'doctor_id' => $doctor->id,
+            'day_of_week' => DayOfWeek::Friday,
+            'start_time' => '08:00:00',
+            'end_time' => '17:30:00',
+            'slot_duration' => 30,
+            'status' => DoctorScheduleStatus::Active,
+        ]);
+
+        $this->actingAs($this->patientUser())
+            ->get(route('patient.book-appointment', $this->doctorQuery()))
+            ->assertOk()
+            ->assertDontSee($this->dateLink('2026-10-09'), false)
+            ->assertSee('aria-label="Friday, October 9, 2026, unavailable"', false)
+            ->assertSee($this->dateLink('2026-10-16'), false);
+
+        $this->actingAs($this->patientUser())
+            ->get(route('patient.book-appointment', [
+                ...$this->doctorQuery(),
+                'appointment_date' => '2026-10-09',
+                'start_time' => '17:00',
+            ]))
+            ->assertOk()
+            ->assertSee(AppointmentBookingService::PASSED_SLOT_MESSAGE)
+            ->assertDontSee('start_time=17%3A00"', false);
     }
 
     public function test_a_valid_booking_stores_the_concern_as_pending_and_redirects(): void
@@ -310,6 +809,11 @@ class BookAppointmentTest extends TestCase
         $this->assertSame(AppointmentStatus::Pending, Appointment::query()->firstOrFail()->status);
     }
 
+    private function dateLink(string $date): string
+    {
+        return e(route('patient.book-appointment', [...$this->doctorQuery(), 'appointment_date' => $date])).'"';
+    }
+
     /**
      * @return array{clinic_id: int, doctor_id: int}
      */
@@ -338,6 +842,65 @@ class BookAppointmentTest extends TestCase
             'start_time' => $start,
             'patient_concern' => $concern,
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function wednesdaySlots(): array
+    {
+        $doctor = Doctor::query()->where('display_name', 'Test Doctor 1')->firstOrFail();
+
+        return app(AppointmentBookingService::class)->getAvailableSlots(
+            $doctor,
+            $this->wednesdaySchedule($doctor),
+            '2026-10-07',
+        );
+    }
+
+    /**
+     * @return array{clinic_id: int, doctor_id: int, appointment_date: string}
+     */
+    private function wednesdayQuery(): array
+    {
+        return [
+            ...$this->doctorQuery(),
+            'appointment_date' => '2026-10-07',
+        ];
+    }
+
+    /**
+     * @return array{clinic_id: int, doctor_id: int, doctor_schedule_id: int, appointment_date: string, start_time: string, patient_concern: null}
+     */
+    private function wednesdayPayload(): array
+    {
+        $doctor = Doctor::query()->where('display_name', 'Test Doctor 1')->firstOrFail();
+
+        return [
+            ...$this->doctorQuery(),
+            'doctor_schedule_id' => $this->wednesdaySchedule($doctor)->id,
+            'appointment_date' => '2026-10-07',
+            'start_time' => '13:00',
+            'patient_concern' => null,
+        ];
+    }
+
+    private function wednesdaySchedule(Doctor $doctor): DoctorSchedule
+    {
+        return DoctorSchedule::query()
+            ->where('doctor_id', $doctor->id)
+            ->where('day_of_week', DayOfWeek::Wednesday)
+            ->where('start_time', '13:00:00')
+            ->firstOrFail();
+    }
+
+    private function scheduleOn(Doctor $doctor, DayOfWeek $day, string $start): DoctorSchedule
+    {
+        return DoctorSchedule::query()
+            ->where('doctor_id', $doctor->id)
+            ->where('day_of_week', $day)
+            ->where('start_time', $start)
+            ->firstOrFail();
     }
 
     private function mondaySchedule(Doctor $doctor): DoctorSchedule

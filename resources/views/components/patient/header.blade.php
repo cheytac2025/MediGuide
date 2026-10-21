@@ -22,12 +22,43 @@
     </div>
 
     <div class="mg-header-right">
-        <a href="{{ route('patient.notifications') }}" class="mg-icon-btn" aria-label="Notifications">
-            <x-patient.icon name="bell" width="22" height="22" />
-            @if (($patient['unread_notifications'] ?? 0) > 0)
-                <span class="mg-badge-dot">{{ $patient['unread_notifications'] }}</span>
-            @endif
-        </a>
+        <div class="dropdown">
+            <button
+                type="button"
+                class="mg-icon-btn"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
+                aria-label="Notifications"
+            >
+                <x-patient.icon name="bell" width="22" height="22" />
+                @if (($patient['unread_notifications'] ?? 0) > 0)
+                    <span class="mg-badge-dot">{{ $patient['unread_notifications'] }}</span>
+                @endif
+            </button>
+            <div class="dropdown-menu dropdown-menu-end mg-bell-menu">
+                <p class="mg-bell-heading">Notifications</p>
+                @forelse (($patient['recent_notifications'] ?? []) as $item)
+                    <a class="mg-bell-item {{ $item['unread'] ? 'is-unread' : 'is-read' }}" href="{{ $item['url'] }}">
+                        <span class="mg-bell-item-title">
+                            {{ $item['title'] }}
+                            @if ($item['unread'])
+                                <span class="visually-hidden">Unread</span>
+                            @endif
+                        </span>
+                        @if ($item['message'] !== '')
+                            <span class="mg-bell-item-message">{{ $item['message'] }}</span>
+                        @endif
+                        <span class="mg-bell-item-time">{{ $item['time'] }}</span>
+                        @if ($item['unread'])
+                            <span class="mg-bell-dot" aria-hidden="true"></span>
+                        @endif
+                    </a>
+                @empty
+                    <p class="mg-bell-empty">You're all caught up.</p>
+                @endforelse
+                <a class="mg-bell-all" href="{{ route('patient.notifications') }}">View All Notifications</a>
+            </div>
+        </div>
 
         <div class="dropdown">
             <button

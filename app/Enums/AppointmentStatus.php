@@ -24,7 +24,7 @@ enum AppointmentStatus: string
     public function patientLabel(): string
     {
         return match ($this) {
-            self::Pending => 'Pending hospital confirmation',
+            self::Pending => 'Pending Hospital Confirmation',
             self::Confirmed => 'Confirmed',
             self::Completed => 'Completed',
             self::Cancelled => 'Cancelled',

@@ -66,8 +66,12 @@ Route::middleware('auth')->group(function () {
             ->name('patient.notifications');
         Route::patch('/patient/notifications/read-all', [NotificationController::class, 'markAllRead'])
             ->name('patient.notifications.read-all');
+        Route::delete('/patient/notifications', [NotificationController::class, 'clear'])
+            ->name('patient.notifications.clear');
         Route::patch('/patient/notifications/{notification}/read', [NotificationController::class, 'markRead'])
             ->name('patient.notifications.read');
+        Route::delete('/patient/notifications/{notification}', [NotificationController::class, 'destroy'])
+            ->name('patient.notifications.destroy');
         Route::get('/patient/notifications/{notification}/open', [NotificationController::class, 'open'])
             ->name('patient.notifications.open');
 

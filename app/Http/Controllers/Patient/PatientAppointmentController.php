@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\Patient;
 use App\Models\User;
+use App\Notifications\AppointmentCancelledNotification;
 use App\Support\PatientHeader;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
@@ -30,12 +31,25 @@ class PatientAppointmentController extends Controller
             ->sortByDesc(fn (Appointment $appointment): string => $this->sortKey($appointment))
             ->values();
 
+        $section = $request->query('section') === 'history' ? 'history' : 'upcoming';
+        $statusFilter = $this->statusFilter($request->query('status'), $section);
+        $visible = $section === 'history' ? $history : $upcoming;
+
+        if ($statusFilter !== 'all') {
+            $visible = $visible
+                ->filter(fn (Appointment $appointment): bool => $appointment->status->value === $statusFilter)
+                ->values();
+        }
+
         return view('patient.appointments', [
             'patient' => $this->patientHeader($user),
             'active' => 'appointments',
             'submittedMessage' => $this->submittedMessage(),
-            'upcoming' => $upcoming,
-            'history' => $history,
+            'section' => $section,
+            'statusFilter' => $statusFilter,
+            'appointments' => $visible,
+            'upcomingCount' => $upcoming->count(),
+            'historyCount' => $history->count(),
         ]);
     }
 
@@ -66,6 +80,8 @@ class PatientAppointmentController extends Controller
         $record->update([
             'status' => AppointmentStatus::Cancelled,
         ]);
+
+        $user->notify(new AppointmentCancelledNotification($record));
 
         return redirect()
             ->route('patient.appointments.show', $record)
@@ -100,6 +116,22 @@ class PatientAppointmentController extends Controller
             ->where('patient_id', $patient->id)
             ->whereKey($appointmentId)
             ->firstOrFail();
+    }
+
+    private function statusFilter(mixed $status, string $section): string
+    {
+        $allowed = $section === 'history'
+            ? [
+                AppointmentStatus::Completed->value,
+                AppointmentStatus::Cancelled->value,
+                AppointmentStatus::Rejected->value,
+            ]
+            : [
+                AppointmentStatus::Pending->value,
+                AppointmentStatus::Confirmed->value,
+            ];
+
+        return is_string($status) && in_array($status, $allowed, true) ? $status : 'all';
     }
 
     private function sortKey(Appointment $appointment): string

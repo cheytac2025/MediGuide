@@ -15,6 +15,8 @@ use App\Models\User;
 use App\Notifications\AppointmentSubmittedNotification;
 use App\Services\AppointmentBookingService;
 use App\Support\PatientHeader;
+use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,11 +26,6 @@ use Illuminate\View\View;
 
 class BookAppointmentController extends Controller
 {
-    /**
-     * Upcoming dates offered from active doctor schedules, including today.
-     */
-    private const BOOKING_HORIZON_DAYS = 41;
-
     public function __construct(private AppointmentBookingService $booking) {}
 
     /**
@@ -74,10 +71,13 @@ class BookAppointmentController extends Controller
         }
 
         if ($doctor instanceof Doctor && $request->filled('appointment_date')) {
-            $date = $this->bookableDate($doctor, (string) $request->query('appointment_date'));
+            $requestedDate = (string) $request->query('appointment_date');
+            $date = $this->bookableDate($doctor, $requestedDate);
 
             if (! $date instanceof Carbon) {
-                $error = 'The selected appointment date is no longer available.';
+                $error = $this->booking->appointmentStartHasPassed($requestedDate, (string) $request->query('start_time', ''))
+                    ? AppointmentBookingService::PASSED_SLOT_MESSAGE
+                    : 'The selected appointment date is no longer available.';
             }
         }
 
@@ -90,7 +90,9 @@ class BookAppointmentController extends Controller
             $slot = collect($slots)->firstWhere('start', (string) $request->query('start_time'));
 
             if ($slot === null) {
-                $error = 'That time slot is no longer available. Please choose another time.';
+                $error = $this->booking->appointmentStartHasPassed($date->toDateString(), (string) $request->query('start_time'))
+                    ? AppointmentBookingService::PASSED_SLOT_MESSAGE
+                    : 'That time slot is no longer available. Please choose another time.';
             }
         } elseif ($doctor instanceof Doctor && $date instanceof Carbon) {
             $slots = $this->slotsFor($doctor, $date);
@@ -114,6 +116,18 @@ class BookAppointmentController extends Controller
             $step = 5;
         }
 
+        $calendar = null;
+        $timeSlots = [];
+
+        if ($step === 3 || $step === 4) {
+            $month = $request->query('month');
+            $calendar = $this->calendar($dates, $date, is_string($month) ? $month : '');
+        }
+
+        if ($step === 4 && $doctor instanceof Doctor && $date instanceof Carbon) {
+            $timeSlots = $this->timeSlotsFor($doctor, $date, $slots);
+        }
+
         return view('patient.book-appointment', [
             'patient' => $this->patientHeader($user),
             'active' => 'book',
@@ -127,6 +141,8 @@ class BookAppointmentController extends Controller
             'date' => $date,
             'slots' => $slots,
             'slot' => $slot,
+            'calendar' => $calendar,
+            'timeSlots' => $timeSlots,
             'profile' => $this->profile($user),
             'review' => null,
         ]);
@@ -227,6 +243,8 @@ class BookAppointmentController extends Controller
             'dates' => [],
             'date' => $resolved['date'],
             'slots' => [],
+            'calendar' => null,
+            'timeSlots' => [],
             'slot' => [
                 'start' => $resolved['start'],
                 'label' => $this->formatTime($resolved['start']),
@@ -318,8 +336,12 @@ class BookAppointmentController extends Controller
             return [...$empty, 'error' => 'The selected appointment date is no longer available.'];
         }
 
-        if ($date->toDateString() < now()->toDateString()) {
+        if (! $this->dateIsInsideBookingWindow($date)) {
             return [...$empty, 'error' => 'The selected appointment date is no longer available.'];
+        }
+
+        if ($start !== null && $this->booking->appointmentStartHasPassed($date->toDateString(), $start)) {
+            return [...$empty, 'error' => AppointmentBookingService::PASSED_SLOT_MESSAGE];
         }
 
         $available = $this->booking->getAvailableSlots($doctor, $schedule, $date->toDateString());
@@ -381,8 +403,8 @@ class BookAppointmentController extends Controller
             ->get();
 
         $dates = [];
-        $cursor = now()->startOfDay();
-        $last = now()->startOfDay()->addDays(self::BOOKING_HORIZON_DAYS);
+        $cursor = $this->hospitalToday();
+        $last = $this->booking->lastBookableDate();
 
         while ($cursor->lte($last)) {
             $weekday = strtolower($cursor->format('l'));
@@ -426,16 +448,9 @@ class BookAppointmentController extends Controller
      */
     private function slotsFor(Doctor $doctor, Carbon $date): array
     {
-        $weekday = strtolower($date->format('l'));
-        $schedules = DoctorSchedule::query()
-            ->where('doctor_id', $doctor->id)
-            ->where('status', DoctorScheduleStatus::Active)
-            ->get()
-            ->filter(fn (DoctorSchedule $schedule): bool => $schedule->day_of_week->value === $weekday);
-
         $slots = [];
 
-        foreach ($schedules as $schedule) {
+        foreach ($this->schedulesOn($doctor, $date) as $schedule) {
             foreach ($this->booking->getAvailableSlots($doctor, $schedule, $date->toDateString()) as $start) {
                 $slots[$start] = [
                     'start' => $start,
@@ -448,6 +463,136 @@ class BookAppointmentController extends Controller
         ksort($slots);
 
         return array_values($slots);
+    }
+
+    /**
+     * All schedule times for the date. Only times present in $available are selectable.
+     *
+     * @param  list<array{start: string, label: string, doctor_schedule_id: int}>  $available
+     * @return list<array{start: string, label: string, available: bool, starts_at: string}>
+     */
+    private function timeSlotsFor(Doctor $doctor, Carbon $date, array $available): array
+    {
+        $open = array_flip(array_column($available, 'start'));
+        $slots = [];
+
+        foreach ($this->schedulesOn($doctor, $date) as $schedule) {
+            foreach ($this->booking->getScheduleSlotStarts($schedule) as $start) {
+                $slots[$start] = [
+                    'start' => $start,
+                    'label' => $this->formatTime($start),
+                    'available' => isset($open[$start]),
+                    'starts_at' => CarbonImmutable::parse($date->toDateString().' '.$start, config('app.timezone'))->format('Y-m-d\TH:i:sP'),
+                ];
+            }
+        }
+
+        ksort($slots);
+
+        return array_values($slots);
+    }
+
+    /**
+     * @return Collection<int, DoctorSchedule>
+     */
+    private function schedulesOn(Doctor $doctor, Carbon $date): Collection
+    {
+        $weekday = strtolower($date->format('l'));
+
+        return DoctorSchedule::query()
+            ->where('doctor_id', $doctor->id)
+            ->where('status', DoctorScheduleStatus::Active)
+            ->get()
+            ->filter(fn (DoctorSchedule $schedule): bool => $schedule->day_of_week->value === $weekday);
+    }
+
+    /**
+     * Month grid for the date picker. Only dates from bookableDates() are selectable.
+     *
+     * @param  list<CarbonInterface>  $dates
+     * @return array{
+     *     label: string,
+     *     prev: string|null,
+     *     next: string|null,
+     *     weeks: list<list<array{day: int, date: string, label: string, available: bool, selected: bool, today: bool}|null>>
+     * }
+     */
+    private function calendar(array $dates, ?CarbonInterface $selected, string $monthQuery): array
+    {
+        $today = $this->hospitalToday();
+        $firstMonth = CarbonImmutable::parse($today->toDateString())->startOfMonth();
+        $lastMonth = CarbonImmutable::parse($this->booking->lastBookableDate()->toDateString())->startOfMonth();
+
+        $month = $this->parseMonth($monthQuery)
+            ?? ($selected !== null ? CarbonImmutable::parse($selected->toDateString())->startOfMonth() : null)
+            ?? (isset($dates[0]) ? CarbonImmutable::parse($dates[0]->toDateString())->startOfMonth() : null)
+            ?? $firstMonth;
+
+        if ($month->lt($firstMonth) || $month->gt($lastMonth)) {
+            $month = $firstMonth;
+        }
+
+        $available = array_flip(array_map(fn (CarbonInterface $date): string => $date->toDateString(), $dates));
+        $selectedValue = $selected?->toDateString();
+        $todayValue = $today->toDateString();
+
+        $cells = array_fill(0, $month->dayOfWeek, null);
+
+        for ($day = $month; $day->month === $month->month; $day = $day->addDay()) {
+            $value = $day->toDateString();
+
+            $cells[] = [
+                'day' => $day->day,
+                'date' => $value,
+                'label' => $day->format('l, F j, Y'),
+                'available' => isset($available[$value]),
+                'selected' => $value === $selectedValue,
+                'today' => $value === $todayValue,
+            ];
+        }
+
+        while (count($cells) % 7 !== 0) {
+            $cells[] = null;
+        }
+
+        return [
+            'label' => $month->format('F Y'),
+            'prev' => $month->gt($firstMonth) ? $month->subMonth()->format('Y-m') : null,
+            'next' => $month->lt($lastMonth) ? $month->addMonth()->format('Y-m') : null,
+            'weeks' => array_chunk($cells, 7),
+        ];
+    }
+
+    private function hospitalToday(): CarbonImmutable
+    {
+        return CarbonImmutable::now(config('app.timezone'))->startOfDay();
+    }
+
+    private function dateIsInsideBookingWindow(CarbonInterface $date): bool
+    {
+        $day = $date->toDateString();
+
+        return $day >= $this->hospitalToday()->toDateString()
+            && $day <= $this->booking->lastBookableDate()->toDateString();
+    }
+
+    private function parseMonth(string $value): ?CarbonImmutable
+    {
+        if (preg_match('/^\d{4}-\d{2}$/', $value) !== 1) {
+            return null;
+        }
+
+        try {
+            $parsed = CarbonImmutable::createFromFormat('!Y-m', $value);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        if (! $parsed instanceof CarbonImmutable || $parsed->format('Y-m') !== $value) {
+            return null;
+        }
+
+        return $parsed->startOfMonth();
     }
 
     /**
@@ -503,6 +648,10 @@ class BookAppointmentController extends Controller
         }
 
         if (isset($errors['start_time'])) {
+            if (($errors['start_time'][0] ?? null) === AppointmentBookingService::PASSED_SLOT_MESSAGE) {
+                return AppointmentBookingService::PASSED_SLOT_MESSAGE;
+            }
+
             return 'That time slot is no longer available. Please choose another time.';
         }
 
@@ -524,7 +673,7 @@ class BookAppointmentController extends Controller
     private function parseDate(string $value): ?Carbon
     {
         try {
-            $parsed = Carbon::createFromFormat('!Y-m-d', $value);
+            $parsed = Carbon::createFromFormat('!Y-m-d', $value, config('app.timezone'));
         } catch (\Throwable) {
             return null;
         }

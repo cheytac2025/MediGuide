@@ -28,69 +28,75 @@
                 <div class="mg-book-alert" role="alert">{{ session('appointment_error') }}</div>
             @endif
 
-            <span class="mg-status mg-appt-status is-{{ $appointment->status->value }}">
-                {{ $appointment->status->patientLabel() }}
-            </span>
+            <section class="mg-appt-detail-group" aria-labelledby="appointment-information">
+                <h2 id="appointment-information" class="mg-book-heading">Appointment Information</h2>
+                <dl class="mg-review-list">
+                    <div>
+                        <dt>Reference</dt>
+                        <dd>#{{ $appointment->id }}</dd>
+                    </div>
+                    <div>
+                        <dt>Status</dt>
+                        <dd>
+                            <span class="mg-status mg-appt-status is-{{ $appointment->status->value }}">
+                                {{ $appointment->status->patientLabel() }}
+                            </span>
+                        </dd>
+                    </div>
+                    <div>
+                        <dt>Date</dt>
+                        <dd>{{ $appointment->appointment_date->format('l, F j, Y') }}</dd>
+                    </div>
+                    <div>
+                        <dt>Time</dt>
+                        <dd>{{ $start }} – {{ $end }}</dd>
+                    </div>
+                </dl>
+            </section>
 
-            <dl class="mg-review-list mg-appt-detail-list">
-                <div>
-                    <dt>Appointment reference</dt>
-                    <dd>#{{ $appointment->id }}</dd>
-                </div>
-                <div>
-                    <dt>Status</dt>
-                    <dd>{{ $appointment->status->patientLabel() }}</dd>
-                </div>
-                <div>
-                    <dt>Clinic</dt>
-                    <dd>{{ $appointment->doctor->clinic->name }}</dd>
-                </div>
-                <div>
-                    <dt>Department</dt>
-                    <dd>{{ $appointment->doctor->clinic->department->name }}</dd>
-                </div>
-                <div>
-                    <dt>Doctor</dt>
-                    <dd>{{ $appointment->doctor->display_name }}</dd>
-                </div>
-                <div>
-                    <dt>Specialization</dt>
-                    <dd>{{ $appointment->doctor->specialization ?: '—' }}</dd>
-                </div>
-                <div>
-                    <dt>Date</dt>
-                    <dd>{{ $appointment->appointment_date->format('l, F j, Y') }}</dd>
-                </div>
-                <div>
-                    <dt>Start time</dt>
-                    <dd>{{ $start }}</dd>
-                </div>
-                <div>
-                    <dt>End time</dt>
-                    <dd>{{ $end }}</dd>
-                </div>
-                <div>
-                    <dt>Patient concern</dt>
-                    <dd>{{ $appointment->patient_concern ?: 'None' }}</dd>
-                </div>
-                <div>
-                    <dt>Requested</dt>
-                    <dd>{{ $appointment->created_at?->timezone(config('app.timezone'))->format('l, F j, Y g:i A') }}</dd>
-                </div>
-            </dl>
+            <section class="mg-appt-detail-group" aria-labelledby="doctor-and-clinic">
+                <h2 id="doctor-and-clinic" class="mg-book-heading">Doctor and Clinic</h2>
+                <dl class="mg-review-list">
+                    <div>
+                        <dt>Doctor</dt>
+                        <dd>{{ $appointment->doctor->display_name }}</dd>
+                    </div>
+                    <div>
+                        <dt>Specialization</dt>
+                        <dd>{{ $appointment->doctor->specialization ?: '—' }}</dd>
+                    </div>
+                    <div>
+                        <dt>Clinic</dt>
+                        <dd>{{ $appointment->doctor->clinic->name }}</dd>
+                    </div>
+                    <div>
+                        <dt>Department</dt>
+                        <dd>{{ $appointment->doctor->clinic->department->name }}</dd>
+                    </div>
+                </dl>
+            </section>
+
+            @if ($appointment->patient_concern)
+                <section class="mg-appt-detail-group" aria-labelledby="patient-concern">
+                    <h2 id="patient-concern" class="mg-book-heading">Patient Concern</h2>
+                    <p class="mg-appt-concern">{{ $appointment->patient_concern }}</p>
+                </section>
+            @endif
 
             @if ($appointment->status->canBeCancelledByPatient())
-                <button type="button" class="mg-appt-cancel" data-mg-cancel-open>Cancel appointment</button>
+                <div class="mg-appt-cancel-block">
+                    <button type="button" class="mg-appt-cancel" data-mg-cancel-open>Cancel Appointment</button>
 
-                <div class="mg-cancel-dialog" data-mg-cancel-dialog hidden>
-                    <p>Are you sure you want to cancel this appointment?</p>
-                    <div class="mg-cancel-actions">
-                        <button type="button" class="mg-appt-keep" data-mg-cancel-keep>Keep Appointment</button>
-                        <form method="POST" action="{{ route('patient.appointments.cancel', $appointment) }}">
-                            @csrf
-                            @method('PATCH')
-                            <button type="submit" class="mg-appt-cancel">Cancel Appointment</button>
-                        </form>
+                    <div class="mg-cancel-dialog" data-mg-cancel-dialog hidden>
+                        <p>Are you sure you want to cancel this appointment?</p>
+                        <div class="mg-cancel-actions">
+                            <button type="button" class="mg-appt-keep" data-mg-cancel-keep>Keep Appointment</button>
+                            <form method="POST" action="{{ route('patient.appointments.cancel', $appointment) }}">
+                                @csrf
+                                @method('PATCH')
+                                <button type="submit" class="mg-appt-cancel">Cancel Appointment</button>
+                            </form>
+                        </div>
                     </div>
                 </div>
             @endif

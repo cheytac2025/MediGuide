@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\User;
 use App\Support\PatientHeader;
+use App\Support\PatientNotifications;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
@@ -17,13 +18,16 @@ class NotificationController extends Controller
     {
         /** @var User $user */
         $user = $request->user();
-
-        $notifications = $user->notifications()->latest()->get();
+        $filter = PatientNotifications::normalizeFilter($request->query('filter'));
+        $notifications = PatientNotifications::ordered($user, $filter)->get();
 
         return view('patient.notifications', [
             'patient' => PatientHeader::from($user),
             'active' => 'notifications',
             'notifications' => $notifications,
+            'groups' => PatientNotifications::groups($notifications),
+            'filter' => $filter,
+            'hasNotifications' => $user->notifications()->exists(),
         ]);
     }
 
@@ -45,6 +49,27 @@ class NotificationController extends Controller
         $record->markAsRead();
 
         return redirect()->route('patient.notifications');
+    }
+
+    public function destroy(Request $request, string $notification): RedirectResponse
+    {
+        $this->ownedNotification($request, $notification)->delete();
+
+        return redirect()
+            ->route('patient.notifications')
+            ->with('notification_status', 'Notification removed.');
+    }
+
+    public function clear(Request $request): RedirectResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        $user->notifications()->delete();
+
+        return redirect()
+            ->route('patient.notifications')
+            ->with('notification_status', 'All notifications cleared.');
     }
 
     public function open(Request $request, string $notification): RedirectResponse

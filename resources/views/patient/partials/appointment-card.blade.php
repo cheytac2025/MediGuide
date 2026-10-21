@@ -4,33 +4,23 @@
 @endphp
 
 <article class="mg-appt-card">
-    <div class="mg-appt-card-top">
-        <div>
-            <h3>{{ $appointment->doctor->clinic->name }}</h3>
-            <p>{{ $appointment->doctor->display_name }}</p>
+    <div class="mg-appt-card-main">
+        <p class="mg-appt-when">
+            <strong>{{ $dateLabel }}</strong>
+            <span>{{ $start }}</span>
+        </p>
+        <h3>{{ $appointment->doctor->display_name }}</h3>
+        <p class="mg-appt-muted">
+            {{ $appointment->doctor->clinic->name }}
             @if ($appointment->doctor->specialization)
-                <p class="mg-appt-muted">{{ $appointment->doctor->specialization }}</p>
+                · {{ $appointment->doctor->specialization }}
             @endif
-        </div>
+        </p>
+    </div>
+    <div class="mg-appt-card-side">
         <span class="mg-status mg-appt-status is-{{ $appointment->status->value }}">
             {{ $appointment->status->patientLabel() }}
         </span>
+        <a class="mg-appt-details" href="{{ route('patient.appointments.show', $appointment) }}">View Details</a>
     </div>
-
-    <dl class="mg-appt-facts">
-        <div>
-            <dt>Date</dt>
-            <dd>{{ $dateLabel }}</dd>
-        </div>
-        <div>
-            <dt>Time</dt>
-            <dd>{{ $start }}</dd>
-        </div>
-    </dl>
-
-    @if ($appointment->patient_concern)
-        <p class="mg-appt-concern">{{ $appointment->patient_concern }}</p>
-    @endif
-
-    <a class="mg-appt-details" href="{{ route('patient.appointments.show', $appointment) }}">View Details</a>
 </article>
