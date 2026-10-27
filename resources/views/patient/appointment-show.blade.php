@@ -5,6 +5,7 @@
 @php
     $start = \Illuminate\Support\Carbon::parse($appointment->start_time)->format('h:i A');
     $end = \Illuminate\Support\Carbon::parse($appointment->end_time)->format('h:i A');
+    $recordTrusted = $appointment->integrityIsValid();
 @endphp
 
 @section('content')
@@ -38,8 +39,8 @@
                     <div>
                         <dt>Status</dt>
                         <dd>
-                            <span class="mg-status mg-appt-status is-{{ $appointment->status->value }}">
-                                {{ $appointment->status->patientLabel() }}
+                            <span class="mg-status mg-appt-status is-{{ $recordTrusted ? $appointment->status->value : 'cancelled' }}">
+                                {{ $recordTrusted ? $appointment->status->patientLabel() : 'Unverified' }}
                             </span>
                         </dd>
                     </div>
@@ -76,14 +77,14 @@
                 </dl>
             </section>
 
-            @if ($appointment->patient_concern)
+            @if ($recordTrusted && $appointment->patient_concern)
                 <section class="mg-appt-detail-group" aria-labelledby="patient-concern">
                     <h2 id="patient-concern" class="mg-book-heading">Patient Concern</h2>
                     <p class="mg-appt-concern">{{ $appointment->patient_concern }}</p>
                 </section>
             @endif
 
-            @if ($appointment->status->canBeCancelledByPatient())
+            @if ($recordTrusted && $appointment->status->canBeCancelledByPatient())
                 <div class="mg-appt-cancel-block">
                     <button type="button" class="mg-appt-cancel" data-mg-cancel-open>Cancel Appointment</button>
 

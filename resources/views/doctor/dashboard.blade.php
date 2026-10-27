@@ -73,6 +73,7 @@
                         $patientName = $appointment->patient?->user?->name ?? 'Unknown patient';
                         $clinicName = $appointment->doctor?->clinic?->name ?? 'Unknown clinic';
                         $timeLabel = \Illuminate\Support\Carbon::parse($appointment->start_time)->format('h:i A');
+                        $recordTrusted = $appointment->integrityIsValid();
                     @endphp
 
                     <article class="mg-staff-request-card">
@@ -80,11 +81,11 @@
                             <div>
                                 <h3>{{ $patientName }}</h3>
                                 <p>{{ $clinicName }}</p>
-                                @if ($appointment->patient_concern)
+                                @if ($recordTrusted && $appointment->patient_concern)
                                     <p class="mg-appt-muted">{{ $appointment->patient_concern }}</p>
                                 @endif
                             </div>
-                            <span class="mg-status is-confirmed">{{ $appointment->status->label() }}</span>
+                            <span class="mg-status is-confirmed">{{ $recordTrusted ? $appointment->status->label() : 'Unverified' }}</span>
                         </div>
 
                         <dl class="mg-appt-facts">
@@ -121,6 +122,7 @@
                         $clinicName = $appointment->doctor?->clinic?->name ?? 'Unknown clinic';
                         $dateLabel = $appointment->appointment_date->format('l, F j, Y');
                         $timeLabel = \Illuminate\Support\Carbon::parse($appointment->start_time)->format('h:i A');
+                        $recordTrusted = $appointment->integrityIsValid();
                     @endphp
 
                     <article class="mg-staff-request-card">
@@ -129,7 +131,7 @@
                                 <h3>{{ $patientName }}</h3>
                                 <p>{{ $clinicName }}</p>
                             </div>
-                            <span class="mg-status is-confirmed">{{ $appointment->status->label() }}</span>
+                            <span class="mg-status is-confirmed">{{ $recordTrusted ? $appointment->status->label() : 'Unverified' }}</span>
                         </div>
 
                         <dl class="mg-appt-facts">

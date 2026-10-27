@@ -764,9 +764,10 @@ class BookAppointmentTest extends TestCase
             'doctor_schedule_id' => $payload['doctor_schedule_id'],
             'start_time' => '09:00:00',
             'end_time' => '09:30:00',
-            'patient_concern' => 'Sore throat since yesterday',
             'status' => AppointmentStatus::Pending->value,
         ]);
+        $this->assertSame('Sore throat since yesterday', Appointment::query()->sole()->patient_concern);
+        $this->assertDatabaseMissing('appointments', ['patient_concern' => 'Sore throat since yesterday']);
 
         $this->actingAs($user)
             ->get(route('patient.appointments'))

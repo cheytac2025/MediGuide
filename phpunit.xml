@@ -20,7 +20,13 @@
     <php>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_TIMEZONE" value="Asia/Manila"/>
-        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <env name="APP_MAINTENANCE_DRIVER" value="array"/>
+        <env name="PATIENT_DATA_ALLOW_LEGACY_PLAINTEXT" value="true"/>
+        <env name="PATIENT_DATA_ENCRYPT_PROFILE_FIELDS" value="false"/>
+        <env name="SESSION_ENCRYPT" value="false"/>
+        <env name="MEDIGUIDE_INTEGRITY_KEY" value="base64:J7WmCT//DDLI6GbsNMVbdGgmO3fmAWT+cNMsba4AtQk="/>
+        <env name="MEDIGUIDE_INTEGRITY_KEY_VERSION" value="1"/>
+        <env name="MEDIGUIDE_INTEGRITY_STRICT" value="false"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>

@@ -11,6 +11,8 @@ use App\Models\Appointment;
 use App\Models\Doctor;
 use App\Models\DoctorSchedule;
 use App\Models\Patient;
+use App\Support\Integrity\IntegrityStatus;
+use App\Support\Integrity\RecordIntegrityService;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
@@ -331,10 +333,15 @@ class AppointmentBookingService
         $query = Appointment::query()
             ->where('patient_id', $patient->id)
             ->whereDate('appointment_date', $date->toDateString())
-            ->whereIn('status', $this->blockingStatuses())
             ->lockForUpdate();
 
-        if ($this->isBlocked($start, $end, $query->get())) {
+        $blocked = $query->get()->filter(fn (Appointment $appointment): bool => $this->occupiesSlot($appointment))->values();
+        $blocked = $this->withDisplacedSlots(
+            $blocked,
+            app(RecordIntegrityService::class)->displacedPatientSlots($patient->id, $date->toDateString(), true),
+        );
+
+        if ($this->isBlocked($start, $end, $blocked)) {
             throw ValidationException::withMessages([
                 'patient_id' => 'This patient already has an appointment that overlaps the selected time.',
             ]);
@@ -373,14 +380,55 @@ class AppointmentBookingService
     {
         $query = Appointment::query()
             ->where('doctor_id', $doctorId)
-            ->whereDate('appointment_date', $date)
-            ->whereIn('status', $this->blockingStatuses());
+            ->whereDate('appointment_date', $date);
 
         if ($lock) {
             $query->lockForUpdate();
         }
 
-        return $query->get();
+        $blocked = $query->get()->filter(fn (Appointment $appointment): bool => $this->occupiesSlot($appointment))->values();
+
+        return $this->withDisplacedSlots(
+            $blocked,
+            app(RecordIntegrityService::class)->displacedSlots($doctorId, $date, $lock),
+        );
+    }
+
+    /**
+     * @param  Collection<int, Appointment>  $blocked
+     * @param  list<array{start: string, end: string}>  $slots
+     * @return Collection<int, Appointment>
+     */
+    private function withDisplacedSlots(Collection $blocked, array $slots): Collection
+    {
+        foreach ($slots as $slot) {
+            $blocked->push(new Appointment([
+                'start_time' => $slot['start'],
+                'end_time' => $slot['end'],
+            ]));
+        }
+
+        return $blocked;
+    }
+
+    /**
+     * A failed seal still occupies the slot. Trusting a tampered status would
+     * free a time the hospital can no longer verify. Strict mode also keeps
+     * an unsigned row occupied until it has been enrolled.
+     */
+    private function occupiesSlot(Appointment $appointment): bool
+    {
+        $status = app(RecordIntegrityService::class)->statusOf($appointment);
+
+        if ($status === IntegrityStatus::Invalid) {
+            return true;
+        }
+
+        if ($status === IntegrityStatus::Unsigned && config('integrity.strict')) {
+            return true;
+        }
+
+        return in_array($appointment->status, $this->blockingStatuses(), true);
     }
 
     /**

@@ -44,6 +44,7 @@
                             $timeLabel = \Illuminate\Support\Carbon::parse($appointment->start_time)->format('h:i A')
                                 .' – '
                                 .\Illuminate\Support\Carbon::parse($appointment->end_time)->format('h:i A');
+                            $recordTrusted = $appointment->integrityIsValid();
                         @endphp
 
                         <article class="mg-staff-request-card">
@@ -54,8 +55,8 @@
                                     <p>{{ $clinicName }}</p>
                                     <p class="mg-appt-muted">{{ $doctorName }}</p>
                                 </div>
-                                <span class="mg-status is-{{ $appointment->status->value }}">
-                                    {{ $appointment->status->staffLabel() }}
+                                <span class="mg-status is-{{ $recordTrusted ? $appointment->status->value : 'cancelled' }}">
+                                    {{ $recordTrusted ? $appointment->status->staffLabel() : 'Unverified' }}
                                 </span>
                             </div>
 

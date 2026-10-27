@@ -8,6 +8,8 @@
     $clinic = $appointment->doctor?->clinic;
     $start = \Illuminate\Support\Carbon::parse($appointment->start_time)->format('h:i A');
     $end = \Illuminate\Support\Carbon::parse($appointment->end_time)->format('h:i A');
+    $recordTrusted = $appointment->integrityIsValid();
+    $patientTrusted = $patient === null || $patient->integrityIsValid();
 @endphp
 
 @section('content')
@@ -21,8 +23,8 @@
                 <a class="mg-appt-back" href="{{ route('doctor.appointments') }}">Back to Appointments</a>
             </div>
 
-            <span class="mg-status mg-appt-status is-{{ $appointment->status->value }}">
-                {{ $appointment->status->label() }}
+            <span class="mg-status mg-appt-status is-{{ $recordTrusted ? $appointment->status->value : 'cancelled' }}">
+                {{ $recordTrusted ? $appointment->status->label() : 'Unverified' }}
             </span>
 
             <dl class="mg-review-list mg-appt-detail-list">
@@ -32,7 +34,7 @@
                 </div>
                 <div>
                     <dt>Status</dt>
-                    <dd>{{ $appointment->status->label() }}</dd>
+                    <dd>{{ $recordTrusted ? $appointment->status->label() : 'Unverified' }}</dd>
                 </div>
                 <div>
                     <dt>Patient name</dt>
@@ -44,7 +46,7 @@
                 </div>
                 <div>
                     <dt>Patient contact number</dt>
-                    <dd>{{ $patient?->contact_number ?? '—' }}</dd>
+                    <dd>{{ $patientTrusted ? ($patient?->contact_number ?? '—') : 'Unavailable' }}</dd>
                 </div>
                 <div>
                     <dt>Clinic</dt>
@@ -64,7 +66,7 @@
                 </div>
                 <div>
                     <dt>Patient concern</dt>
-                    <dd>{{ $appointment->patient_concern ?: '—' }}</dd>
+                    <dd>{{ $recordTrusted ? ($appointment->patient_concern ?: '—') : 'Unavailable' }}</dd>
                 </div>
             </dl>
         </section>

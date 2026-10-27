@@ -20,15 +20,16 @@ class ProfileController extends Controller
         $user->loadMissing('patient');
 
         $patientRecord = $user->patient;
+        $verified = $patientRecord?->integrityIsValid() ?? true;
 
         return view('patient.profile', [
             'patient' => PatientHeader::from($user),
             'active' => 'profile',
             'profile' => [
                 'full_name' => $this->fullName($user),
-                'date_of_birth' => $patientRecord?->date_of_birth?->format('F j, Y') ?: 'Not provided',
-                'sex' => $patientRecord?->sex?->label() ?: 'Not provided',
-                'contact_number' => $this->displayValue($patientRecord?->contact_number),
+                'date_of_birth' => $verified ? ($patientRecord?->date_of_birth?->format('F j, Y') ?: 'Not provided') : 'Unavailable',
+                'sex' => $verified ? ($patientRecord?->sex?->label() ?: 'Not provided') : 'Unavailable',
+                'contact_number' => $verified ? $this->displayValue($patientRecord?->contact_number) : 'Unavailable',
                 'email' => $this->displayValue($user->email),
                 'role' => 'Patient',
                 'account_status' => $this->accountStatusLabel($user),

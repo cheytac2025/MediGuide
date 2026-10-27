@@ -2,8 +2,12 @@
 
 namespace App\Models;
 
+use App\Casts\EncryptedPatientData;
 use App\Enums\AppointmentStatus;
+use App\Models\Concerns\ChecksRecordIntegrity;
+use App\Models\Concerns\WritesRecordIntegrity;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -34,8 +38,11 @@ use Illuminate\Support\Carbon;
     'patient_concern',
     'status',
 ])]
+#[Hidden(['patient_concern'])]
 class Appointment extends Model
 {
+    use ChecksRecordIntegrity, WritesRecordIntegrity;
+
     /**
      * New patient bookings stay pending until hospital staff confirm or reject them.
      *
@@ -76,6 +83,7 @@ class Appointment extends Model
     {
         return [
             'appointment_date' => 'date',
+            'patient_concern' => EncryptedPatientData::class,
             'status' => AppointmentStatus::class,
         ];
     }

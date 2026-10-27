@@ -74,9 +74,9 @@ class AppointmentTest extends TestCase
             'doctor_schedule_id' => $schedule->id,
             'start_time' => '09:00:00',
             'end_time' => '09:30:00',
-            'patient_concern' => 'Sore throat',
             'status' => AppointmentStatus::Pending->value,
         ]);
+        $this->assertSame('Sore throat', $appointment->fresh()->patient_concern);
         $this->assertTrue(
             Appointment::query()->whereKey($appointment->id)->whereDate('appointment_date', self::MONDAY)->exists(),
         );

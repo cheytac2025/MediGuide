@@ -310,9 +310,9 @@ class MyAppointmentsTest extends TestCase
         $this->assertDatabaseHas('appointments', [
             'id' => $appointment->id,
             'patient_id' => $user->patient->id,
-            'patient_concern' => 'Keep this row',
             'status' => AppointmentStatus::Cancelled->value,
         ]);
+        $this->assertSame('Keep this row', $appointment->fresh()->patient_concern);
         $this->assertSame(1, Appointment::query()->count());
     }
 

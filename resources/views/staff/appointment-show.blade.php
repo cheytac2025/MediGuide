@@ -10,6 +10,8 @@
     $department = $clinic?->department;
     $start = \Illuminate\Support\Carbon::parse($appointment->start_time)->format('h:i A');
     $end = \Illuminate\Support\Carbon::parse($appointment->end_time)->format('h:i A');
+    $recordTrusted = $appointment->integrityIsValid();
+    $patientTrusted = $patient === null || $patient->integrityIsValid();
 @endphp
 
 @section('content')
@@ -33,8 +35,8 @@
                 <div class="mg-book-alert" role="alert">{{ session('appointment_error') }}</div>
             @endif
 
-            <span class="mg-status mg-appt-status is-{{ $appointment->status->value }}">
-                {{ $appointment->status->staffLabel() }}
+            <span class="mg-status mg-appt-status is-{{ $recordTrusted ? $appointment->status->value : 'cancelled' }}">
+                {{ $recordTrusted ? $appointment->status->staffLabel() : 'Unverified' }}
             </span>
 
             <dl class="mg-review-list mg-appt-detail-list">
@@ -44,7 +46,7 @@
                 </div>
                 <div>
                     <dt>Status</dt>
-                    <dd>{{ $appointment->status->staffLabel() }}</dd>
+                    <dd>{{ $recordTrusted ? $appointment->status->staffLabel() : 'Unverified' }}</dd>
                 </div>
                 <div>
                     <dt>Patient name</dt>
@@ -56,7 +58,7 @@
                 </div>
                 <div>
                     <dt>Patient contact number</dt>
-                    <dd>{{ $patient?->contact_number ?? '—' }}</dd>
+                    <dd>{{ $patientTrusted ? ($patient->contact_number ?? '—') : 'Unavailable' }}</dd>
                 </div>
                 <div>
                     <dt>Clinic</dt>
@@ -88,7 +90,7 @@
                 </div>
                 <div>
                     <dt>Patient concern</dt>
-                    <dd>{{ $appointment->patient_concern ?: 'None' }}</dd>
+                    <dd>{{ $recordTrusted ? ($appointment->patient_concern ?: 'None') : 'Unavailable' }}</dd>
                 </div>
                 <div>
                     <dt>Requested</dt>
@@ -96,7 +98,7 @@
                 </div>
             </dl>
 
-            @if ($appointment->status->canStaffConfirm() || $appointment->status->canStaffReject())
+            @if ($recordTrusted && ($appointment->status->canStaffConfirm() || $appointment->status->canStaffReject()))
                 <div class="mg-staff-actions">
                     @if ($appointment->status->canStaffConfirm())
                         <button type="button" class="mg-appt-details" data-mg-confirm-open>

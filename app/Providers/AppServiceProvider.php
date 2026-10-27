@@ -3,6 +3,9 @@
 namespace App\Providers;
 
 use App\Http\Controllers\Patient\AiGuidanceController;
+use App\Models\Appointment;
+use App\Models\Patient;
+use App\Observers\RecordIntegrityObserver;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -19,7 +22,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // One instance must see both the updating and updated events.
+        $this->app->singleton(RecordIntegrityObserver::class);
     }
 
     /**
@@ -28,6 +32,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+        Appointment::observe(RecordIntegrityObserver::class);
+        Patient::observe(RecordIntegrityObserver::class);
     }
 
     /**
