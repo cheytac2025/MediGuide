@@ -3,15 +3,19 @@
 namespace App\Http\Controllers\Staff;
 
 use App\Enums\AppointmentStatus;
+use App\Enums\AuditAction;
+use App\Enums\AuditOutcome;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\User;
 use App\Notifications\AppointmentConfirmedNotification;
 use App\Notifications\AppointmentRejectedNotification;
 use App\Services\HospitalStaffScope;
+use App\Support\Audit\AuditTrailService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class StaffAppointmentController extends Controller
@@ -72,9 +76,23 @@ class StaffAppointmentController extends Controller
                 ->with('appointment_error', 'This appointment is no longer pending and cannot be confirmed.');
         }
 
-        $record->update([
-            'status' => AppointmentStatus::Confirmed,
-        ]);
+        DB::transaction(function () use ($record, $user): void {
+            $record->update([
+                'status' => AppointmentStatus::Confirmed,
+            ]);
+
+            app(AuditTrailService::class)->recordFor(
+                AuditAction::AppointmentConfirmed,
+                AuditOutcome::Success,
+                $record,
+                [
+                    'doctor_id' => (int) $record->doctor_id,
+                    'patient_id' => (int) $record->patient_id,
+                    'status' => AppointmentStatus::Confirmed->value,
+                ],
+                $user,
+            );
+        });
 
         $record->loadMissing(['doctor', 'patient.user']);
         $record->patient?->user?->notify(new AppointmentConfirmedNotification($record));
@@ -96,9 +114,23 @@ class StaffAppointmentController extends Controller
                 ->with('appointment_error', 'This appointment is no longer pending and cannot be rejected.');
         }
 
-        $record->update([
-            'status' => AppointmentStatus::Rejected,
-        ]);
+        DB::transaction(function () use ($record, $user): void {
+            $record->update([
+                'status' => AppointmentStatus::Rejected,
+            ]);
+
+            app(AuditTrailService::class)->recordFor(
+                AuditAction::AppointmentRejected,
+                AuditOutcome::Success,
+                $record,
+                [
+                    'doctor_id' => (int) $record->doctor_id,
+                    'patient_id' => (int) $record->patient_id,
+                    'status' => AppointmentStatus::Rejected->value,
+                ],
+                $user,
+            );
+        });
 
         $record->loadMissing(['doctor', 'patient.user']);
         $record->patient?->user?->notify(new AppointmentRejectedNotification($record));

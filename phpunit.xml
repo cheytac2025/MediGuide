@@ -27,6 +27,9 @@
         <env name="MEDIGUIDE_INTEGRITY_KEY" value="base64:J7WmCT//DDLI6GbsNMVbdGgmO3fmAWT+cNMsba4AtQk="/>
         <env name="MEDIGUIDE_INTEGRITY_KEY_VERSION" value="1"/>
         <env name="MEDIGUIDE_INTEGRITY_STRICT" value="false"/>
+        <env name="MEDIGUIDE_AUDIT_KEY" value="base64:I4UyLeXitb/oG3p5vhjng+l5iZVF35BuAxzO/wDoYWM="/>
+        <env name="MEDIGUIDE_AUDIT_KEY_VERSION" value="1"/>
+        <env name="MEDIGUIDE_AUDIT_CHECKPOINT_PATH" value=""/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>

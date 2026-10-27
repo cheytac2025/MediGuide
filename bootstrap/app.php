@@ -1,11 +1,16 @@
 <?php
 
+use App\Enums\AuditAction;
+use App\Enums\AuditOutcome;
+use App\Exceptions\AuditTrailException;
 use App\Exceptions\RecordIntegrityException;
+use App\Http\Middleware\AssignAuditCorrelation;
 use App\Http\Middleware\EnsureAccountIsActive;
 use App\Http\Middleware\EnsureAiDisclaimerAcknowledged;
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Support\Audit\AuditTrailService;
 use App\Support\AuthenticatedHome;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
@@ -14,6 +19,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Laravel\Passkeys\Exceptions\InvalidPasskeyException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -25,6 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
         $middleware->web(append: [
+            AssignAuditCorrelation::class,
             EnsureAccountIsActive::class,
             HandleAppearance::class,
             HandleInertiaRequests::class,
@@ -40,11 +47,37 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (RecordIntegrityException $exception, Request $request) {
+            app(AuditTrailService::class)->recordSafely(
+                AuditAction::IntegrityFailed,
+                AuditOutcome::Failure,
+                $exception->recordType,
+                $exception->recordId,
+                ['category' => $exception->category ?? 'unverified'],
+            );
+
             if ($request->expectsJson()) {
                 return response()->json(['message' => $exception->getMessage()], 409);
             }
 
             return back()->with('appointment_error', $exception->getMessage());
+        });
+
+        $exceptions->render(function (AuditTrailException $exception, Request $request) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $exception->getMessage()], 409);
+            }
+
+            return back()->with('appointment_error', $exception->getMessage());
+        });
+
+        $exceptions->report(function (InvalidPasskeyException $exception): false {
+            app(AuditTrailService::class)->recordSafely(
+                AuditAction::PasskeyFailed,
+                AuditOutcome::Failure,
+                context: ['reason' => 'rejected'],
+            );
+
+            return false;
         });
 
         // QueryException messages embed bound values (names, contact numbers,

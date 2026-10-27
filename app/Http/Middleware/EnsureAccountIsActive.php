@@ -2,7 +2,11 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditOutcome;
 use App\Enums\UserStatus;
+use App\Models\User;
+use App\Support\Audit\AuditTrailService;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -26,6 +30,15 @@ class EnsureAccountIsActive
         if ($user === null || $user->status === UserStatus::Active) {
             return $next($request);
         }
+
+        app(AuditTrailService::class)->recordSafely(
+            AuditAction::InactiveSessionDenied,
+            AuditOutcome::Denied,
+            'user',
+            (int) $user->id,
+            ['reason' => 'inactive'],
+            $user instanceof User ? $user : null,
+        );
 
         Auth::guard('web')->logout();
 

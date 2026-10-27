@@ -3,11 +3,15 @@
 namespace App\Services;
 
 use App\Enums\AppointmentStatus;
+use App\Enums\AuditAction;
+use App\Enums\AuditOutcome;
 use App\Enums\DayOfWeek;
 use App\Enums\DoctorScheduleStatus;
 use App\Models\Appointment;
 use App\Models\Doctor;
 use App\Models\DoctorSchedule;
+use App\Support\Audit\AuditTrailService;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +29,7 @@ class DoctorScheduleManagementService
     {
         return DB::transaction(function () use ($doctor, $attributes): DoctorSchedule {
             try {
-                return DoctorSchedule::query()->create([
+                $schedule = DoctorSchedule::query()->create([
                     'doctor_id' => $doctor->id,
                     'day_of_week' => $attributes['day_of_week'],
                     'start_time' => $attributes['start_time'],
@@ -40,6 +44,20 @@ class DoctorScheduleManagementService
             } catch (ValidationException $exception) {
                 throw $this->friendlyOverlap($exception);
             }
+
+            app(AuditTrailService::class)->recordFor(
+                AuditAction::ScheduleCreated,
+                AuditOutcome::Success,
+                $schedule,
+                [
+                    'doctor_id' => (int) $doctor->id,
+                    'day_of_week' => (string) $attributes['day_of_week'],
+                    'status' => (string) $attributes['status'],
+                    'slot_duration' => (int) $attributes['slot_duration'],
+                ],
+            );
+
+            return $schedule;
         });
     }
 
@@ -83,6 +101,18 @@ class DoctorScheduleManagementService
                 throw $this->friendlyOverlap($exception);
             }
 
+            app(AuditTrailService::class)->recordFor(
+                AuditAction::ScheduleUpdated,
+                AuditOutcome::Success,
+                $locked,
+                [
+                    'doctor_id' => (int) $locked->doctor_id,
+                    'day_of_week' => (string) $attributes['day_of_week'],
+                    'status' => (string) $attributes['status'],
+                    'fields' => ['day_of_week', 'start_time', 'end_time', 'slot_duration', 'status'],
+                ],
+            );
+
             return $locked->fresh();
         });
     }
@@ -103,6 +133,16 @@ class DoctorScheduleManagementService
             } catch (ValidationException $exception) {
                 throw $this->friendlyOverlap($exception);
             }
+
+            app(AuditTrailService::class)->recordFor(
+                AuditAction::ScheduleStatusChanged,
+                AuditOutcome::Success,
+                $locked,
+                [
+                    'doctor_id' => (int) $locked->doctor_id,
+                    'status' => $status->value,
+                ],
+            );
 
             return $locked->fresh();
         });
@@ -150,7 +190,7 @@ class DoctorScheduleManagementService
     }
 
     /**
-     * @return \Illuminate\Database\Eloquent\Collection<int, Appointment>
+     * @return Collection<int, Appointment>
      */
     private function futureBlockingAppointments(DoctorSchedule $schedule)
     {

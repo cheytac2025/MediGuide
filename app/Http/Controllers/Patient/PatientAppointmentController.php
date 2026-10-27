@@ -3,15 +3,19 @@
 namespace App\Http\Controllers\Patient;
 
 use App\Enums\AppointmentStatus;
+use App\Enums\AuditAction;
+use App\Enums\AuditOutcome;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\Patient;
 use App\Models\User;
 use App\Notifications\AppointmentCancelledNotification;
+use App\Support\Audit\AuditTrailService;
 use App\Support\PatientHeader;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class PatientAppointmentController extends Controller
@@ -77,9 +81,23 @@ class PatientAppointmentController extends Controller
                 ->with('appointment_error', 'This appointment can no longer be cancelled.');
         }
 
-        $record->update([
-            'status' => AppointmentStatus::Cancelled,
-        ]);
+        DB::transaction(function () use ($record, $user): void {
+            $record->update([
+                'status' => AppointmentStatus::Cancelled,
+            ]);
+
+            app(AuditTrailService::class)->recordFor(
+                AuditAction::AppointmentCancelled,
+                AuditOutcome::Success,
+                $record,
+                [
+                    'doctor_id' => (int) $record->doctor_id,
+                    'patient_id' => (int) $record->patient_id,
+                    'status' => AppointmentStatus::Cancelled->value,
+                ],
+                $user,
+            );
+        });
 
         $user->notify(new AppointmentCancelledNotification($record));
 

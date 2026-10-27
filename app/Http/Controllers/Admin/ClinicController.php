@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditOutcome;
 use App\Enums\ClinicStatus;
 use App\Enums\DepartmentStatus;
 use App\Http\Controllers\Controller;
@@ -11,9 +13,12 @@ use App\Http\Requests\Admin\UpdateClinicStatusRequest;
 use App\Models\Clinic;
 use App\Models\Department;
 use App\Models\User;
+use App\Support\Audit\AuditTrailService;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -59,7 +64,20 @@ class ClinicController extends Controller
     public function store(StoreClinicRequest $request): RedirectResponse
     {
         try {
-            Clinic::query()->create($request->clinicAttributes());
+            DB::transaction(function () use ($request): void {
+                $attributes = $request->clinicAttributes();
+                $clinic = Clinic::query()->create($attributes);
+
+                app(AuditTrailService::class)->recordFor(
+                    AuditAction::ClinicCreated,
+                    AuditOutcome::Success,
+                    $clinic,
+                    [
+                        'department_id' => (int) $attributes['department_id'],
+                        'status' => (string) $attributes['status'],
+                    ],
+                );
+            });
         } catch (UniqueConstraintViolationException) {
             throw ValidationException::withMessages([
                 'name' => 'A clinic with this name already exists in the selected department.',
@@ -89,7 +107,20 @@ class ClinicController extends Controller
     public function update(UpdateClinicRequest $request, Clinic $clinic): RedirectResponse
     {
         try {
-            $clinic->update($request->clinicAttributes());
+            DB::transaction(function () use ($request, $clinic): void {
+                $attributes = $request->clinicAttributes();
+                $clinic->update($attributes);
+
+                app(AuditTrailService::class)->recordFor(
+                    AuditAction::ClinicUpdated,
+                    AuditOutcome::Success,
+                    $clinic,
+                    [
+                        'department_id' => (int) $attributes['department_id'],
+                        'status' => (string) $attributes['status'],
+                    ],
+                );
+            });
         } catch (UniqueConstraintViolationException) {
             throw ValidationException::withMessages([
                 'name' => 'A clinic with this name already exists in the selected department.',
@@ -112,7 +143,16 @@ class ClinicController extends Controller
                 ->with('clinic_error', 'This clinic cannot be activated because its department is inactive.');
         }
 
-        $clinic->update(['status' => $status]);
+        DB::transaction(function () use ($clinic, $status): void {
+            $clinic->update(['status' => $status]);
+
+            app(AuditTrailService::class)->recordFor(
+                AuditAction::ClinicStatusChanged,
+                AuditOutcome::Success,
+                $clinic,
+                ['status' => $status->value],
+            );
+        });
 
         return redirect()
             ->route('admin.clinics')
@@ -125,7 +165,7 @@ class ClinicController extends Controller
     }
 
     /**
-     * @return \Illuminate\Database\Eloquent\Collection<int, Department>
+     * @return Collection<int, Department>
      */
     private function departments()
     {

@@ -2,7 +2,11 @@
 
 namespace App\Http\Controllers\Settings;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditOutcome;
 use App\Http\Controllers\Controller;
+use App\Models\User;
+use App\Support\Audit\AuditTrailService;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -28,7 +32,7 @@ class ProfileController extends Controller
      */
     public function update(Request $request): RedirectResponse
     {
-        abort(403);
+        $this->denyProfileChange($request, 'profile_update');
     }
 
     /**
@@ -37,6 +41,22 @@ class ProfileController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        $this->denyProfileChange($request, 'profile_delete');
+    }
+
+    private function denyProfileChange(Request $request, string $reason): never
+    {
+        $user = $request->user();
+
+        app(AuditTrailService::class)->recordSafely(
+            AuditAction::AuthorizationDenied,
+            AuditOutcome::Denied,
+            $user instanceof User ? 'user' : null,
+            $user instanceof User ? (int) $user->id : null,
+            ['reason' => $reason],
+            $user instanceof User ? $user : null,
+        );
+
         abort(403);
     }
 }

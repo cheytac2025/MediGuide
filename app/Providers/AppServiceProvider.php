@@ -3,14 +3,22 @@
 namespace App\Providers;
 
 use App\Http\Controllers\Patient\AiGuidanceController;
+use App\Listeners\RecordAuthenticationAudit;
 use App\Models\Appointment;
 use App\Models\Patient;
 use App\Observers\RecordIntegrityObserver;
+use App\Support\Audit\AuditCheckpointStore;
+use App\Support\Audit\FileAuditCheckpointStore;
+use App\Support\Audit\InactiveAuditCheckpointStore;
 use Carbon\CarbonImmutable;
+use Illuminate\Auth\Events\Failed;
+use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\Logout;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -24,6 +32,15 @@ class AppServiceProvider extends ServiceProvider
     {
         // One instance must see both the updating and updated events.
         $this->app->singleton(RecordIntegrityObserver::class);
+        $this->app->singleton(AuditCheckpointStore::class, function (): AuditCheckpointStore {
+            $path = config('audit.checkpoint_path');
+
+            if (is_string($path) && $path !== '' && FileAuditCheckpointStore::pathIsOutsideWebRoot($path)) {
+                return new FileAuditCheckpointStore($path);
+            }
+
+            return new InactiveAuditCheckpointStore;
+        });
     }
 
     /**
@@ -34,6 +51,9 @@ class AppServiceProvider extends ServiceProvider
         $this->configureDefaults();
         Appointment::observe(RecordIntegrityObserver::class);
         Patient::observe(RecordIntegrityObserver::class);
+        Event::listen(Login::class, [RecordAuthenticationAudit::class, 'login']);
+        Event::listen(Failed::class, [RecordAuthenticationAudit::class, 'failed']);
+        Event::listen(Logout::class, [RecordAuthenticationAudit::class, 'logout']);
     }
 
     /**

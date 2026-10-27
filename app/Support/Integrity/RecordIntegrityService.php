@@ -102,27 +102,28 @@ class RecordIntegrityService
         if ($row === null) {
             $this->report($type, $id, 'missing_record');
 
-            throw new RecordIntegrityException;
+            throw new RecordIntegrityException($type, $id, 'missing_record');
         }
 
         if ($this->protectedFieldsDiffer($type, $row, $model)) {
             $this->report($type, $id, 'stale_write');
 
-            throw new RecordIntegrityException;
+            throw new RecordIntegrityException($type, $id, 'stale_write');
         }
 
         $status = $this->statusFor($type, $id);
 
         if ($status === IntegrityStatus::Invalid) {
-            $this->report($type, $id, $this->failureCategory($type, $id) ?? 'mismatch');
+            $category = $this->failureCategory($type, $id) ?? 'mismatch';
+            $this->report($type, $id, $category);
 
-            throw new RecordIntegrityException;
+            throw new RecordIntegrityException($type, $id, $category);
         }
 
         if ($status === IntegrityStatus::Unsigned && $this->strict()) {
             $this->report($type, $id, 'unsigned');
 
-            throw new RecordIntegrityException;
+            throw new RecordIntegrityException($type, $id, 'unsigned');
         }
 
         return $status;

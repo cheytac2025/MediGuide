@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Enums\AppointmentStatus;
+use App\Enums\AuditAction;
+use App\Enums\AuditOutcome;
 use App\Enums\ClinicStatus;
 use App\Enums\DepartmentStatus;
 use App\Enums\DoctorScheduleStatus;
@@ -11,6 +13,7 @@ use App\Models\Appointment;
 use App\Models\Doctor;
 use App\Models\DoctorSchedule;
 use App\Models\Patient;
+use App\Support\Audit\AuditTrailService;
 use App\Support\Integrity\IntegrityStatus;
 use App\Support\Integrity\RecordIntegrityService;
 use Carbon\CarbonInterface;
@@ -55,7 +58,7 @@ class AppointmentBookingService
             $this->assertDoctorIsAvailable($doctor, $date, $start, $end);
             $this->assertPatientIsAvailable($patient, $date, $start, $end);
 
-            return Appointment::query()->create([
+            $appointment = Appointment::query()->create([
                 'patient_id' => $patient->id,
                 'doctor_id' => $doctor->id,
                 'doctor_schedule_id' => $schedule->id,
@@ -65,6 +68,21 @@ class AppointmentBookingService
                 'patient_concern' => $concern,
                 'status' => AppointmentStatus::Pending,
             ]);
+
+            app(AuditTrailService::class)->recordFor(
+                AuditAction::AppointmentCreated,
+                AuditOutcome::Success,
+                $appointment,
+                [
+                    'doctor_id' => (int) $appointment->doctor_id,
+                    'patient_id' => (int) $appointment->patient_id,
+                    'schedule_id' => (int) $appointment->doctor_schedule_id,
+                    'status' => AppointmentStatus::Pending->value,
+                ],
+                $patient->user,
+            );
+
+            return $appointment;
         });
     }
 

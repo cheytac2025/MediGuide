@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Enums\AppointmentStatus;
+use App\Enums\AuditAction;
+use App\Enums\AuditOutcome;
 use App\Enums\ClinicStatus;
 use App\Enums\DepartmentStatus;
 use App\Enums\DoctorStatus;
@@ -13,6 +15,7 @@ use App\Models\Clinic;
 use App\Models\Doctor;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\Audit\AuditTrailService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -47,13 +50,26 @@ class DoctorManagementService
                 'email_verified_at' => now(),
             ]);
 
-            return Doctor::query()->create([
+            $doctor = Doctor::query()->create([
                 'clinic_id' => $clinic->id,
                 'user_id' => $user->id,
                 'display_name' => $doctorAttributes['display_name'],
                 'specialization' => $doctorAttributes['specialization'],
                 'status' => $doctorAttributes['status'],
             ]);
+
+            app(AuditTrailService::class)->recordFor(
+                AuditAction::DoctorCreated,
+                AuditOutcome::Success,
+                $doctor,
+                [
+                    'account_user_id' => (int) $user->id,
+                    'clinic_id' => (int) $clinic->id,
+                    'status' => (string) $doctorAttributes['status'],
+                ],
+            );
+
+            return $doctor;
         });
     }
 
@@ -93,6 +109,16 @@ class DoctorManagementService
                 ]);
             }
 
+            app(AuditTrailService::class)->recordFor(
+                AuditAction::DoctorUpdated,
+                AuditOutcome::Success,
+                $locked,
+                [
+                    'clinic_id' => (int) $clinic->id,
+                    'status' => $status->value,
+                ],
+            );
+
             return $locked->fresh(['user', 'clinic.department']);
         });
     }
@@ -115,6 +141,13 @@ class DoctorManagementService
             }
 
             $locked->update(['status' => $status]);
+
+            app(AuditTrailService::class)->recordFor(
+                AuditAction::DoctorStatusChanged,
+                AuditOutcome::Success,
+                $locked,
+                ['status' => $status->value],
+            );
 
             return $locked->fresh();
         });

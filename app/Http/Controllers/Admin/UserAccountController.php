@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditOutcome;
 use App\Enums\RoleName;
 use App\Enums\UserStatus;
 use App\Http\Controllers\Controller;
@@ -11,6 +13,7 @@ use App\Http\Requests\Admin\UpdateManagedUserStatusRequest;
 use App\Models\Department;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\Audit\AuditTrailService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -99,8 +102,19 @@ class UserAccountController extends Controller
                 'status' => $attributes['status'],
                 'email_verified_at' => now(),
             ]);
+            $departmentIds = $request->departmentIds();
+            $this->syncStaffDepartments($user, $departmentIds);
 
-            $this->syncStaffDepartments($user, $request->departmentIds());
+            app(AuditTrailService::class)->recordFor(
+                AuditAction::StaffAccountCreated,
+                AuditOutcome::Success,
+                $user,
+                [
+                    'department_ids' => $departmentIds,
+                    'role' => RoleName::HospitalStaff->value,
+                    'status' => (string) $attributes['status'],
+                ],
+            );
         });
 
         return redirect()
@@ -136,6 +150,10 @@ class UserAccountController extends Controller
         $attributes = $request->accountAttributes();
 
         DB::transaction(function () use ($attributes, $request, $user): void {
+            $previousStatus = $user->status instanceof UserStatus ? $user->status->value : (string) $user->status;
+            $user->loadMissing('hospitalStaff.departments');
+            $previousDepartments = $user->hospitalStaff?->departments->pluck('id')->map(fn (mixed $id): int => (int) $id)->all() ?? [];
+            sort($previousDepartments);
             $user->update([
                 'first_name' => $attributes['first_name'],
                 'middle_name' => $attributes['middle_name'],
@@ -146,7 +164,30 @@ class UserAccountController extends Controller
             ]);
 
             if ($user->hasRole(RoleName::HospitalStaff)) {
-                $this->syncStaffDepartments($user, $request->departmentIds());
+                $departmentIds = array_map(intval(...), $request->departmentIds());
+                sort($departmentIds);
+                $this->syncStaffDepartments($user, $departmentIds);
+
+                if ($previousDepartments !== $departmentIds) {
+                    app(AuditTrailService::class)->recordFor(
+                        AuditAction::DepartmentAssignmentChanged,
+                        AuditOutcome::Success,
+                        $user,
+                        ['department_ids' => $departmentIds],
+                    );
+                }
+            }
+
+            if ($previousStatus !== (string) $attributes['status']) {
+                app(AuditTrailService::class)->recordFor(
+                    AuditAction::AccountStatusChanged,
+                    AuditOutcome::Success,
+                    $user,
+                    [
+                        'previous_status' => $previousStatus,
+                        'status' => (string) $attributes['status'],
+                    ],
+                );
             }
         });
 
@@ -160,7 +201,21 @@ class UserAccountController extends Controller
         $this->ensureManagedAccount($request, $user);
 
         $status = UserStatus::from((string) $request->validated('status'));
-        $user->update(['status' => $status]);
+        $previousStatus = $user->status instanceof UserStatus ? $user->status->value : (string) $user->status;
+
+        DB::transaction(function () use ($user, $status, $previousStatus): void {
+            $user->update(['status' => $status]);
+
+            app(AuditTrailService::class)->recordFor(
+                AuditAction::AccountStatusChanged,
+                AuditOutcome::Success,
+                $user,
+                [
+                    'previous_status' => $previousStatus,
+                    'status' => $status->value,
+                ],
+            );
+        });
 
         return redirect()
             ->route('admin.users')
@@ -184,6 +239,15 @@ class UserAccountController extends Controller
     private function ensureManagedAccount(Request $request, User $user): void
     {
         if ($request->user()?->is($user)) {
+            app(AuditTrailService::class)->recordSafely(
+                AuditAction::AuthorizationDenied,
+                AuditOutcome::Denied,
+                'user',
+                (int) $user->id,
+                ['reason' => 'self_account'],
+                $request->user() instanceof User ? $request->user() : null,
+            );
+
             abort(403, 'You cannot change your own account from this page.');
         }
 
