@@ -22,6 +22,7 @@ use Database\Seeders\DevelopmentDoctorScheduleSeeder;
 use Database\Seeders\DevelopmentDoctorSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -318,6 +319,8 @@ class AdminDoctorTest extends TestCase
 
     public function test_clinic_change_is_rejected_while_future_appointments_exist(): void
     {
+        $this->travelTo(Carbon::parse('2026-10-05 08:00:00'));
+
         $doctor = $this->doctor('Test Doctor 1');
         $otherClinic = $this->clinic('Development Clinic B');
         $this->appointmentFor($doctor);
@@ -458,7 +461,7 @@ class AdminDoctorTest extends TestCase
             'patient_id' => $this->patient()->patient->id,
             'doctor_id' => $doctor->id,
             'doctor_schedule_id' => $schedule->id,
-            'appointment_date' => '2026-10-12',
+            'appointment_date' => Carbon::today()->next(Carbon::MONDAY)->toDateString(),
             'start_time' => '09:00:00',
             'end_time' => '09:30:00',
             'status' => AppointmentStatus::Confirmed,
