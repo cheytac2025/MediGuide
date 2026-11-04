@@ -8,6 +8,8 @@ Do not treat a completed software test suite as clinical validation.
 
 Review more than headache scenarios. Use English, Filipino, Tagalog, Taglish, and informal spelling.
 
+**Stage I hospital reviewer packet:** use `docs/clinical-evaluation/` (Documents A–E). This checklist remains the earlier engineering review list. Neither document is a completed clinical approval. Reviewer identity, signature, and approval fields stay blank until qualified hospital personnel complete them.
+
 ## Review scope
 
 - Follow-up question relevance for multiple complaint types

@@ -610,10 +610,16 @@
     });
 
     input?.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-            event.preventDefault();
-            submitMessage(input.value);
+        if (event.key !== 'Enter' || event.shiftKey) {
+            return;
         }
+
+        if (event.isComposing || event.keyCode === 229) {
+            return;
+        }
+
+        event.preventDefault();
+        submitMessage(input.value);
     });
 
     root.querySelectorAll('[data-mg-front-desk-prompt]').forEach((button) => {

@@ -201,6 +201,28 @@ class AiFrontDeskTest extends TestCase
             ->assertRedirect(route('ai-front-desk'));
     }
 
+    public function test_front_desk_composer_sends_on_enter_and_allows_shift_enter_new_line(): void
+    {
+        $js = file_get_contents(public_path('js/ai-front-desk.js'));
+
+        $this->assertIsString($js);
+        $this->assertStringContainsString("event.key !== 'Enter' || event.shiftKey", $js);
+        $this->assertStringContainsString('event.isComposing || event.keyCode === 229', $js);
+        $this->assertStringContainsString('event.preventDefault();', $js);
+        $this->assertStringContainsString('submitMessage(input.value);', $js);
+        $this->assertStringContainsString("form?.addEventListener('submit'", $js);
+        $this->assertStringNotContainsString('event.ctrlKey || event.metaKey', $js);
+
+        $page = $this->withSession([AiDisclaimer::SESSION_KEY => true])
+            ->get(route('ai-front-desk'));
+
+        $page->assertOk();
+        $page->assertSee('enterkeyhint="send"', false);
+        $page->assertSee('data-mg-front-desk-form', false);
+        $page->assertSee('data-mg-front-desk-send', false);
+        $page->assertSee('type="submit"', false);
+    }
+
     private function assertDisclaimerContent(TestResponse $response): void
     {
         $response->assertSee('Before You Continue');

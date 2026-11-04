@@ -24,11 +24,12 @@ final readonly class AiConversationState
         public ?string $openingConcern,
         public int $clarificationCount,
         public array $askedQuestions,
+        public ?string $replyLanguage = null,
     ) {}
 
     public static function empty(): self
     {
-        return new self([], null, 0, []);
+        return new self([], null, 0, [], null);
     }
 
     /**
@@ -72,6 +73,7 @@ final readonly class AiConversationState
             $opening,
             count($questions),
             self::tailQuestions($questions),
+            null,
         );
     }
 
@@ -119,11 +121,17 @@ final readonly class AiConversationState
             }
         }
 
+        $language = $envelope['reply_language'] ?? null;
+        $language = is_string($language) && in_array($language, ['english', 'filipino', 'taglish'], true)
+            ? $language
+            : null;
+
         return new self(
             $context->turns,
             $opening,
             min($count, 20),
             self::tailQuestions($asked),
+            $language,
         );
     }
 
@@ -133,17 +141,22 @@ final readonly class AiConversationState
      *     opening_concern: ?string,
      *     clarification_count: int,
      *     asked_questions: list<string>,
+     *     reply_language: ?string,
      *     turns: list<array{role: 'user'|'assistant', content: string}>
      * }
      */
     public function toEnvelope(): array
     {
+        $facts = AiConversationInterpreter::interpret($this, $this->latestUserMessage());
+
         return [
-            'v' => 1,
+            'v' => 2,
             'opening_concern' => $this->openingConcern,
             'clarification_count' => $this->clarificationCount,
             'asked_questions' => $this->askedQuestions,
+            'reply_language' => $facts->replyLanguage,
             'turns' => $this->turns,
+            'facts' => $facts->toArray(),
         ];
     }
 
@@ -172,17 +185,37 @@ final readonly class AiConversationState
             }
         }
 
-        return new self(
+        $provisional = new self(
             AiConversationContext::fromTurns($turns)->turns,
             $opening === '' ? null : $opening,
             $count,
             self::tailQuestions($asked),
+            $this->replyLanguage,
+        );
+
+        return new self(
+            $provisional->turns,
+            $provisional->openingConcern,
+            $provisional->clarificationCount,
+            $provisional->askedQuestions,
+            AiConversationInterpreter::interpret($provisional, $visitorMessage)->replyLanguage,
         );
     }
 
     public function reachedClarificationLimit(): bool
     {
         return $this->clarificationCount >= self::MAX_CLARIFICATION_ATTEMPTS;
+    }
+
+    public function latestUserMessage(): string
+    {
+        for ($index = count($this->turns) - 1; $index >= 0; $index--) {
+            if ($this->turns[$index]['role'] === 'user') {
+                return $this->turns[$index]['content'];
+            }
+        }
+
+        return $this->openingConcern ?? '';
     }
 
     /**

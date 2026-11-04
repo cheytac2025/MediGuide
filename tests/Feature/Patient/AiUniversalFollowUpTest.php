@@ -82,7 +82,7 @@ class AiUniversalFollowUpTest extends TestCase
             'question' => ClaudeGuidanceService::GENERAL_FOLLOW_UP_ENGLISH,
         ]);
         $english = $this->service()->guide('I have a cough.');
-        $this->assertSame(ClaudeGuidanceService::FOCUSED_GENERAL_FOLLOW_UP_ENGLISH, $english->question);
+        $this->assertSame(ClaudeGuidanceService::COUGH_DURATION_ENGLISH, $english->question);
 
         $this->fakeClaude([
             'type' => 'clarification',
@@ -145,7 +145,7 @@ class AiUniversalFollowUpTest extends TestCase
         ]);
 
         $this->assertSame(AiGuidanceType::Uncertain, $result->type);
-        $this->assertSame(ClaudeGuidanceService::UNABLE_TO_ROUTE_MESSAGE, $result->message);
+        $this->assertSame(ClaudeGuidanceService::UNABLE_TO_ROUTE_MESSAGE_FILIPINO, $result->message);
         $this->assertStringNotContainsString('walang warning', mb_strtolower((string) $result->message));
     }
 
@@ -288,7 +288,7 @@ class AiUniversalFollowUpTest extends TestCase
 
         $response = $this->withSession([AiDisclaimer::SESSION_KEY => true])
             ->postJson(route('ai-front-desk.guidance'), [
-                'message' => 'Masakit ang tiyan ko since kahapon.',
+                'message' => 'Masakit ang tiyan ko sa kaliwa sa itaas since kahapon.',
             ]);
 
         $response->assertOk()

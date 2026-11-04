@@ -209,7 +209,7 @@ final class AiUrgentConcernDetector
         $text = str_replace(["\r\n", "\r"], "\n", $text);
         $text = preg_replace('/[^\p{L}\p{N}\s\']+/u', ' ', $text) ?? $text;
 
-        return trim(preg_replace('/\s+/u', ' ', $text) ?? $text);
+        return AiVisitorReply::applyInformalSpelling(trim(preg_replace('/\s+/u', ' ', $text) ?? $text));
     }
 
     private function withoutIntermittentMarkers(string $normalized): string

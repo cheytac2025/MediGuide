@@ -22,6 +22,8 @@ class AiUrgentConcernDetectorTest extends TestCase
         $this->assertFalse($detector->isUrgent('I have a fever'));
         $this->assertFalse($detector->isUrgent('Sobrang sakit ng ulo bigla-bigla.'));
         $this->assertFalse($detector->isUrgent('Masakit ulo ko bigla-bigla.'));
+        $this->assertFalse($detector->isUrgent('Masakit ang tiyan ko sa kaliwa sa baba. Sumakit na lang siya bilga.'));
+        $this->assertFalse($detector->isUrgent('Medyo masakit ang tiyan ko. Bigla lang.'));
     }
 
     public function test_high_signal_warning_signs_are_flagged(): void
@@ -85,14 +87,25 @@ class AiUrgentConcernDetectorTest extends TestCase
 
     public function test_equivalent_questions_are_detected_and_multiple_questions_are_reduced(): void
     {
+        $this->assertSame('bigla', AiVisitorReply::applyInformalSpelling('bilga'));
+        $this->assertSame('biglaan', AiVisitorReply::applyInformalSpelling('bilgaan'));
+        $this->assertSame('sumakit na lang siya bigla', AiVisitorReply::normalize('sumakit na lang siya bilga.'));
         $this->assertTrue(AiVisitorReply::questionsAreEquivalent(
             'Gaano na katagal sumasakit ang ulo mo?',
             'Gaano na katagal?',
+        ));
+        $this->assertTrue(AiVisitorReply::questionsAreEquivalent(
+            'Gaano na po katagal ito?',
+            'How long has this been happening?',
         ));
         $this->assertFalse(AiVisitorReply::questionsAreEquivalent(
             'Gaano na katagal sumasakit ang ulo mo?',
             'May lagnat ka ba?',
         ));
+        $this->assertSame('rin', AiVisitorReply::applyInformalSpelling('ren'));
+        $this->assertSame('wala naman', AiVisitorReply::withoutLanguageInstruction('wala naman. magtagalog ka'));
+        $this->assertSame('filipino', AiVisitorReply::explicitLanguagePreference('magtagalog ka'));
+        $this->assertSame('english', AiVisitorReply::explicitLanguagePreference('Please speak English'));
         $this->assertSame(
             'Gaano na katagal sumasakit ang ulo mo?',
             AiVisitorReply::firstQuestion('Gaano na katagal sumasakit ang ulo mo? May iba ka bang nararamdaman? May lagnat ka ba?'),

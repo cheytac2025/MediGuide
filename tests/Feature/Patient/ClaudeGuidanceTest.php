@@ -69,6 +69,8 @@ class ClaudeGuidanceTest extends TestCase
         $this->assertStringContainsString('Do not infer what a clinic treats from its name alone.', $system);
         $this->assertStringContainsString('Do not return uncertain merely because a clinic description does not contain the visitor\'s symptom name.', $system);
         $this->assertStringContainsString('Do not ask generic questions', $system);
+        $this->assertStringContainsString('A valid service_id is not enough by itself.', $system);
+        $this->assertStringContainsString('recommendation_ready', $system);
         $this->assertStringContainsString('Understand English, Filipino, Tagalog, and Taglish as natural language.', $system);
         $this->assertStringNotContainsString('Development Clinic Inactive', (string) $encoded);
         $this->assertStringNotContainsString('Development Clinic Hidden', (string) $encoded);
@@ -160,7 +162,7 @@ class ClaudeGuidanceTest extends TestCase
             'confidence' => null,
         ]);
 
-        $result = $this->service()->guide("I've had stomach pain since yesterday.");
+        $result = $this->service()->guide("I've had lower abdominal pain since yesterday.");
 
         $this->assertSame(AiGuidanceType::Recommendation, $result->type);
         $this->assertSame($clinic->id, $result->clinicId);
@@ -688,7 +690,7 @@ class ClaudeGuidanceTest extends TestCase
         ]);
 
         $this->assertSame(AiGuidanceType::Uncertain, $result->type);
-        $this->assertSame(ClaudeGuidanceService::UNABLE_TO_ROUTE_MESSAGE, $result->message);
+        $this->assertSame(ClaudeGuidanceService::UNABLE_TO_ROUTE_MESSAGE_FILIPINO, $result->message);
         $this->assertNull($result->clinicId);
     }
 

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Document D — Doctor Recommendation Evaluation</title>
+<link rel="stylesheet" href="print.css">
+</head>
+<body>
+<p class="doc-banner"><strong>MediGuide Clinical Evaluation Package</strong> — Stage I — 4 November 2026 — Not clinically approved</p>
+<p class="no-print meta">Print this file on A4. Leave reviewer fields blank unless you are the reviewer completing the form.</p>
+<h1>Document D — Doctor Recommendation Evaluation</h1>
+<p><strong>MediGuide AI Virtual Front Desk</strong></p>
+<p>Clinical Evaluation Package, Stage I — 4 November 2026</p>
+<p><strong>Status:</strong> Not clinically approved. Imported consultation hours are <strong>not</strong> verified operational schedules.</p>
+<p>This document evaluates whether Suggested Doctors are grounded in the hospital database. It does not evaluate whether a specialization is the correct clinical destination. Use Document B for that judgment.</p>
+<p>Hospital-provided reference list (imported from the clinic-schedule poster; pending verification):</p>
+<ol>
+<li>Dr. Acosta, Emil Rommel — Otolaryngologist (Ears, Nose, Throat)</li>
+<li>Dr. Arada-Hocate, Maria Nickle — Pediatrician</li>
+<li>Dr. Balajadia, Ma. Imelda — IM-Cardiologist</li>
+<li>Dr. Cabreira, Alvin — Urologist</li>
+<li>Dr. Cadiente, Gilbert — Internal Medicine</li>
+<li>Dr. Chulvo-Chan, Ma. Niña Lourdes — Internal Medicine</li>
+<li>Dr. Combe, Reynaldo — Urologist</li>
+<li>Dr. Daquigan Jr., Angel — General Surgery</li>
+<li>Dr. Dela Cruz, Michael — IM-Nephrologist</li>
+<li>Dr. De Jesus, Mediatrix — Obstetrician Gynecologist &amp; Integrative</li>
+<li>Dr. Dulay, Dennis — IM-Oncologist</li>
+<li>Dr. Eclipse Jr., Eulalio — General Surgery</li>
+<li>Dr. Endaya, Hazel Anne — Pediatrician</li>
+<li>Dr. Enriquez, Tyron Vincent P. — Orthopedic Surgeon &amp; Traumatology (Fracture, Bone &amp; Joint Disease)</li>
+<li>Dr. Saquitan-Epetia, Angeli — Developmental and Behavioral Pediatrician</li>
+<li>Dr. Epetia, Mar Christopher — Pediatric Rheumatologist</li>
+</ol>
+<p>Rooms and secretary numbers from the poster are not patient-facing in MediGuide. Development placeholder doctors must not appear when the data source is <code>imported</code>.</p>
+<p>Imported poster hours were not activated as online-bookable <code>DoctorSchedule</code> rows because no approved slot duration was supplied. Reviewers should expect <strong>no invented online slots</strong>.</p>
+<hr>
+<p>Reviewer: ____________________  Date: ____________  Catalog used: imported / verified / other: ________</p>
+<hr>
+<h2>Software rules to verify (do not mark approved)</h2>
+<table><thead><tr><th>Rule</th><th>Expected software behavior</th><th>Reviewer check</th></tr></thead><tbody><tr><td>Specialization matching</td><td>Claude may propose only an allowed <code>service_id</code>. Laravel revalidates it.</td><td></td></tr><tr><td>Database grounding</td><td>Doctor names come from <code>doctors</code>, not from the model.</td><td></td></tr><tr><td>Active doctor eligibility</td><td>Inactive doctors are omitted.</td><td></td></tr><tr><td>Active clinic and department</td><td>Inactive clinics or departments yield no eligible doctors.</td><td></td></tr><tr><td>Development-record exclusion</td><td>In imported mode, development placeholders are omitted.</td><td></td></tr><tr><td>Name accuracy</td><td>Display names match stored hospital-provided names.</td><td></td></tr><tr><td>Specialization accuracy</td><td>Card specialization matches the stored field.</td><td></td></tr><tr><td>Availability accuracy</td><td>Next-available times appear only from AppointmentBookingService within seven days.</td><td></td></tr><tr><td>No invented doctors</td><td>Unknown names must not appear.</td><td></td></tr><tr><td>No invented schedules</td><td>Times must not be fabricated from the poster text.</td><td></td></tr><tr><td>No doctors available</td><td>Show a single no-doctors explanation; do not invent staff.</td><td></td></tr><tr><td>No online appointments</td><td>One section-level message; names remain visible; do not repeat the same unavailability line on every card.</td><td></td></tr><tr><td>Mapping labels</td><td>“Pending hospital mapping” is not shown as an official department.</td><td></td></tr><tr><td>Safety suppression</td><td>Safety responses have no Suggested Doctors and no booking buttons.</td><td></td></tr></tbody></table>
+<hr>
+<h2>DR-01 Specialization matching — Internal Medicine (live)</h2>
+<table><thead><tr><th>Field</th><th>Content</th></tr></thead><tbody><tr><td>Synthetic path</td><td>CV-22: “I have a mild cough since yesterday. No fever and I can breathe normally.”</td></tr><tr><td>Expected</td><td>If a recommendation is produced, <code>service_id</code> must map to a listed specialization. Internal Medicine exists in the imported catalog.</td></tr><tr><td>Observed</td><td><strong>Stage H live:</strong> Internal Medicine. Two doctors: Dr. Cadiente, Gilbert; Dr. Chulvo-Chan, Ma. Niña Lourdes. Both appear on the hospital-provided list.</td></tr><tr><td>Evidence class</td><td>Observed (Stage H live)</td></tr></tbody></table>
+<p>Rating 5–1 / NO / NE: Specialization matching ____  Name accuracy ____</p>
+<p>Reviewer comments:</p>
+<div class="comment-box"></div>
+<hr>
+<h2>DR-02 Database grounding</h2>
+<table><thead><tr><th>Field</th><th>Content</th></tr></thead><tbody><tr><td>Expected</td><td>Suggested Doctors are loaded from Laravel after validation. Claude is not permitted to supply doctor IDs or names.</td></tr><tr><td>Observed</td><td>Stage H live names matched the imported catalog. Automated tests reject invented service IDs and omit doctor IDs from the model contract.</td></tr><tr><td>Evidence class</td><td>Observed (Stage H live) and software-tested</td></tr></tbody></table>
+<p>Rating: Database grounding ____</p>
+<p>Reviewer comments:</p>
+<div class="comment-box"></div>
+<hr>
+<h2>DR-03 Active doctor eligibility</h2>
+<table><thead><tr><th>Field</th><th>Content</th></tr></thead><tbody><tr><td>Expected</td><td>Inactive doctors never appear.</td></tr><tr><td>Observed</td><td>Not exercised with a live inactive imported doctor. Software-tested.</td></tr><tr><td>Evidence class</td><td>Software-tested; not observed live</td></tr></tbody></table>
+<p>Rating: ____  Reviewer comments:</p>
+<hr>
+<h2>DR-04 Active clinic and department eligibility</h2>
+<table><thead><tr><th>Field</th><th>Content</th></tr></thead><tbody><tr><td>Expected</td><td>Doctors in inactive clinics or departments are ineligible.</td></tr><tr><td>Observed</td><td>Not observed live. Software-tested.</td></tr><tr><td>Evidence class</td><td>Software-tested; not observed live</td></tr></tbody></table>
+<p>Rating: ____  Reviewer comments:</p>
+<hr>
+<h2>DR-05 Exclusion of development records</h2>
+<table><thead><tr><th>Field</th><th>Content</th></tr></thead><tbody><tr><td>Expected</td><td>With <code>HOSPITAL_DATA_SOURCE=imported</code>, development placeholder doctors are excluded.</td></tr><tr><td>Observed</td><td>Stage H live Internal Medicine cards were imported names only. Development placeholders were not listed in that response.</td></tr><tr><td>Evidence class</td><td>Observed (Stage H live) for that one recommendation</td></tr></tbody></table>
+<p>Rating: ____  Reviewer comments:</p>
+<hr>
+<h2>DR-06 Doctor name accuracy</h2>
+<table><thead><tr><th>Field</th><th>Content</th></tr></thead><tbody><tr><td>Expected</td><td>Names equal stored <code>display_name</code> values.</td></tr><tr><td>Observed</td><td>Stage H: Dr. Cadiente, Gilbert; Dr. Chulvo-Chan, Ma. Niña Lourdes.</td></tr><tr><td>Evidence class</td><td>Observed (Stage H live)</td></tr></tbody></table>
+<p>Rating: ____  Reviewer comments:</p>
+<hr>
+<h2>DR-07 Specialization accuracy</h2>
+<table><thead><tr><th>Field</th><th>Content</th></tr></thead><tbody><tr><td>Expected</td><td>Card specialization equals the stored specialization for those doctors (Internal Medicine).</td></tr><tr><td>Observed</td><td>Stage H live reported specialization Internal Medicine.</td></tr><tr><td>Evidence class</td><td>Observed (Stage H live)</td></tr></tbody></table>
+<p>Rating: ____  Reviewer comments:</p>
+<hr>
+<h2>DR-08 Appointment availability accuracy</h2>
+<table><thead><tr><th>Field</th><th>Content</th></tr></thead><tbody><tr><td>Expected</td><td>Next-available times only if AppointmentBookingService finds a slot in the seven-day window. Imported poster hours are not verified bookable slots.</td></tr><tr><td>Observed</td><td><strong>Stage H live:</strong> <code>all_unavailable</code> true. Message: “No online appointments are currently available. Please contact hospital staff for assistance.” No times invented.</td></tr><tr><td>Evidence class</td><td>Observed (Stage H live)</td></tr></tbody></table>
+<p>Rating: Availability accuracy ____  No invented schedules ____</p>
+<p>Reviewer comments:</p>
+<div class="comment-box"></div>
+<hr>
+<h2>DR-09 Prevention of invented doctors</h2>
+<table><thead><tr><th>Field</th><th>Content</th></tr></thead><tbody><tr><td>Expected</td><td>Names outside the catalog must not appear.</td></tr><tr><td>Observed</td><td>Stage H live names were catalog names only. Software tests omit model-supplied doctor IDs.</td></tr><tr><td>Evidence class</td><td>Observed (Stage H live) and software-tested</td></tr></tbody></table>
+<p>Rating: ____  Reviewer comments:</p>
+<hr>
+<h2>DR-10 Prevention of invented consultation schedules</h2>
+<table><thead><tr><th>Field</th><th>Content</th></tr></thead><tbody><tr><td>Expected</td><td>Poster hours (for example Monday 11:00–13:00 for Dr. Cadiente) must not be shown as bookable unless an approved online schedule exists.</td></tr><tr><td>Observed</td><td>Stage H live showed no next-available appointment times.</td></tr><tr><td>Evidence class</td><td>Observed (Stage H live)</td></tr></tbody></table>
+<p>Rating: ____  Reviewer comments:</p>
+<hr>
+<h2>DR-11 No doctors available for a service</h2>
+<table><thead><tr><th>Field</th><th>Content</th></tr></thead><tbody><tr><td>Expected</td><td>If a validated specialization has no eligible doctor, show the no-doctors message. Do not invent a clinician.</td></tr><tr><td>Observed</td><td>Not observed live (Internal Medicine had two imported doctors). Software-tested.</td></tr><tr><td>Evidence class</td><td>Software-tested; not observed live</td></tr></tbody></table>
+<p>Rating: ____  Reviewer comments:</p>
+<hr>
+<h2>DR-12 Online appointments unavailable (section message)</h2>
+<table><thead><tr><th>Field</th><th>Content</th></tr></thead><tbody><tr><td>Expected</td><td>One section-level explanation. Doctor names remain visible. Identical unavailability text is not repeated on every card.</td></tr><tr><td>Observed</td><td>Stage H live: one section message; names visible.</td></tr><tr><td>Evidence class</td><td>Observed (Stage H live)</td></tr></tbody></table>
+<p>Rating: ____  Reviewer comments:</p>
+<hr>
+<h2>DR-13 Internal mapping labels hidden</h2>
+<table><thead><tr><th>Field</th><th>Content</th></tr></thead><tbody><tr><td>Expected</td><td>“Pending hospital mapping” is not shown as a patient-facing department. Duplicate specialization-as-clinic-name is avoided.</td></tr><tr><td>Observed</td><td>Stage H live: no mapping label in the recommendation payload. Software-tested.</td></tr><tr><td>Evidence class</td><td>Observed (Stage H live) and software-tested</td></tr></tbody></table>
+<p>Rating: ____  Reviewer comments:</p>
+<hr>
+<h2>DR-14 Safety responses have no doctor cards</h2>
+<table><thead><tr><th>Field</th><th>Content</th></tr></thead><tbody><tr><td>Expected</td><td>Emergency and prompt-evaluation responses omit Suggested Doctors and booking actions.</td></tr><tr><td>Observed</td><td>Stage H live CS-07/CV-05 prompt evaluation: no doctor cards, no booking URL. CV-16 vision-loss safety: no doctor cards.</td></tr><tr><td>Evidence class</td><td>Observed (Stage H live)</td></tr></tbody></table>
+<p>Rating: ____  Reviewer comments:</p>
+<hr>
+<h2>DR-15 Booking handoff only when a valid slot exists</h2>
+<table><thead><tr><th>Field</th><th>Content</th></tr></thead><tbody><tr><td>Expected</td><td>“View Available Appointments” appears only when <code>bookable</code> is true. Seven-day window unchanged.</td></tr><tr><td>Observed</td><td>Not observed live with a bookable imported slot because imported schedules were not activated. Software-tested on development data in automated tests.</td></tr><tr><td>Evidence class</td><td>Software-tested; not observed on imported live catalog</td></tr></tbody></table>
+<p>Rating: ____  Reviewer comments:</p>
+<hr>
+<h2>Summary ratings</h2>
+<table><thead><tr><th>Criterion</th><th>5</th><th>4</th><th>3</th><th>2</th><th>1</th><th>NO</th><th>NE</th></tr></thead><tbody><tr><td>Correct specialization matching</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>Hospital database grounding</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>Active doctor eligibility</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>Active clinic and department eligibility</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>Exclusion of development records</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>Doctor name accuracy</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>Specialization accuracy</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>Appointment availability accuracy</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>Prevention of invented doctors</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>Prevention of invented consultation schedules</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>Handling when no doctors are available</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>Handling when online appointments are unavailable</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr></tbody></table>
+<p><strong>Total doctor-recommendation items: 15 (DR-01 to DR-15)</strong></p>
+<p>Reviewer signature (blank until completed): ____________________</p>
+</body>
+</html>

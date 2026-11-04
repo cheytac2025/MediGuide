@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MediGuide Clinical Evaluation Package Index</title>
+<link rel="stylesheet" href="print.css">
+</head>
+<body>
+<p class="doc-banner"><strong>MediGuide Clinical Evaluation Package</strong> — Stage I — 4 November 2026 — Not clinically approved</p>
+<p class="no-print meta">Print this file on A4. Leave reviewer fields blank unless you are the reviewer completing the form.</p>
+<h1>MediGuide Clinical Evaluation Package</h1>
+<p><strong>System:</strong> MediGuide AI Virtual Front Desk</p>
+<p><strong>Hospital context:</strong> Queen Mary Help of Christians Hospital, Inc., Cardona, Rizal</p>
+<p><strong>Package version:</strong> Stage I — 4 November 2026</p>
+<p><strong>Clinical approval status:</strong> Not reviewed. All reviewer and approval fields are blank.</p>
+<p>This folder contains the hospital reviewer package for MediGuide’s Claude-powered AI Virtual Front Desk. It supports capstone evaluation of conversational hospital navigation. It does <strong>not</strong> authorize MediGuide as a diagnostic or triage system.</p>
+<h2>Documents</h2>
+<table><thead><tr><th>ID</th><th>Document</th><th>File</th></tr></thead><tbody><tr><td>A</td><td>Clinical Evaluation Guide</td><td><code>A-clinical-evaluation-guide.md</code></td></tr><tr><td>B</td><td>AI Conversation Evaluation Matrix</td><td><code>B-ai-conversation-evaluation-matrix.md</code></td></tr><tr><td>C</td><td>Clinical Safety Review Matrix</td><td><code>C-clinical-safety-review-matrix.md</code></td></tr><tr><td>D</td><td>Doctor Recommendation Evaluation</td><td><code>D-doctor-recommendation-evaluation.md</code></td></tr><tr><td>E</td><td>Reviewer Assessment Form</td><td><code>E-reviewer-assessment-form.md</code></td></tr></tbody></table>
+<p>Printable HTML copies use the same filenames with a <code>.html</code> extension and <code>print.css</code>. Open the HTML in a browser and use Print (A4) for paper copies. Word (<code>.docx</code>) copies are generated when the export tool is available.</p>
+<p>Related existing project documentation (not replaced by this package):</p>
+<ul>
+<li><code>docs/ai-front-desk-clinical-evaluation-checklist.md</code> — earlier engineering checklist; still blank pending hospital review</li>
+<li><code>docs/hospital-import-preview.md</code> — imported catalog reference; not a verified operational schedule</li>
+</ul>
+<h2>Scenario counts</h2>
+<table><thead><tr><th>Document</th><th>IDs</th><th>Count</th></tr></thead><tbody><tr><td>B Conversation matrix</td><td>CV-01 to CV-26</td><td>26</td></tr><tr><td>C Safety review</td><td>CS-01 to CS-15</td><td>15</td></tr><tr><td>D Doctor recommendation</td><td>DR-01 to DR-15</td><td>15</td></tr><tr><td>E Reviewer assessment</td><td>one form per reviewer</td><td>—</td></tr></tbody></table>
+<p>Document B covers the required conversation topics as follows:</p>
+<table><thead><tr><th>Required topic</th><th>Scenario IDs</th></tr></thead><tbody><tr><td>Headache</td><td>CV-01, CV-02, CV-03</td></tr><tr><td>Abdominal pain</td><td>CV-04, CV-05</td></tr><tr><td>Fever</td><td>CV-06, CV-26</td></tr><tr><td>Cough</td><td>CV-07, CV-22</td></tr><tr><td>Chest pain</td><td>CV-08, CV-09</td></tr><tr><td>Breathing difficulties</td><td>CV-10</td></tr><tr><td>Joint pain</td><td>CV-11</td></tr><tr><td>Back pain</td><td>CV-12</td></tr><tr><td>Skin conditions</td><td>CV-13</td></tr><tr><td>Ear concerns</td><td>CV-14</td></tr><tr><td>Eye and vision concerns</td><td>CV-15, CV-16</td></tr><tr><td>Pregnancy-related concerns</td><td>CV-17</td></tr><tr><td>Pediatric concerns</td><td>CV-18, CV-19</td></tr><tr><td>Ambiguous symptoms</td><td>CV-20</td></tr><tr><td>Multiple symptoms</td><td>CV-21</td></tr><tr><td>Filipino conversations</td><td>CV-01, CV-04, CV-18, CV-26</td></tr><tr><td>English conversations</td><td>CV-22</td></tr><tr><td>Taglish conversations</td><td>CV-23</td></tr><tr><td>Informal spelling variations</td><td>CV-24 (same live wording as CV-01)</td></tr><tr><td>Unknown or declined answers</td><td>CV-25</td></tr></tbody></table>
+<p>Do not calculate clinical accuracy or approval percentages before reviewers complete the forms.</p>
+<h2>How to use</h2>
+<ol>
+<li>Read Document A before running scenarios.</li>
+<li>Use only synthetic patient statements listed in Documents B, C, and D.</li>
+<li>Record ratings and comments in the blank fields. Do not pre-fill results.</li>
+<li>Complete one copy of Document E per reviewer.</li>
+<li>Leave items as <strong>Not Observed</strong> or <strong>Not Evaluated</strong> when a scenario was not run.</li>
+</ol>
+<h2>Evidence classes used in this package</h2>
+<table><thead><tr><th>Label</th><th>Meaning</th></tr></thead><tbody><tr><td>Expected software behavior</td><td>What the current implementation is designed to do</td></tr><tr><td>Observed (Stage H live)</td><td>Recorded during bounded live Claude testing with synthetic concerns</td></tr><tr><td>Software-tested</td><td>Covered by automated tests with mocked Claude responses</td></tr><tr><td>Not observed</td><td>No live Claude run for this wording in Stage H</td></tr><tr><td>Clinically approved</td><td>Must remain blank until qualified hospital personnel complete review</td></tr></tbody></table>
+<p>Automated tests (latest reported baseline: 857 passed, 4,704 assertions) do not establish clinical correctness.</p>
+<h2>Privacy</h2>
+<p>Use synthetic statements only. Do not enter real patient names, contact numbers, birth dates, or medical records into the AI Front Desk or into these forms.</p>
+</body>
+</html>

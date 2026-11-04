@@ -51,7 +51,7 @@ final class AiVisitorReply
 
     public static function negativeConfirmation(string $text): bool
     {
-        $normalized = self::normalize($text);
+        $normalized = self::normalize(self::withoutLanguageInstruction($text));
 
         if ($normalized === '') {
             return false;
@@ -63,7 +63,9 @@ final class AiVisitorReply
             'none',
             'hindi',
             'hindi po',
+            'hindi naman',
             'hinde',
+            'hinde naman',
             'wala',
             'wala po',
             'wala naman',
@@ -75,7 +77,7 @@ final class AiVisitorReply
 
     public static function positiveConfirmation(string $text): bool
     {
-        $normalized = self::normalize($text);
+        $normalized = self::normalize(self::withoutLanguageInstruction($text));
 
         if ($normalized === '') {
             return false;
@@ -96,7 +98,7 @@ final class AiVisitorReply
 
     public static function declinedOrUnknown(string $text): bool
     {
-        $normalized = self::normalize($text);
+        $normalized = self::normalize(self::withoutLanguageInstruction($text));
 
         if ($normalized === '') {
             return false;
@@ -158,6 +160,13 @@ final class AiVisitorReply
             return true;
         }
 
+        $leftTopic = AiConversationInterpreter::topicOf($current);
+        $rightTopic = AiConversationInterpreter::topicOf($previous);
+
+        if ($leftTopic !== null && $leftTopic === $rightTopic) {
+            return true;
+        }
+
         $shorter = mb_strlen($left) <= mb_strlen($right) ? $left : $right;
         $longer = $shorter === $left ? $right : $left;
 
@@ -197,6 +206,51 @@ final class AiVisitorReply
         $text = preg_replace('/[^\p{L}\p{N}\s\']+/u', ' ', $text) ?? $text;
         $text = str_replace(["'", '’'], '', $text);
 
-        return trim(preg_replace('/\s+/u', ' ', $text) ?? $text);
+        return self::applyInformalSpelling(trim(preg_replace('/\s+/u', ' ', $text) ?? $text));
+    }
+
+    public static function applyInformalSpelling(string $normalized): string
+    {
+        $normalized = preg_replace('/\bbilga(ng|an)?\b/u', 'bigla$1', $normalized) ?? $normalized;
+        $normalized = preg_replace('/\bren\b/u', 'rin', $normalized) ?? $normalized;
+        $normalized = preg_replace('/\bkasaket\b/u', 'kasakit', $normalized) ?? $normalized;
+        $normalized = preg_replace('/\bsaket\b/u', 'sakit', $normalized) ?? $normalized;
+        $normalized = preg_replace('/\bganon\b/u', 'ganoon', $normalized) ?? $normalized;
+        $normalized = preg_replace('/\bngalay\b/u', 'nangangalay', $normalized) ?? $normalized;
+
+        return $normalized;
+    }
+
+    public static function explicitLanguagePreference(string $text): ?string
+    {
+        $normalized = self::normalize($text);
+
+        if ($normalized === '') {
+            return null;
+        }
+
+        if (preg_match('/\b(please speak english|speak english|in english|mag english|mag-english)\b/u', $normalized)) {
+            return 'english';
+        }
+
+        if (preg_match('/\b(magtagalog|in tagalog|speak tagalog|speak filipino|sa tagalog|sa filipino)\b/u', $normalized)) {
+            return 'filipino';
+        }
+
+        return null;
+    }
+
+    public static function withoutLanguageInstruction(string $text): string
+    {
+        $stripped = preg_replace(
+            '/\b(magtagalog(?: ka)?|please speak english|speak english(?: please)?|in english please|in tagalog please|tagalog please|sa tagalog(?: nga)?(?: po)?|sa filipino(?: nga)?(?: po)?)\b/iu',
+            ' ',
+            $text,
+        ) ?? $text;
+
+        $stripped = trim(preg_replace('/\s+/u', ' ', $stripped) ?? $stripped);
+        $stripped = trim($stripped, " \t\n\r\0\x0B.,;:!");
+
+        return $stripped;
     }
 }

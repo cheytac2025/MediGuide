@@ -201,7 +201,7 @@ class AiFrontDeskGuidanceTest extends TestCase
             'confidence' => 0.8,
         ]);
 
-        $this->postGuidance("I've had stomach pain since yesterday.")
+        $this->postGuidance("I've had lower abdominal pain since yesterday.")
             ->assertOk()
             ->assertJsonPath('type', 'recommendation')
             ->assertJsonPath('clinic.id', $clinic->id)
@@ -491,7 +491,7 @@ class AiFrontDeskGuidanceTest extends TestCase
 
         $this->assertSame([
             ['role' => 'user', 'content' => 'Nahihilo ako since this morning.'],
-            ['role' => 'assistant', 'content' => 'Gaano na katagal ka na nahihilo?'],
+            ['role' => 'assistant', 'content' => ClaudeGuidanceService::ONSET_FOLLOW_UP_FILIPINO],
             ['role' => 'user', 'content' => 'Since kagabi pa.'],
         ], $messages);
         $this->assertStringContainsString('"opening_concern":"Nahihilo ako since this morning."', $system);
@@ -510,7 +510,7 @@ class AiFrontDeskGuidanceTest extends TestCase
         $this->postGuidance('Ayaw ko sagutin.')
             ->assertOk()
             ->assertJsonPath('type', 'uncertain')
-            ->assertJsonPath('message', ClaudeGuidanceService::UNABLE_TO_ROUTE_MESSAGE)
+            ->assertJsonPath('message', ClaudeGuidanceService::UNABLE_TO_ROUTE_MESSAGE_FILIPINO)
             ->assertJsonMissingPath('clinic')
             ->assertJsonMissingPath('doctors_url');
     }

@@ -37,6 +37,50 @@ class AiNavigationSafetyTest extends TestCase
         $this->assertFalse($decision->blocksRoutineNavigation());
     }
 
+    public function test_sudden_left_lower_pain_without_severity_is_not_a_new_overlay_rule(): void
+    {
+        $decision = $this->classifier()->classify(
+            'Masakit ang tiyan ko sa kaliwa sa baba for three days. Sumakit na lang siya bilga.',
+            AiConversationState::empty(),
+            'Masakit ang tiyan ko sa kaliwa sa baba for three days. Sumakit na lang siya bilga.',
+        );
+
+        $this->assertFalse($decision->blocksRoutineNavigation());
+        $this->assertNull($decision->rule);
+    }
+
+    public function test_mild_or_numeric_pain_does_not_cancel_right_lower_abdominal_prompt_evaluation(): void
+    {
+        $mild = $this->classifier()->classify(
+            'Masakit ang tiyan ko sa kanan sa baba. Medyo masakit lang.',
+            AiConversationState::empty(),
+            'Masakit ang tiyan ko sa kanan sa baba. Medyo masakit lang.',
+        );
+
+        $this->assertTrue($mild->isPromptEvaluation());
+        $this->assertSame('right_lower_abdominal_pain', $mild->rule);
+
+        $rated = $this->classifier()->classify(
+            'Right lower abdominal pain rated 4 out of 10 for 3 days.',
+            AiConversationState::empty(),
+            'Right lower abdominal pain rated 4 out of 10 for 3 days.',
+        );
+
+        $this->assertTrue($rated->isPromptEvaluation());
+        $this->assertSame('right_lower_abdominal_pain', $rated->rule);
+    }
+
+    public function test_numeric_severity_alone_does_not_activate_a_new_prompt_evaluation_rule(): void
+    {
+        $decision = $this->classifier()->classify(
+            'Left lower abdominal pain rated 7 out of 10.',
+            AiConversationState::empty(),
+            'Left lower abdominal pain rated 7 out of 10.',
+        );
+
+        $this->assertFalse($decision->blocksRoutineNavigation());
+    }
+
     public function test_assistant_question_is_not_treated_as_a_patient_report(): void
     {
         $state = new AiConversationState(

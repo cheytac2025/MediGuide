@@ -53,6 +53,7 @@
                     rows="2"
                     maxlength="{{ $maxLength }}"
                     placeholder="Describe your symptoms or health concern in your own words..."
+                    enterkeyhint="send"
                     data-mg-front-desk-input
                 ></textarea>
 
