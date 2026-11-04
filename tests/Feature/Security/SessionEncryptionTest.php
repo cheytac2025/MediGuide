@@ -111,6 +111,44 @@ class SessionEncryptionTest extends TestCase
         $this->assertSame($doctor->id, session(BookingIntent::SESSION_KEY)['doctor_id']);
     }
 
+    public function test_follow_up_conversation_envelope_is_encrypted_at_rest_and_read_back(): void
+    {
+        $envelope = [
+            'v' => 1,
+            'opening_concern' => 'Masakit ulo ko.',
+            'clarification_count' => 1,
+            'asked_questions' => ['Gaano na katagal sumasakit ang ulo mo?'],
+            'turns' => [
+                ['role' => 'user', 'content' => 'Masakit ulo ko.'],
+                ['role' => 'assistant', 'content' => 'Gaano na katagal sumasakit ang ulo mo?'],
+            ],
+        ];
+
+        $first = $this->withSession([
+            AiDisclaimer::SESSION_KEY => true,
+            AiFrontDeskConversation::SESSION_KEY => $envelope,
+        ])->get(route('ai-front-desk'));
+
+        $first->assertOk();
+        $sessionId = $this->sessionId($first);
+        $raw = $this->rawPayload($sessionId);
+
+        $this->assertStringNotContainsString('Masakit ulo ko.', $raw);
+        $this->assertStringNotContainsString('Gaano na katagal', $raw);
+        $this->assertStringNotContainsString('opening_concern', $raw);
+
+        $decrypted = json_decode(Crypt::decrypt($raw), true);
+        $this->assertSame($envelope, $decrypted[AiFrontDeskConversation::SESSION_KEY]);
+
+        $this->freshRequestCycle();
+        $this->withSessionCookie($sessionId)->get(route('ai-front-desk'))->assertOk();
+        $this->assertSame($envelope, session(AiFrontDeskConversation::SESSION_KEY));
+        $this->assertSame(
+            'Masakit ulo ko.',
+            AiFrontDeskConversation::state($this->app['session.store'])->openingConcern,
+        );
+    }
+
     public function test_guests_without_a_disclaimer_are_still_redirected(): void
     {
         $this->get(route('ai-front-desk'))->assertRedirect(route('ai-disclaimer'));

@@ -7,6 +7,7 @@ use App\Enums\ClinicStatus;
 use App\Enums\DayOfWeek;
 use App\Enums\DepartmentStatus;
 use App\Enums\DoctorStatus;
+use App\Enums\HospitalDataSource;
 use App\Enums\RoleName;
 use App\Enums\Sex;
 use App\Models\Appointment;
@@ -90,7 +91,7 @@ class AdminDoctorTest extends TestCase
 
     public function test_it_admin_can_create_a_linked_doctor_account(): void
     {
-        $clinic = $this->clinic('Development Clinic A');
+        $clinic = $this->hospitalClinic();
 
         $this->actingAs($this->admin())
             ->post(route('admin.doctors.store'), $this->payload($clinic, [
@@ -115,7 +116,7 @@ class AdminDoctorTest extends TestCase
     public function test_new_doctor_can_authenticate_and_reaches_the_doctor_dashboard(): void
     {
         $this->actingAs($this->admin())
-            ->post(route('admin.doctors.store'), $this->payload($this->clinic('Development Clinic A')));
+            ->post(route('admin.doctors.store'), $this->payload($this->hospitalClinic()));
 
         $this->post(route('logout'));
 
@@ -147,7 +148,7 @@ class AdminDoctorTest extends TestCase
 
         $this->actingAs($this->admin())
             ->from(route('admin.doctors.create'))
-            ->post(route('admin.doctors.store'), $this->payload($this->clinic('Development Clinic A')))
+            ->post(route('admin.doctors.store'), $this->payload($this->hospitalClinic()))
             ->assertRedirect(route('admin.doctors.create'))
             ->assertSessionHasErrors('email');
 
@@ -208,7 +209,7 @@ class AdminDoctorTest extends TestCase
 
     public function test_email_uniqueness_is_preserved_during_edit(): void
     {
-        $clinic = $this->clinic('Development Clinic A');
+        $clinic = $this->hospitalClinic();
         $this->actingAs($this->admin())
             ->post(route('admin.doctors.store'), $this->payload($clinic));
 
@@ -407,6 +408,24 @@ class AdminDoctorTest extends TestCase
      * @param  array<string, mixed>  $overrides
      * @return array<string, mixed>
      */
+    private function hospitalClinic(): Clinic
+    {
+        $department = Department::query()->create([
+            'name' => 'Outpatient Services',
+            'description' => 'Hospital department.',
+            'status' => DepartmentStatus::Active,
+            'data_source' => HospitalDataSource::Imported,
+        ]);
+
+        return Clinic::query()->create([
+            'department_id' => $department->id,
+            'name' => 'Family Medicine',
+            'description' => 'Hospital clinic.',
+            'status' => ClinicStatus::Active,
+            'data_source' => HospitalDataSource::Imported,
+        ]);
+    }
+
     private function payload(Clinic $clinic, array $overrides = []): array
     {
         return array_merge([

@@ -13,6 +13,7 @@ use App\Models\Department;
 use App\Models\Doctor;
 use App\Services\Ai\ClaudeGuidanceService;
 use App\Support\AiConversationContext;
+use App\Support\AiConversationState;
 use App\Support\AiDisclaimer;
 use App\Support\AiFrontDeskConversation;
 use App\Support\AiGuidanceResult;
@@ -99,7 +100,9 @@ class AiFrontDeskGuidanceTest extends TestCase
         $guidance = \Mockery::mock(ClaudeGuidanceService::class);
         $guidance->shouldReceive('guide')
             ->once()
-            ->with('Masakit ulo ko.', [])
+            ->withArgs(function (string $concern, AiConversationState $state): bool {
+                return $concern === 'Masakit ulo ko.' && $state->turns === [];
+            })
             ->andReturn(AiGuidanceResult::fromPayload([
                 'type' => 'uncertain',
                 'message' => 'Service was called.',
@@ -179,11 +182,12 @@ class AiFrontDeskGuidanceTest extends TestCase
             'message' => 'Please seek emergency medical help now. This is not a diagnosis.',
         ]);
 
-        $this->postGuidance('I need help right now.')
+        $this->postGuidance('I have a sudden severe headache and I cannot speak.')
             ->assertOk()
             ->assertExactJson([
                 'type' => 'safety',
-                'message' => 'Please seek emergency medical help now. This is not a diagnosis.',
+                'message' => ClaudeGuidanceService::URGENT_SAFETY_MESSAGE,
+                'safety_kind' => 'emergency',
             ]);
     }
 
@@ -221,7 +225,7 @@ class AiFrontDeskGuidanceTest extends TestCase
             'confidence' => null,
         ]);
 
-        $this->postGuidance('I have a headache.')
+        $this->postGuidance("I've had a headache since yesterday.")
             ->assertOk()
             ->assertJsonPath('data_source', 'development');
     }
@@ -276,7 +280,7 @@ class AiFrontDeskGuidanceTest extends TestCase
             'confidence' => null,
         ]);
 
-        $response = $this->postGuidance('I have a headache.');
+        $response = $this->postGuidance("I've had a headache since yesterday.");
 
         $response->assertOk()
             ->assertJsonPath('type', 'recommendation')
@@ -293,12 +297,18 @@ class AiFrontDeskGuidanceTest extends TestCase
             'question' => 'Gaano na katagal?',
         ]);
 
-        $this->postGuidance('Masakit ulo ko.')
-            ->assertOk()
-            ->assertSessionHas(AiFrontDeskConversation::SESSION_KEY, [
-                ['role' => 'user', 'content' => 'Masakit ulo ko.'],
-                ['role' => 'assistant', 'content' => 'Gaano na katagal?'],
-            ]);
+        $this->postGuidance('Masakit ulo ko.')->assertOk();
+
+        $stored = session(AiFrontDeskConversation::SESSION_KEY);
+
+        $this->assertIsArray($stored);
+        $this->assertSame('Masakit ulo ko.', $stored['opening_concern']);
+        $this->assertSame(1, $stored['clarification_count']);
+        $this->assertSame(['Gaano na katagal?'], $stored['asked_questions']);
+        $this->assertSame([
+            ['role' => 'user', 'content' => 'Masakit ulo ko.'],
+            ['role' => 'assistant', 'content' => 'Gaano na katagal?'],
+        ], $stored['turns']);
     }
 
     public function test_follow_up_request_receives_recent_conversation_context(): void
@@ -333,12 +343,13 @@ class AiFrontDeskGuidanceTest extends TestCase
             $this->postGuidance('Concern '.$index)->assertOk();
         }
 
-        $turns = session(AiFrontDeskConversation::SESSION_KEY);
+        $stored = session(AiFrontDeskConversation::SESSION_KEY);
 
-        $this->assertIsArray($turns);
-        $this->assertCount(AiConversationContext::MAX_TURNS, $turns);
-        $this->assertNotContains(['role' => 'user', 'content' => 'Concern 1'], $turns);
-        $this->assertContains(['role' => 'user', 'content' => 'Concern 4'], $turns);
+        $this->assertIsArray($stored);
+        $this->assertSame('Concern 1', $stored['opening_concern']);
+        $this->assertCount(AiConversationContext::MAX_TURNS, $stored['turns']);
+        $this->assertNotContains(['role' => 'user', 'content' => 'Concern 1'], $stored['turns']);
+        $this->assertContains(['role' => 'user', 'content' => 'Concern 4'], $stored['turns']);
     }
 
     public function test_clear_conversation_clears_ai_turns_only(): void
@@ -416,11 +427,168 @@ class AiFrontDeskGuidanceTest extends TestCase
         $this->assertStringContainsString("payload?.type === 'clarification'", $js);
         $this->assertStringContainsString('appendAssistantMessage(payload.question);', $js);
         $this->assertStringContainsString("payload?.type === 'safety'", $js);
-        $this->assertStringContainsString('appendSafety(payload.message);', $js);
+        $this->assertStringContainsString('appendSafety(payload);', $js);
         $this->assertStringContainsString("payload?.type === 'recommendation'", $js);
         $this->assertStringContainsString('appendRecommendation(payload);', $js);
-        $this->assertStringContainsString('appendFallback();', $js);
+        $this->assertStringContainsString('appendSuggestedDoctors(payload);', $js);
+        $this->assertStringContainsString('appendFallback(message)', $js);
+        $this->assertStringContainsString('processing_failed', $js);
         $this->assertStringNotContainsString('No clinic available', $js);
+        $this->assertStringContainsString('textContent', $js);
+        $this->assertStringNotContainsString('innerHTML', $js);
+    }
+
+    public function test_inactive_department_recommendation_does_not_reach_the_frontend(): void
+    {
+        $inactiveDepartment = $this->department('Development Department Inactive', DepartmentStatus::Inactive);
+        $hidden = $this->clinic($inactiveDepartment, 'Development Clinic Hidden', ClinicStatus::Active, 'Should not be recommended.');
+        $this->fakeClaude([
+            'type' => 'recommendation',
+            'clinic_id' => $hidden->id,
+            'reason' => 'Development Clinic Hidden is appropriate for headaches.',
+            'confidence' => 0.4,
+        ]);
+
+        $this->postGuidance('Masakit ulo ko.')
+            ->assertOk()
+            ->assertJsonPath('type', 'uncertain')
+            ->assertJsonMissingPath('clinic')
+            ->assertJsonMissingPath('doctors_url');
+    }
+
+    public function test_clarification_does_not_expose_booking_handoff(): void
+    {
+        $this->eligibleClinic('Placeholder clinic for local development. Not hospital data.');
+        $this->fakeClaude([
+            'type' => 'clarification',
+            'question' => 'Gaano na katagal sumasakit ang ulo mo?',
+            'clinic_id' => 1,
+        ]);
+
+        $this->postGuidance('Masakit ulo ko.')
+            ->assertOk()
+            ->assertExactJson([
+                'type' => 'clarification',
+                'question' => 'Gaano na katagal sumasakit ang ulo mo?',
+            ])
+            ->assertJsonMissingPath('clinic')
+            ->assertJsonMissingPath('doctors_url');
+    }
+
+    public function test_taglish_follow_up_context_is_preserved(): void
+    {
+        $this->eligibleClinic('Placeholder clinic for local development. Not hospital data.');
+        $this->fakeClaude([
+            'type' => 'clarification',
+            'question' => 'Gaano na katagal ka na nahihilo?',
+        ]);
+
+        $this->postGuidance('Nahihilo ako since this morning.')->assertOk();
+        $this->postGuidance('Since kagabi pa.')->assertOk();
+
+        $messages = Http::recorded()[1][0]->data()['messages'];
+        $system = Http::recorded()[1][0]->data()['system'];
+
+        $this->assertSame([
+            ['role' => 'user', 'content' => 'Nahihilo ako since this morning.'],
+            ['role' => 'assistant', 'content' => 'Gaano na katagal ka na nahihilo?'],
+            ['role' => 'user', 'content' => 'Since kagabi pa.'],
+        ], $messages);
+        $this->assertStringContainsString('"opening_concern":"Nahihilo ako since this morning."', $system);
+    }
+
+    public function test_user_decline_returns_uncertain_without_booking(): void
+    {
+        $this->eligibleClinic('Placeholder clinic for local development. Not hospital data.');
+        $this->fakeClaude([
+            'type' => 'clarification',
+            'question' => 'May lagnat ka ba?',
+        ]);
+
+        $this->postGuidance('Masakit ulo ko.')->assertOk();
+
+        $this->postGuidance('Ayaw ko sagutin.')
+            ->assertOk()
+            ->assertJsonPath('type', 'uncertain')
+            ->assertJsonPath('message', ClaudeGuidanceService::UNABLE_TO_ROUTE_MESSAGE)
+            ->assertJsonMissingPath('clinic')
+            ->assertJsonMissingPath('doctors_url');
+    }
+
+    public function test_repeated_clarification_loop_is_stopped(): void
+    {
+        $this->eligibleClinic('Placeholder clinic for local development. Not hospital data.');
+        $this->fakeClaude([
+            'type' => 'clarification',
+            'question' => 'Gaano na katagal sumasakit ang ulo mo?',
+        ]);
+
+        $this->postGuidance('Masakit ulo ko.')->assertOk();
+
+        $this->postGuidance('Dalawang araw na.')
+            ->assertOk()
+            ->assertJsonPath('type', 'clarification')
+            ->assertJsonPath('question', ClaudeGuidanceService::HEADACHE_LOCATION_FOLLOW_UP_FILIPINO)
+            ->assertJsonMissingPath('clinic');
+    }
+
+    public function test_urgent_warning_signs_return_safety_without_booking_handoff(): void
+    {
+        $clinic = $this->eligibleClinic('Placeholder clinic for local development. Not hospital data.');
+        $this->fakeClaude([
+            'type' => 'recommendation',
+            'clinic_id' => $clinic->id,
+            'reason' => 'The stored clinic description supports this service.',
+            'confidence' => 0.9,
+        ]);
+
+        $response = $this->postGuidance('I have chest pain and I cannot breathe.');
+
+        $response->assertOk()
+            ->assertJsonPath('type', AiGuidanceType::Safety->value)
+            ->assertJsonPath('message', ClaudeGuidanceService::URGENT_SAFETY_MESSAGE)
+            ->assertJsonPath('safety_kind', 'emergency')
+            ->assertJsonMissingPath('clinic')
+            ->assertJsonMissingPath('doctors_url');
+
+        $js = file_get_contents(public_path('js/ai-front-desk.js'));
+        $this->assertIsString($js);
+        $this->assertStringContainsString("payload?.type === 'safety'", $js);
+        $this->assertStringContainsString('appendSafety(payload);', $js);
+    }
+
+    public function test_vague_headache_does_not_return_unsupported_safety_attribution(): void
+    {
+        $this->eligibleClinic('Placeholder clinic for local development. Not hospital data.');
+        $this->fakeClaude([
+            'type' => 'safety',
+            'message' => 'Dahil mayroon kang nararamdamang panghihina kasabay ng matinding sakit ng ulo.',
+        ]);
+
+        $this->postGuidance('Masaket ulo ko')
+            ->assertOk()
+            ->assertJsonPath('type', AiGuidanceType::Clarification->value)
+            ->assertJsonPath('question', ClaudeGuidanceService::HEADACHE_FOLLOW_UP_FILIPINO)
+            ->assertJsonMissingPath('clinic');
+    }
+
+    public function test_new_conversation_clears_opening_concern(): void
+    {
+        $this->eligibleClinic();
+        $this->fakeClaude([
+            'type' => 'clarification',
+            'question' => 'Gaano na katagal?',
+        ]);
+
+        $this->postGuidance('Masakit ulo ko.')->assertOk();
+        $this->postJson(route('ai-front-desk.conversation.clear'))->assertOk();
+
+        $this->postGuidance('My stomach hurts.')->assertOk();
+
+        $system = Http::recorded()[1][0]->data()['system'];
+        $this->assertStringContainsString('"opening_concern":null', $system);
+        $this->assertStringNotContainsString('Masakit ulo ko.', $system);
+        $this->assertSame('My stomach hurts.', Http::recorded()[1][0]->data()['messages'][0]['content']);
     }
 
     public function test_provider_failure_never_produces_a_fake_clinic(): void
@@ -440,6 +608,109 @@ class AiFrontDeskGuidanceTest extends TestCase
 
         $this->assertStringNotContainsString('Development Clinic', (string) $response->json('message'));
         $this->assertStringNotContainsString('cURL', (string) $response->json('message'));
+        $this->assertTrue($response->json('processing_failed'));
+        $this->assertSame(0, Appointment::query()->count());
+
+        $js = file_get_contents(public_path('js/ai-front-desk.js'));
+        $this->assertIsString($js);
+        $this->assertStringContainsString('payload?.processing_failed === true', $js);
+        $this->assertStringContainsString('message === fallbackMessage', $js);
+        $page = $this->withSession([AiDisclaimer::SESSION_KEY => true])->get(route('ai-front-desk'));
+        $page->assertOk();
+        $this->assertStringContainsString('data-mg-tpl="fallback"', $page->getContent());
+    }
+
+    public function test_uncertain_ui_shows_one_message_without_duplicate_assistance_or_development_data(): void
+    {
+        $this->eligibleClinic();
+        $this->fakeClaude([
+            'type' => 'uncertain',
+            'message' => 'Please ask hospital staff for assistance.',
+        ]);
+
+        $this->postGuidance('Masakit ulo ko.')
+            ->assertOk()
+            ->assertJsonPath('type', 'uncertain')
+            ->assertJsonPath('message', 'Please ask hospital staff for assistance.')
+            ->assertJsonMissingPath('doctors')
+            ->assertJsonMissingPath('clinic');
+
+        $js = file_get_contents(public_path('js/ai-front-desk.js'));
+        $this->assertIsString($js);
+        $this->assertStringContainsString('appendFallback(message)', $js);
+        $this->assertStringContainsString('payload?.processing_failed === true || message === fallbackMessage', $js);
+        $this->assertDoesNotMatchRegularExpression(
+            '/appendAssistantMessage\(message\);\s*if \(payload\?\.processing_failed === true \|\| message === fallbackMessage\) \{\s*return;\s*\}\s*appendFallback/',
+            $js,
+        );
+
+        $page = $this->withSession([AiDisclaimer::SESSION_KEY => true])->get(route('ai-front-desk'));
+        $page->assertOk();
+        $fallback = $this->templateHtml($page->getContent(), 'fallback');
+        $this->assertStringContainsString('Ask Hospital Staff', $fallback);
+        $this->assertStringContainsString('data-mg-text', $fallback);
+        $this->assertStringContainsString('data-mg-ask-staff', $fallback);
+        $this->assertStringNotContainsString('Development data', $fallback);
+        $this->assertStringNotContainsString("We couldn't confidently determine the appropriate department", $fallback);
+    }
+
+    public function test_provider_failure_ui_shows_one_processing_message(): void
+    {
+        $js = file_get_contents(public_path('js/ai-front-desk.js'));
+        $this->assertIsString($js);
+        $this->assertStringContainsString('appendAssistantMessage(message);', $js);
+        $this->assertStringContainsString('payload?.processing_failed === true', $js);
+        $this->assertStringContainsString('appendAssistantMessage(fallbackMessage);', $js);
+
+        $page = $this->withSession([AiDisclaimer::SESSION_KEY => true])->get(route('ai-front-desk'));
+        $fallback = $this->templateHtml($page->getContent(), 'fallback');
+        $this->assertStringNotContainsString('Development data', $fallback);
+    }
+
+    public function test_imported_mode_front_desk_does_not_hardcode_development_data_on_fallback(): void
+    {
+        config(['hospital.data_source' => 'imported']);
+
+        $page = $this->withSession([AiDisclaimer::SESSION_KEY => true])->get(route('ai-front-desk'));
+        $page->assertOk();
+        $fallback = $this->templateHtml($page->getContent(), 'fallback');
+        $recommendation = $this->templateHtml($page->getContent(), 'recommendation');
+
+        $this->assertStringNotContainsString('Development data', $fallback);
+        $this->assertStringContainsString('data-mg-development-tag hidden', $recommendation);
+    }
+
+    public function test_clarification_and_safety_ui_have_no_doctor_or_booking_payload(): void
+    {
+        $this->eligibleClinic('Placeholder clinic for local development. Not hospital data.');
+        $this->fakeClaude([
+            'type' => 'clarification',
+            'question' => 'Gaano na katagal sumasakit ang ulo mo?',
+        ]);
+
+        $this->postGuidance('Masakit ulo ko.')
+            ->assertOk()
+            ->assertExactJson([
+                'type' => 'clarification',
+                'question' => 'Gaano na katagal sumasakit ang ulo mo?',
+            ])
+            ->assertJsonMissingPath('doctors')
+            ->assertJsonMissingPath('book_appointment_url');
+
+        $js = file_get_contents(public_path('js/ai-front-desk.js'));
+        $this->assertIsString($js);
+        $this->assertStringContainsString("payload?.type === 'clarification'", $js);
+        $this->assertStringContainsString('appendAssistantMessage(payload.question);', $js);
+        $this->assertStringContainsString("payload?.type === 'safety'", $js);
+        $this->assertStringContainsString('appendSafety(payload);', $js);
+    }
+
+    private function templateHtml(string $page, string $name): string
+    {
+        $pattern = '/<template data-mg-tpl="'.preg_quote($name, '/').'">(?<html>.*?)<\/template>/s';
+        $this->assertSame(1, preg_match($pattern, $page, $matches));
+
+        return $matches['html'];
     }
 
     /**

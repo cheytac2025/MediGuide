@@ -46,7 +46,7 @@ class AiBookingHandoffTest extends TestCase
 
         $this->withSession([AiDisclaimer::SESSION_KEY => true])
             ->postJson(route('ai-front-desk.guidance'), [
-                'message' => 'I have a headache.',
+                'message' => "I've had a headache since yesterday.",
             ])
             ->assertOk()
             ->assertJsonPath('type', 'recommendation')
@@ -64,7 +64,7 @@ class AiBookingHandoffTest extends TestCase
 
         $this->withSession([AiDisclaimer::SESSION_KEY => true])
             ->postJson(route('ai-front-desk.guidance'), [
-                'message' => 'I have a headache.',
+                'message' => "I've had a headache since yesterday.",
             ])
             ->assertOk()
             ->assertJsonPath('clinic.department', 'Development Department A');

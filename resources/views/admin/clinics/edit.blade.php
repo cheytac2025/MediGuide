@@ -13,6 +13,12 @@
                 <a class="mg-appt-back" href="{{ route('admin.clinics') }}">Back to Clinics</a>
             </div>
 
+            @if (session('clinic_status'))
+                <div class="mg-book-success" role="status">
+                    <p>{{ session('clinic_status') }}</p>
+                </div>
+            @endif
+
             @if ($errors->any())
                 <div class="mg-book-alert" role="alert">{{ $errors->first() }}</div>
             @endif
@@ -53,6 +59,7 @@
                 <label class="mg-book-label">
                     Description
                     <textarea name="description" class="mg-book-textarea" maxlength="2000" rows="4">{{ old('description', $clinic->description) }}</textarea>
+                    <span class="mg-field-help">Optional. When this describes the clinic's actual hospital services, MediGuide may use it for AI navigation. Import mapping notes and empty descriptions are not treated as clinical capabilities.</span>
                 </label>
 
                 <div class="mg-staff-actions">

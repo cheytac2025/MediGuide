@@ -18,6 +18,12 @@ enum AuditAction: string
     case StaffAccountCreated = 'admin.staff.created';
     case AccountStatusChanged = 'admin.account.status_changed';
     case DepartmentAssignmentChanged = 'admin.staff.departments_changed';
+    case DepartmentCreated = 'admin.department.created';
+    case DepartmentUpdated = 'admin.department.updated';
+    case DepartmentStatusChanged = 'admin.department.status_changed';
+    case RecordProvenanceChanged = 'admin.record.provenance_changed';
+    case RecordVerified = 'admin.record.verified';
+    case RecordVerificationRevoked = 'admin.record.verification_revoked';
     case ClinicCreated = 'admin.clinic.created';
     case ClinicUpdated = 'admin.clinic.updated';
     case ClinicStatusChanged = 'admin.clinic.status_changed';

@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Enums\AiGuidanceType;
+use App\Enums\AiSafetyKind;
 use InvalidArgumentException;
 
 /**
@@ -21,10 +22,13 @@ final readonly class AiGuidanceResult
     private function __construct(
         public AiGuidanceType $type,
         public ?int $clinicId,
+        public ?int $serviceId,
+        public ?string $specialization,
         public ?string $reason,
         public ?float $confidence,
         public ?string $question,
         public ?string $message,
+        public ?AiSafetyKind $safetyKind = null,
     ) {}
 
     /**
@@ -56,6 +60,8 @@ final readonly class AiGuidanceResult
             AiGuidanceType::Recommendation => [
                 'type' => $this->type->value,
                 'clinic_id' => $this->clinicId,
+                'service_id' => $this->serviceId,
+                'specialization' => $this->specialization,
                 'reason' => $this->reason,
                 'confidence' => $this->confidence,
             ],
@@ -63,9 +69,14 @@ final readonly class AiGuidanceResult
                 'type' => $this->type->value,
                 'question' => $this->question,
             ],
-            AiGuidanceType::Uncertain, AiGuidanceType::Safety => [
+            AiGuidanceType::Uncertain => [
                 'type' => $this->type->value,
                 'message' => $this->message,
+            ],
+            AiGuidanceType::Safety => [
+                'type' => $this->type->value,
+                'message' => $this->message,
+                'safety_kind' => $this->safetyKind?->value,
             ],
         };
 
@@ -80,13 +91,30 @@ final readonly class AiGuidanceResult
      */
     private static function recommendation(array $payload): self
     {
+        $clinicId = self::optionalPositiveInt($payload['clinic_id'] ?? null);
+        $serviceId = self::optionalPositiveInt($payload['service_id'] ?? null);
+
+        if ($clinicId === null && $serviceId === null) {
+            throw new InvalidArgumentException('AI guidance clinic_id must be a positive integer.');
+        }
+
+        $specialization = $payload['specialization'] ?? null;
+        $specialization = is_string($specialization) ? trim($specialization) : null;
+
+        if ($specialization === '') {
+            $specialization = null;
+        }
+
         return new self(
             type: AiGuidanceType::Recommendation,
-            clinicId: self::requiredClinicId($payload['clinic_id'] ?? null),
+            clinicId: $clinicId,
+            serviceId: $serviceId,
+            specialization: $specialization,
             reason: self::requiredText($payload['reason'] ?? null, 'reason'),
             confidence: self::optionalConfidence($payload),
             question: null,
             message: null,
+            safetyKind: null,
         );
     }
 
@@ -98,10 +126,13 @@ final readonly class AiGuidanceResult
         return new self(
             type: AiGuidanceType::Clarification,
             clinicId: null,
+            serviceId: null,
+            specialization: null,
             reason: null,
             confidence: null,
             question: self::requiredText($payload['question'] ?? null, 'question'),
             message: null,
+            safetyKind: null,
         );
     }
 
@@ -113,10 +144,13 @@ final readonly class AiGuidanceResult
         return new self(
             type: AiGuidanceType::Uncertain,
             clinicId: null,
+            serviceId: null,
+            specialization: null,
             reason: null,
             confidence: null,
             question: null,
             message: self::requiredText($payload['message'] ?? null, 'message'),
+            safetyKind: null,
         );
     }
 
@@ -125,27 +159,33 @@ final readonly class AiGuidanceResult
      */
     private static function safety(array $payload): self
     {
+        $kindValue = $payload['safety_kind'] ?? null;
+        $kind = is_string($kindValue) ? AiSafetyKind::tryFrom($kindValue) : null;
+
         return new self(
             type: AiGuidanceType::Safety,
             clinicId: null,
+            serviceId: null,
+            specialization: null,
             reason: null,
             confidence: null,
             question: null,
             message: self::requiredText($payload['message'] ?? null, 'message'),
+            safetyKind: $kind,
         );
     }
 
-    private static function requiredClinicId(mixed $clinicId): int
+    private static function optionalPositiveInt(mixed $value): ?int
     {
-        if (is_int($clinicId) && $clinicId > 0) {
-            return $clinicId;
+        if (is_int($value) && $value > 0) {
+            return $value;
         }
 
-        if (is_string($clinicId) && preg_match('/^[1-9]\d*$/', $clinicId) === 1) {
-            return (int) $clinicId;
+        if (is_string($value) && preg_match('/^[1-9]\d*$/', $value) === 1) {
+            return (int) $value;
         }
 
-        throw new InvalidArgumentException('AI guidance clinic_id must be a positive integer.');
+        return null;
     }
 
     private static function requiredText(mixed $value, string $field): string

@@ -9,6 +9,9 @@ use Illuminate\Contracts\Session\Session;
  *
  * This is not a medical record and is not written to the database.
  * Disclaimer acknowledgement and booking intent use different session keys.
+ *
+ * Stored payloads may be a legacy turn list or a v1 envelope that pins the
+ * opening concern without expanding unlimited chat history.
  */
 final class AiFrontDeskConversation
 {
@@ -19,28 +22,55 @@ final class AiFrontDeskConversation
      */
     public static function turns(Session $session): array
     {
-        $stored = $session->get(self::SESSION_KEY);
-
-        return AiConversationContext::fromTurns(is_array($stored) ? $stored : [])->turns;
+        return self::state($session)->turns;
     }
 
-    public static function remember(Session $session, string $visitorMessage, string $assistantMessage): void
+    public static function state(Session $session): AiConversationState
     {
-        $turns = self::turns($session);
-        $turns[] = [
-            'role' => 'user',
-            'content' => $visitorMessage,
-        ];
-        $turns[] = [
-            'role' => 'assistant',
-            'content' => $assistantMessage,
-        ];
+        $stored = $session->get(self::SESSION_KEY);
 
-        $session->put(self::SESSION_KEY, AiConversationContext::fromTurns($turns)->turns);
+        if (! is_array($stored)) {
+            return AiConversationState::empty();
+        }
+
+        if (self::isEnvelope($stored)) {
+            return AiConversationState::fromEnvelope($stored);
+        }
+
+        return AiConversationState::fromTurns($stored);
+    }
+
+    public static function remember(
+        Session $session,
+        string $visitorMessage,
+        string $assistantMessage,
+        bool $wasClarification = false,
+    ): void {
+        $next = self::state($session)->withExchange(
+            $visitorMessage,
+            $assistantMessage,
+            $wasClarification,
+        );
+
+        $session->put(self::SESSION_KEY, $next->toEnvelope());
     }
 
     public static function clear(Session $session): void
     {
         $session->forget(self::SESSION_KEY);
+    }
+
+    /**
+     * @param  array<mixed>  $stored
+     */
+    private static function isEnvelope(array $stored): bool
+    {
+        if (array_is_list($stored)) {
+            return false;
+        }
+
+        return array_key_exists('turns', $stored)
+            || array_key_exists('opening_concern', $stored)
+            || array_key_exists('v', $stored);
     }
 }

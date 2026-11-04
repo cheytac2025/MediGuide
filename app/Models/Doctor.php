@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Enums\DoctorStatus;
+use App\Enums\HospitalDataSource;
+use App\Models\Concerns\HasHospitalDataSource;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
@@ -17,16 +19,22 @@ use Illuminate\Support\Carbon;
  * @property string $display_name
  * @property string|null $specialization
  * @property DoctorStatus $status
+ * @property HospitalDataSource $data_source
+ * @property Carbon|null $verified_at
+ * @property int|null $verified_by_user_id
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
+ * @property-read User|null $verifiedBy
  * @property-read Clinic $clinic
  * @property-read User|null $user
  * @property-read Collection<int, DoctorSchedule> $schedules
  * @property-read Collection<int, Appointment> $appointments
  */
-#[Fillable(['clinic_id', 'user_id', 'display_name', 'specialization', 'status'])]
+#[Fillable(['clinic_id', 'user_id', 'display_name', 'specialization', 'status', 'data_source'])]
 class Doctor extends Model
 {
+    use HasHospitalDataSource;
+
     /**
      * @return BelongsTo<Clinic, $this>
      */
@@ -66,6 +74,8 @@ class Doctor extends Model
     {
         return [
             'status' => DoctorStatus::class,
+            'data_source' => HospitalDataSource::class,
+            'verified_at' => 'datetime',
         ];
     }
 }

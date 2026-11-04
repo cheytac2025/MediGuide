@@ -133,6 +133,59 @@ class AppointmentBookingService
     }
 
     /**
+     * Earliest bookable start inside the current seven-day window, or null.
+     *
+     * @return array{date: string, time: string}|null
+     */
+    public function nextAvailableSlot(Doctor $doctor): ?array
+    {
+        $doctor = Doctor::query()->with(['clinic.department', 'schedules'])->find($doctor->getKey());
+
+        if (! $doctor instanceof Doctor) {
+            return null;
+        }
+
+        $schedules = $doctor->schedules->filter(
+            fn (DoctorSchedule $schedule): bool => $schedule->status === DoctorScheduleStatus::Active,
+        );
+
+        if ($schedules->isEmpty()) {
+            return null;
+        }
+
+        $date = $this->hospitalNow()->copy()->startOfDay();
+        $last = $this->lastBookableDate();
+
+        while ($date->lte($last)) {
+            $earliest = null;
+
+            foreach ($schedules as $schedule) {
+                foreach ($this->getAvailableSlots($doctor, $schedule, $date->toDateString()) as $start) {
+                    if ($earliest === null || $start < $earliest) {
+                        $earliest = $start;
+                    }
+                }
+            }
+
+            if ($earliest !== null) {
+                return [
+                    'date' => $date->toDateString(),
+                    'time' => $earliest,
+                ];
+            }
+
+            $date->addDay();
+        }
+
+        return null;
+    }
+
+    public function formatSlotLabel(string $date, string $time): string
+    {
+        return Carbon::parse($date.' '.$time, config('app.timezone'))->format('D, M j, Y, g:i A');
+    }
+
+    /**
      * Every start time (H:i) the schedule defines, regardless of availability.
      *
      * @return list<string>

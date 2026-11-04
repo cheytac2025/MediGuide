@@ -4,14 +4,20 @@ namespace App\Http\Requests\Admin;
 
 use App\Enums\ClinicStatus;
 use App\Enums\DepartmentStatus;
+use App\Enums\HospitalDataSource;
+use App\Http\Requests\Admin\Concerns\ValidatesHospitalDataSource;
 use App\Models\Clinic;
 use App\Models\Department;
+use App\Services\HospitalImport\RecordProvenanceService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Validator;
 
 class UpdateClinicRequest extends FormRequest
 {
+    use ValidatesHospitalDataSource;
+
     public function authorize(): bool
     {
         return true;
@@ -52,6 +58,7 @@ class UpdateClinicRequest extends FormRequest
             'department_id' => ['required', 'integer', 'exists:departments,id'],
             'description' => ['nullable', 'string', 'max:2000'],
             'status' => ['required', Rule::enum(ClinicStatus::class)],
+            ...$this->prohibitedProvenanceRules(),
         ];
     }
 
@@ -80,12 +87,35 @@ class UpdateClinicRequest extends FormRequest
 
             $status = ClinicStatus::from((string) $this->input('status'));
             $department = Department::query()->find($this->input('department_id'));
+            $clinic = $this->route('clinic');
 
             if ($status === ClinicStatus::Active && $department?->status !== DepartmentStatus::Active) {
                 $validator->errors()->add(
                     'status',
                     'An active clinic must belong to an active department.',
                 );
+            }
+
+            if (! $clinic instanceof Clinic || ! $department instanceof Department) {
+                return;
+            }
+
+            $source = $clinic->data_source instanceof HospitalDataSource
+                ? $clinic->data_source
+                : HospitalDataSource::Development;
+
+            try {
+                app(RecordProvenanceService::class)->assertCompatibleWithParent(
+                    $department->data_source instanceof HospitalDataSource ? $department->data_source : null,
+                    $source,
+                    'department_id',
+                );
+            } catch (ValidationException $exception) {
+                foreach ($exception->errors() as $field => $messages) {
+                    foreach ($messages as $message) {
+                        $validator->errors()->add($field, $message);
+                    }
+                }
             }
         });
     }
@@ -98,6 +128,11 @@ class UpdateClinicRequest extends FormRequest
         /** @var array{name: string, department_id: int, description: ?string, status: string} $validated */
         $validated = $this->validated();
 
-        return $validated;
+        return [
+            'name' => $validated['name'],
+            'department_id' => (int) $validated['department_id'],
+            'description' => $validated['description'] ?? null,
+            'status' => $validated['status'],
+        ];
     }
 }

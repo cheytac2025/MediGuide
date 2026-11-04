@@ -1,0 +1,101 @@
+<?php
+
+namespace Tests\Unit;
+
+use App\Support\AiUrgentConcernDetector;
+use App\Support\AiVisitorReply;
+use Tests\TestCase;
+
+class AiUrgentConcernDetectorTest extends TestCase
+{
+    public function test_ordinary_complaints_are_not_treated_as_emergencies(): void
+    {
+        $detector = new AiUrgentConcernDetector;
+
+        $this->assertFalse($detector->isUrgent('Masakit ulo ko.'));
+        $this->assertFalse($detector->isUrgent('Masaket ulo ko'));
+        $this->assertFalse($detector->isUrgent('Masaket ulo'));
+        $this->assertFalse($detector->isUrgent('Nahihilo ako'));
+        $this->assertFalse($detector->isUrgent('My stomach hurts'));
+        $this->assertFalse($detector->isUrgent('Sumasakit dibdib ko'));
+        $this->assertFalse($detector->isUrgent('I feel dizzy'));
+        $this->assertFalse($detector->isUrgent('I have a fever'));
+        $this->assertFalse($detector->isUrgent('Sobrang sakit ng ulo bigla-bigla.'));
+        $this->assertFalse($detector->isUrgent('Masakit ulo ko bigla-bigla.'));
+    }
+
+    public function test_high_signal_warning_signs_are_flagged(): void
+    {
+        $detector = new AiUrgentConcernDetector;
+
+        $this->assertTrue($detector->isUrgent('I have a sudden severe headache and I cannot speak.'));
+        $this->assertTrue($detector->isUrgent('I have chest pain and I cannot breathe.'));
+        $this->assertTrue($detector->isUrgent('Hindi ako makahinga'));
+        $this->assertTrue($detector->isUrgent('Nawalan ng malay kanina'));
+        $this->assertTrue($detector->isUrgent('Severe uncontrolled bleeding'));
+        $this->assertTrue($detector->isUrgent('Biglang sobrang sakit ng ulo'));
+        $this->assertTrue($detector->isUrgent('Biglaang sobrang sakit ng ulo'));
+        $this->assertTrue($detector->isUrgent('Sobrang sakit ng ulo bigla'));
+        $this->assertTrue($detector->isUrgent('Parang mahihimatay ako'));
+        $this->assertTrue($detector->isUrgent('I feel like I am about to collapse.'));
+        $this->assertTrue($detector->isUrgent('Parang stroke po'));
+        $this->assertTrue($detector->isUrgent('Atake sa puso'));
+        $this->assertTrue($detector->isUrgent('Hindi ko maigalaw ang kaliwang kamay.'));
+        $this->assertTrue($detector->isUrgent('May panghihina ako sa kaliwang kamay.'));
+        $this->assertTrue($detector->isUrgent('I have weakness on one side.'));
+        $this->assertTrue($detector->isUrgent('Bigla akong hindi makakita.'));
+        $this->assertTrue($detector->isUrgent('I have sudden vision loss.'));
+        $this->assertTrue($detector->isUrgent('Hindi magising ang bata.'));
+        $this->assertTrue($detector->isUrgent('Pakiramdam ko parang mag-collapse ako.'));
+        $this->assertTrue($detector->isUrgent('Biglang sumakit nang sobrang tindi ang ulo ko.'));
+        $this->assertTrue($detector->isUrgent('Bigla akong nawalan ng paningin sa isang mata.'));
+        $this->assertFalse($detector->isUrgent('The bright light hurts my eyes.'));
+    }
+
+    public function test_negated_warning_signs_are_not_treated_as_reported(): void
+    {
+        $detector = new AiUrgentConcernDetector;
+
+        $this->assertFalse($detector->isUrgent('Wala akong panghihina.'));
+        $this->assertFalse($detector->isUrgent('Hindi ako may panghihina.'));
+        $this->assertFalse($detector->isUrgent('Masakit ulo ko. Wala akong panghihina.'));
+        $this->assertFalse($detector->isUrgent('Hindi ako atake sa puso.'));
+        $this->assertTrue($detector->attributesUnreportedSymptoms(
+            'Dahil mayroon kang nararamdamang panghihina kasabay ng matinding sakit ng ulo.',
+            'Masaket ulo ko',
+        ));
+        $this->assertFalse($detector->attributesUnreportedSymptoms(
+            'If you reported one sided weakness, seek emergency help now.',
+            'I have weakness on one side.',
+        ));
+    }
+
+    public function test_declined_and_unknown_replies_are_recognized(): void
+    {
+        $this->assertTrue(AiVisitorReply::declinedOrUnknown('Hindi ko alam.'));
+        $this->assertTrue(AiVisitorReply::declinedOrUnknown("I don't know"));
+        $this->assertTrue(AiVisitorReply::declinedOrUnknown('Ayaw ko sagutin.'));
+        $this->assertTrue(AiVisitorReply::declinedOrUnknown('prefer not to say'));
+        $this->assertFalse(AiVisitorReply::declinedOrUnknown('Dalawang araw na.'));
+        $this->assertFalse(AiVisitorReply::declinedOrUnknown('Masakit ulo ko.'));
+        $this->assertTrue(AiVisitorReply::negativeConfirmation('Hindi'));
+        $this->assertTrue(AiVisitorReply::negativeConfirmation('No'));
+        $this->assertFalse(AiVisitorReply::negativeConfirmation('Dalawang araw na.'));
+    }
+
+    public function test_equivalent_questions_are_detected_and_multiple_questions_are_reduced(): void
+    {
+        $this->assertTrue(AiVisitorReply::questionsAreEquivalent(
+            'Gaano na katagal sumasakit ang ulo mo?',
+            'Gaano na katagal?',
+        ));
+        $this->assertFalse(AiVisitorReply::questionsAreEquivalent(
+            'Gaano na katagal sumasakit ang ulo mo?',
+            'May lagnat ka ba?',
+        ));
+        $this->assertSame(
+            'Gaano na katagal sumasakit ang ulo mo?',
+            AiVisitorReply::firstQuestion('Gaano na katagal sumasakit ang ulo mo? May iba ka bang nararamdaman? May lagnat ka ba?'),
+        );
+    }
+}

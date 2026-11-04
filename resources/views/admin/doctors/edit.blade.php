@@ -13,6 +13,12 @@
                 <a class="mg-appt-back" href="{{ route('admin.doctors') }}">Back to Doctors</a>
             </div>
 
+            @if (session('doctor_status'))
+                <div class="mg-book-success" role="status">
+                    <p>{{ session('doctor_status') }}</p>
+                </div>
+            @endif
+
             @if ($errors->any())
                 <div class="mg-book-alert" role="alert">{{ $errors->first() }}</div>
             @endif
@@ -81,6 +87,7 @@
                     <button type="submit" class="mg-appt-details">Save Changes</button>
                 </div>
             </form>
+
         </section>
     </div>
 @endsection

@@ -5,6 +5,8 @@ namespace Tests\Feature\Admin;
 use App\Enums\AppointmentStatus;
 use App\Enums\ClinicStatus;
 use App\Enums\DayOfWeek;
+use App\Enums\DepartmentStatus;
+use App\Enums\HospitalDataSource;
 use App\Enums\RoleName;
 use App\Enums\Sex;
 use App\Models\Appointment;
@@ -83,12 +85,13 @@ class AdminClinicTest extends TestCase
             ->get(route('admin.clinics.create'))
             ->assertOk()
             ->assertSee('Add Clinic')
-            ->assertSee('Development Department A');
+            ->assertSee('Development Department A')
+            ->assertSee('MediGuide may use it for AI navigation.', false);
     }
 
     public function test_it_admin_can_create_an_active_clinic_under_an_active_department(): void
     {
-        $department = $this->department('Development Department A');
+        $department = $this->hospitalDepartment();
 
         $this->actingAs($this->admin())
             ->post(route('admin.clinics.store'), [
@@ -109,7 +112,7 @@ class AdminClinicTest extends TestCase
 
     public function test_new_clinic_belongs_to_the_selected_department(): void
     {
-        $department = $this->department('Development Department B');
+        $department = $this->hospitalDepartment('Assigned Services');
 
         $this->actingAs($this->admin())
             ->post(route('admin.clinics.store'), $this->payload($department, 'Assigned Clinic'));
@@ -131,7 +134,7 @@ class AdminClinicTest extends TestCase
 
     public function test_same_clinic_name_under_a_different_department_is_allowed(): void
     {
-        $department = $this->department('Development Department B');
+        $department = $this->hospitalDepartment('Second Outpatient');
 
         $this->actingAs($this->admin())
             ->post(route('admin.clinics.store'), $this->payload($department, 'Development Clinic A'))
@@ -435,12 +438,23 @@ class AdminClinicTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.clinics.edit', $clinic))
             ->assertOk()
-            ->assertSee('aria-current="page"', false);
+            ->assertSee('aria-current="page"', false)
+            ->assertSee('MediGuide may use it for AI navigation.', false);
     }
 
     /**
      * @return array{name: string, department_id: int, description: string, status: string}
      */
+    private function hospitalDepartment(string $name = 'Outpatient Services'): Department
+    {
+        return Department::query()->create([
+            'name' => $name,
+            'description' => 'Hospital department.',
+            'status' => DepartmentStatus::Active,
+            'data_source' => HospitalDataSource::Imported,
+        ]);
+    }
+
     private function payload(Department $department, string $name): array
     {
         return [

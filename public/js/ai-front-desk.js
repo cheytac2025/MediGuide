@@ -123,12 +123,16 @@
     };
 
     const appendRecommendation = (payload) => {
+        if (Array.isArray(payload?.doctors)) {
+            appendSuggestedDoctors(payload);
+            return;
+        }
+
         const clinicId = clinicIdFromPayload(payload);
         const doctorsUrl = typeof payload?.doctors_url === 'string' ? payload.doctors_url : '';
 
         if (!clinicId || doctorsUrl === '' || typeof payload?.clinic?.name !== 'string') {
             appendAssistantMessage(fallbackMessage);
-            appendFallback();
             return;
         }
 
@@ -162,7 +166,16 @@
         log.appendChild(row);
     };
 
-    const appendSafety = (text) => {
+    const appendSafety = (payload) => {
+        const text = typeof payload === 'string' ? payload : payload?.message;
+        const kind = payload && typeof payload === 'object' && payload.safety_kind === 'prompt_evaluation'
+            ? 'prompt_evaluation'
+            : 'emergency';
+
+        if (typeof text !== 'string' || text === '') {
+            return;
+        }
+
         const row = cloneTemplate('safety');
 
         if (!row) {
@@ -170,15 +183,36 @@
             return;
         }
 
+        const card = row.querySelector('.mg-safety-card');
+        const title = row.querySelector('.mg-recommend-title');
+
+        if (card) {
+            card.classList.toggle('mg-safety-card--prompt', kind === 'prompt_evaluation');
+            card.classList.toggle('mg-safety-card--emergency', kind === 'emergency');
+            card.dataset.mgSafetyKind = kind;
+        }
+
+        if (title) {
+            title.textContent = kind === 'prompt_evaluation'
+                ? 'Prompt medical evaluation'
+                : 'Urgent safety guidance';
+        }
+
         row.querySelector('[data-mg-text]').textContent = text;
         log.appendChild(row);
     };
 
-    const appendFallback = () => {
+    const appendFallback = (message) => {
         const row = cloneTemplate('fallback');
 
         if (!row || log.querySelector('.mg-fallback-card')) {
             return;
+        }
+
+        const text = row.querySelector('[data-mg-text]');
+
+        if (text) {
+            text.textContent = typeof message === 'string' && message !== '' ? message : fallbackMessage;
         }
 
         log.appendChild(row);
@@ -197,62 +231,150 @@
         }
 
         if (payload?.type === 'safety' && typeof payload.message === 'string') {
-            appendSafety(payload.message);
+            appendSafety(payload);
             return;
         }
 
-        appendAssistantMessage(typeof payload?.message === 'string' ? payload.message : fallbackMessage);
-        appendFallback();
+        const message = typeof payload?.message === 'string' ? payload.message : fallbackMessage;
+
+        if (payload?.processing_failed === true || message === fallbackMessage) {
+            appendAssistantMessage(message);
+            return;
+        }
+
+        appendFallback(message);
     };
 
     const appendDoctors = (payload) => {
+        appendSuggestedDoctors(payload);
+    };
+
+    const appendSuggestedDoctors = (payload) => {
         const row = cloneTemplate('doctors');
 
         if (!row) {
             return;
         }
 
-        row.querySelector('[data-mg-doctors-clinic]').textContent = payload.clinic?.name || 'Available Doctors';
+        const isDevelopment = payload.data_source === 'development';
+        const sourceEl = row.querySelector('[data-mg-source]');
+
+        if (sourceEl) {
+            sourceEl.textContent = isDevelopment ? 'DEVELOPMENT DATA' : '';
+        }
+
+        const developmentTag = row.querySelector('[data-mg-development-tag]');
+
+        if (developmentTag) {
+            developmentTag.hidden = !isDevelopment;
+        }
+
+        const summaryEl = row.querySelector('[data-mg-summary]');
+
+        if (summaryEl) {
+            summaryEl.textContent = typeof payload.reason === 'string' ? payload.reason : '';
+            summaryEl.hidden = summaryEl.textContent === '';
+        }
 
         const messageEl = row.querySelector('[data-mg-doctors-message]');
         const listEl = row.querySelector('[data-mg-doctors-list]');
         const doctors = Array.isArray(payload.doctors) ? payload.doctors : [];
+        const previewLimit = Number.isInteger(payload.preview_limit) && payload.preview_limit > 0
+            ? payload.preview_limit
+            : 3;
+        const allUnavailable = payload.all_unavailable === true
+            || (doctors.length > 0 && doctors.every((doctor) => doctor.bookable !== true));
 
         if (payload.message && messageEl) {
             messageEl.textContent = payload.message;
             messageEl.hidden = false;
         }
 
-        doctors.forEach((doctor) => {
+        doctors.forEach((doctor, index) => {
             const item = templates.doctorItem?.content.firstElementChild.cloneNode(true);
 
             if (!item) {
                 return;
             }
 
-            item.querySelector('[data-mg-doctor-name]').textContent = doctor.display_name || '';
-            item.querySelector('[data-mg-doctor-specialization]').textContent = doctor.specialization || '';
-            item.querySelector('[data-mg-doctor-clinic]').textContent = doctor.clinic || payload.clinic?.name || '';
-            item.querySelector('[data-mg-doctor-availability]').textContent = doctor.availability || '';
+            const doctorId = Number(doctor?.id);
+            const clinicId = Number(doctor?.clinic_id || payload?.clinic?.id);
+
+            item.querySelector('[data-mg-doctor-name]').textContent = typeof doctor.display_name === 'string'
+                ? doctor.display_name
+                : '';
+            item.querySelector('[data-mg-doctor-specialization]').textContent = typeof doctor.specialization === 'string'
+                ? doctor.specialization
+                : '';
+
+            const place = [doctor.clinic, doctor.department]
+                .filter((value) => typeof value === 'string' && value !== '' && !/pending hospital mapping/i.test(value))
+                .join(' · ');
+            const placeEl = item.querySelector('[data-mg-doctor-clinic]');
+            placeEl.textContent = place;
+            placeEl.hidden = place === '';
+
+            const availabilityEl = item.querySelector('[data-mg-doctor-availability]');
+            const nextAvailable = typeof doctor.next_available === 'string' && doctor.next_available !== ''
+                ? doctor.next_available
+                : '';
+            const bookable = doctor.bookable === true;
+
+            if (allUnavailable) {
+                availabilityEl.textContent = '';
+                availabilityEl.hidden = true;
+            } else if (bookable && nextAvailable !== '') {
+                availabilityEl.textContent = nextAvailable;
+                availabilityEl.hidden = false;
+            } else {
+                availabilityEl.textContent = 'No online appointments currently available.';
+                availabilityEl.hidden = false;
+            }
+
+            item.classList.toggle('is-unavailable', !bookable);
 
             const bookBtn = item.querySelector('[data-mg-book-appointment]');
 
             if (bookBtn) {
-                if (doctor.bookable) {
+                if (
+                    doctor.bookable === true
+                    && Number.isInteger(doctorId)
+                    && doctorId > 0
+                    && Number.isInteger(clinicId)
+                    && clinicId > 0
+                ) {
+                    bookBtn.hidden = false;
                     bookBtn.disabled = false;
-                    bookBtn.dataset.clinicId = String(payload.clinic?.id || '');
-                    bookBtn.dataset.doctorId = String(doctor.id);
+                    bookBtn.dataset.clinicId = String(clinicId);
+                    bookBtn.dataset.doctorId = String(doctorId);
                     bookBtn.dataset.bookUrl = payload.book_appointment_url || '';
                     bookBtn.dataset.intentUrl = payload.booking_intent_url || '';
                     bookBtn.dataset.authenticatedPatient = payload.is_authenticated_patient ? '1' : '0';
                 } else {
+                    bookBtn.hidden = true;
                     bookBtn.disabled = true;
-                    bookBtn.title = 'No available schedule';
+                    bookBtn.removeAttribute('data-doctor-id');
                 }
+            }
+
+            if (index >= previewLimit) {
+                item.hidden = true;
             }
 
             listEl.appendChild(item);
         });
+
+        const viewMore = row.querySelector('[data-mg-view-more]');
+
+        if (viewMore && doctors.length > previewLimit) {
+            viewMore.hidden = false;
+            viewMore.addEventListener('click', () => {
+                listEl.querySelectorAll('.mg-doctor-card[hidden]').forEach((card) => {
+                    card.hidden = false;
+                });
+                viewMore.hidden = true;
+            });
+        }
 
         log.appendChild(row);
         scrollToEnd();
@@ -433,7 +555,6 @@
         } catch (error) {
             processing?.remove();
             appendAssistantMessage(fallbackMessage);
-            appendFallback();
         } finally {
             window.clearInterval(stepper);
             setBusy(false);

@@ -3,13 +3,19 @@
 namespace App\Http\Requests\Admin;
 
 use App\Enums\DoctorStatus;
+use App\Enums\HospitalDataSource;
+use App\Http\Requests\Admin\Concerns\ValidatesHospitalDataSource;
+use App\Models\Clinic;
 use App\Rules\ValidPersonName;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\Validator;
 
 class StoreDoctorRequest extends FormRequest
 {
+    use ValidatesHospitalDataSource;
+
     public function authorize(): bool
     {
         return true;
@@ -37,6 +43,7 @@ class StoreDoctorRequest extends FormRequest
             'clinic_id' => ['required', 'integer', 'exists:clinics,id'],
             'specialization' => ['nullable', 'string', 'max:255'],
             'status' => ['required', Rule::enum(DoctorStatus::class)],
+            ...$this->prohibitedProvenanceRules(),
             'first_name' => ['required', 'string', 'max:100', new ValidPersonName],
             'middle_name' => ['nullable', 'string', 'max:100', new ValidPersonName],
             'last_name' => ['required', 'string', 'max:100', new ValidPersonName],
@@ -62,6 +69,24 @@ class StoreDoctorRequest extends FormRequest
             'email.unique' => 'An account with this email already exists.',
             'email.required' => 'Email address is required.',
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            $clinic = Clinic::query()->find($this->input('clinic_id'));
+
+            $this->addIneligibleParentError(
+                $validator,
+                $clinic?->data_source instanceof HospitalDataSource ? $clinic->data_source : null,
+                'clinic_id',
+                'The selected clinic is not eligible for hospital records. Choose a hospital clinic, not a development-only clinic.',
+            );
+        });
     }
 
     /**

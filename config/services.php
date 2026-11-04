@@ -44,6 +44,8 @@ return [
         'model' => env('ANTHROPIC_MODEL') ?: 'claude-sonnet-5',
         'version' => '2023-06-01',
         'timeout' => (int) env('ANTHROPIC_TIMEOUT', 20),
+        'max_tokens' => (int) env('ANTHROPIC_MAX_TOKENS', 4096),
+        'retry_max_tokens' => (int) env('ANTHROPIC_RETRY_MAX_TOKENS', 8192),
     ],
 
 ];

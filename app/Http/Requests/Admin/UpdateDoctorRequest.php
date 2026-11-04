@@ -3,13 +3,21 @@
 namespace App\Http\Requests\Admin;
 
 use App\Enums\DoctorStatus;
+use App\Enums\HospitalDataSource;
+use App\Http\Requests\Admin\Concerns\ValidatesHospitalDataSource;
+use App\Models\Clinic;
 use App\Models\Doctor;
 use App\Rules\ValidPersonName;
+use App\Services\HospitalImport\RecordProvenanceService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Validator;
 
 class UpdateDoctorRequest extends FormRequest
 {
+    use ValidatesHospitalDataSource;
+
     public function authorize(): bool
     {
         return true;
@@ -40,6 +48,7 @@ class UpdateDoctorRequest extends FormRequest
             'clinic_id' => ['required', 'integer', 'exists:clinics,id'],
             'specialization' => ['nullable', 'string', 'max:255'],
             'status' => ['required', Rule::enum(DoctorStatus::class)],
+            ...$this->prohibitedProvenanceRules(),
         ];
 
         if ($userId !== null) {
@@ -66,16 +75,52 @@ class UpdateDoctorRequest extends FormRequest
         ];
     }
 
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            $doctor = $this->route('doctor');
+            $clinic = Clinic::query()->find($this->input('clinic_id'));
+
+            if (! $doctor instanceof Doctor || ! $clinic instanceof Clinic) {
+                return;
+            }
+
+            $source = $doctor->data_source instanceof HospitalDataSource
+                ? $doctor->data_source
+                : HospitalDataSource::Development;
+
+            try {
+                app(RecordProvenanceService::class)->assertCompatibleWithParent(
+                    $clinic->data_source instanceof HospitalDataSource ? $clinic->data_source : null,
+                    $source,
+                    'clinic_id',
+                );
+            } catch (ValidationException $exception) {
+                foreach ($exception->errors() as $field => $messages) {
+                    foreach ($messages as $message) {
+                        $validator->errors()->add($field, $message);
+                    }
+                }
+            }
+        });
+    }
+
     /**
      * @return array{display_name: string, clinic_id: int, specialization: ?string, status: string}
      */
     public function doctorAttributes(): array
     {
+        $validated = $this->validated();
+
         return [
-            'display_name' => (string) $this->validated('display_name'),
-            'clinic_id' => (int) $this->validated('clinic_id'),
-            'specialization' => $this->validated('specialization'),
-            'status' => (string) $this->validated('status'),
+            'display_name' => (string) $validated['display_name'],
+            'clinic_id' => (int) $validated['clinic_id'],
+            'specialization' => $validated['specialization'] ?? null,
+            'status' => (string) $validated['status'],
         ];
     }
 

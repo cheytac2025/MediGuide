@@ -3,6 +3,7 @@
 use App\Enums\RoleName;
 use App\Http\Controllers\Admin\ClinicController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\DepartmentController;
 use App\Http\Controllers\Admin\DoctorController as AdminDoctorController;
 use App\Http\Controllers\Admin\UserAccountController;
 use App\Http\Controllers\AiDisclaimerController;
@@ -141,6 +142,22 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:'.RoleName::ItAdministrator->value)->group(function () {
         Route::get('/admin/dashboard', AdminDashboardController::class)
             ->name('admin.dashboard');
+
+        Route::get('/admin/departments', [DepartmentController::class, 'index'])
+            ->name('admin.departments');
+        Route::get('/admin/departments/create', [DepartmentController::class, 'create'])
+            ->name('admin.departments.create');
+        Route::post('/admin/departments', [DepartmentController::class, 'store'])
+            ->name('admin.departments.store');
+        Route::get('/admin/departments/{department}/edit', [DepartmentController::class, 'edit'])
+            ->whereNumber('department')
+            ->name('admin.departments.edit');
+        Route::patch('/admin/departments/{department}', [DepartmentController::class, 'update'])
+            ->whereNumber('department')
+            ->name('admin.departments.update');
+        Route::patch('/admin/departments/{department}/status', [DepartmentController::class, 'updateStatus'])
+            ->whereNumber('department')
+            ->name('admin.departments.status');
 
         Route::get('/admin/clinics', [ClinicController::class, 'index'])
             ->name('admin.clinics');

@@ -9,12 +9,14 @@ use App\Enums\ClinicStatus;
 use App\Enums\DepartmentStatus;
 use App\Enums\DoctorStatus;
 use App\Enums\RoleName;
+use App\Enums\HospitalDataSource;
 use App\Enums\UserStatus;
 use App\Models\Appointment;
 use App\Models\Clinic;
 use App\Models\Doctor;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\HospitalImport\RecordProvenanceService;
 use App\Support\Audit\AuditTrailService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -31,6 +33,12 @@ class DoctorManagementService
         return DB::transaction(function () use ($doctorAttributes, $accountAttributes): Doctor {
             $clinic = $this->clinicForAssignment((int) $doctorAttributes['clinic_id']);
             $this->assertActiveDoctorPlacement($clinic, DoctorStatus::from($doctorAttributes['status']));
+            $dataSource = HospitalDataSource::Imported;
+            app(RecordProvenanceService::class)->assertCompatibleWithParent(
+                $clinic->data_source instanceof HospitalDataSource ? $clinic->data_source : null,
+                $dataSource,
+                'clinic_id',
+            );
 
             $role = Role::query()->where('slug', RoleName::Doctor->value)->firstOrFail();
 
@@ -56,6 +64,7 @@ class DoctorManagementService
                 'display_name' => $doctorAttributes['display_name'],
                 'specialization' => $doctorAttributes['specialization'],
                 'status' => $doctorAttributes['status'],
+                'data_source' => $dataSource,
             ]);
 
             app(AuditTrailService::class)->recordFor(
@@ -66,6 +75,7 @@ class DoctorManagementService
                     'account_user_id' => (int) $user->id,
                     'clinic_id' => (int) $clinic->id,
                     'status' => (string) $doctorAttributes['status'],
+                    'data_source' => $dataSource->value,
                 ],
             );
 
@@ -84,9 +94,12 @@ class DoctorManagementService
             $locked = Doctor::query()->whereKey($doctor->getKey())->lockForUpdate()->firstOrFail();
             $clinic = $this->clinicForAssignment((int) $doctorAttributes['clinic_id']);
             $status = DoctorStatus::from($doctorAttributes['status']);
+            $actor = auth()->user();
 
             $this->assertActiveDoctorPlacement($clinic, $status);
             $this->assertClinicChangeIsSafe($locked, $clinic);
+
+            $before = $locked->only(['display_name', 'specialization', 'clinic_id']);
 
             $locked->update([
                 'clinic_id' => $clinic->id,
@@ -94,6 +107,20 @@ class DoctorManagementService
                 'specialization' => $doctorAttributes['specialization'],
                 'status' => $status,
             ]);
+
+            if ($actor instanceof User) {
+                app(RecordProvenanceService::class)->revokeIfClinicalFieldsChanged(
+                    $locked->fresh() ?? $locked,
+                    $before,
+                    [
+                        'display_name' => $doctorAttributes['display_name'],
+                        'specialization' => $doctorAttributes['specialization'],
+                        'clinic_id' => $clinic->id,
+                    ],
+                    ['display_name', 'specialization', 'clinic_id'],
+                    $actor,
+                );
+            }
 
             if ($accountAttributes !== null && $locked->user instanceof User) {
                 $locked->user->update([

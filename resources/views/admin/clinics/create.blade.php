@@ -53,6 +53,7 @@
                 <label class="mg-book-label">
                     Description
                     <textarea name="description" class="mg-book-textarea" maxlength="2000" rows="4">{{ old('description') }}</textarea>
+                    <span class="mg-field-help">Optional. When this describes the clinic's actual hospital services, MediGuide may use it for AI navigation. Import mapping notes and empty descriptions are not treated as clinical capabilities.</span>
                 </label>
 
                 <div class="mg-staff-actions">

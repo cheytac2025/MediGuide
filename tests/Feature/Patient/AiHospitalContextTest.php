@@ -90,6 +90,7 @@ class AiHospitalContextTest extends TestCase
             'clinic_id' => $clinic->id,
             'clinic_name' => 'Development Clinic A',
             'clinic_description' => $description,
+            'description_kind' => 'administrative_mapping',
             'department_id' => $department->id,
             'department_name' => 'Development Department A',
         ], $match->toArray());
@@ -109,6 +110,7 @@ class AiHospitalContextTest extends TestCase
 
             $this->assertInstanceOf(AiClinicContext::class, $match);
             $this->assertArrayHasKey('clinic_description', $match->toArray());
+            $this->assertSame('none', $match->toArray()['description_kind']);
             $this->assertNull($match->clinicDescription);
         }
     }
@@ -132,7 +134,7 @@ class AiHospitalContextTest extends TestCase
         $context = $service->availableContext();
         $doctors = $service->availableDoctors($eligible->id);
 
-        $this->assertSame(['data_source', 'clinics'], array_keys($context->toArray()));
+        $this->assertSame(['data_source', 'clinics', 'services'], array_keys($context->toArray()));
         $this->assertSame([$eligibleDoctor->id], $doctors->pluck('id')->all());
         $this->assertNotContains($otherDoctor->id, $doctors->pluck('id')->all());
         $this->assertCount(0, $service->availableDoctors($inactiveClinic->id));
@@ -225,6 +227,48 @@ class AiHospitalContextTest extends TestCase
         $this->assertTrue($service->validateProposedClinic($allowed->id, $context));
     }
 
+    public function test_eligible_specializations_are_catalogued_without_doctor_identities(): void
+    {
+        $department = $this->department('Development Department A', DepartmentStatus::Active);
+        $clinic = $this->clinic($department, 'Development Clinic A', ClinicStatus::Active);
+        $this->doctor($clinic, 'Active Development Doctor', DoctorStatus::Active, 'Development Specialization A');
+        $this->doctor($clinic, 'Inactive Development Doctor', DoctorStatus::Inactive, 'Hidden Specialization');
+
+        $context = $this->service()->availableContext();
+        $encoded = json_encode($context->toArray());
+
+        $this->assertCount(1, $context->services);
+        $this->assertSame(1, $context->services[0]->serviceId);
+        $this->assertSame('Development Specialization A', $context->services[0]->specialization);
+        $this->assertTrue($context->includesService(1));
+        $this->assertFalse($context->includesService(99));
+        $this->assertTrue($this->service()->validateProposedService(1, $context));
+        $this->assertFalse($this->service()->validateProposedService(99, $context));
+        $this->assertIsString($encoded);
+        $this->assertStringContainsString('Development Specialization A', $encoded);
+        $this->assertStringNotContainsString('Active Development Doctor', $encoded);
+        $this->assertStringNotContainsString('Hidden Specialization', $encoded);
+        $this->assertStringNotContainsString('doctor_id', $encoded);
+    }
+
+    public function test_specialization_from_inactive_clinic_or_department_is_excluded(): void
+    {
+        $activeDepartment = $this->department('Development Department A', DepartmentStatus::Active);
+        $inactiveDepartment = $this->department('Development Department Inactive', DepartmentStatus::Inactive);
+        $activeClinic = $this->clinic($activeDepartment, 'Development Clinic A', ClinicStatus::Active);
+        $inactiveClinic = $this->clinic($activeDepartment, 'Development Clinic Inactive', ClinicStatus::Inactive);
+        $hiddenClinic = $this->clinic($inactiveDepartment, 'Development Clinic Hidden', ClinicStatus::Active);
+        $this->doctor($activeClinic, 'Visible Doctor', DoctorStatus::Active, 'Development Specialization A');
+        $this->doctor($inactiveClinic, 'Clinic Hidden Doctor', DoctorStatus::Active, 'Inactive Clinic Specialization');
+        $this->doctor($hiddenClinic, 'Department Hidden Doctor', DoctorStatus::Active, 'Inactive Department Specialization');
+
+        $context = $this->service()->availableContext();
+        $labels = array_map(fn ($service): string => $service->specialization, $context->services);
+
+        $this->assertSame(['Development Specialization A'], $labels);
+        $this->assertFalse($this->service()->validateProposedService(2, $context));
+    }
+
     public function test_structured_recommendation_contract_supports_known_guidance_types(): void
     {
         $department = $this->department('Development Department A', DepartmentStatus::Active);
@@ -266,6 +310,16 @@ class AiHospitalContextTest extends TestCase
             'clinic_id' => $clinic->id,
             'reason' => 'Available clinic record.',
         ], $withoutConfidence->toArray());
+
+        $byService = AiGuidanceResult::fromPayload([
+            'type' => 'recommendation',
+            'service_id' => 1,
+            'reason' => 'Available specialization record.',
+            'doctor_id' => 99,
+        ]);
+        $this->assertSame(1, $byService->serviceId);
+        $this->assertNull($byService->clinicId);
+        $this->assertArrayNotHasKey('doctor_id', $byService->toArray());
 
         $this->assertSame(AiGuidanceType::Clarification, $clarification->type);
         $this->assertSame('Which area is affected?', $clarification->question);
@@ -360,12 +414,147 @@ class AiHospitalContextTest extends TestCase
         config(['hospital.data_source' => 'not-a-real-source']);
         $this->assertSame(HospitalDataSource::Development, $this->service()->availableContext()->dataSource);
 
+        config(['hospital.data_source' => HospitalDataSource::Imported->value]);
+        $imported = $this->service()->availableContext();
+        $this->assertSame(HospitalDataSource::Imported, $imported->dataSource);
+        $this->assertSame('imported', $imported->toArray()['data_source']);
+        $this->assertNull($this->clinicInContext($imported, $clinic->id));
+
         config(['hospital.data_source' => HospitalDataSource::Verified->value]);
         $verified = $this->service()->availableContext();
 
         $this->assertSame(HospitalDataSource::Verified, $verified->dataSource);
         $this->assertSame('verified', $verified->toArray()['data_source']);
-        $this->assertSame($development->clinics[0]->toArray(), $verified->clinics[0]->toArray());
+        $this->assertSame([], $verified->clinics);
+    }
+
+    public function test_imported_mode_includes_imported_and_verified_records_only(): void
+    {
+        config(['hospital.data_source' => HospitalDataSource::Imported->value]);
+
+        $developmentDepartment = $this->department('Development Department A', DepartmentStatus::Active);
+        $importedDepartment = $this->department('Pending hospital mapping', DepartmentStatus::Active, null, HospitalDataSource::Imported);
+        $verifiedDepartment = $this->department('Verified Mapping', DepartmentStatus::Active, null, HospitalDataSource::Verified);
+
+        $developmentClinic = $this->clinic($developmentDepartment, 'Ortho', ClinicStatus::Active, null, HospitalDataSource::Development);
+        $importedClinic = $this->clinic($importedDepartment, 'Pediatrician', ClinicStatus::Active, null, HospitalDataSource::Imported);
+        $verifiedClinic = $this->clinic($verifiedDepartment, 'General Surgery', ClinicStatus::Active, null, HospitalDataSource::Verified);
+
+        $developmentDoctor = $this->doctor($developmentClinic, 'Dr. Robles', DoctorStatus::Active, 'Ortho', HospitalDataSource::Development);
+        $importedDoctor = $this->doctor($importedClinic, 'Dr. Endaya, Hazel Anne', DoctorStatus::Active, 'Pediatrician', HospitalDataSource::Imported);
+        $verifiedDoctor = $this->doctor($verifiedClinic, 'Dr. Verified', DoctorStatus::Active, 'General Surgery', HospitalDataSource::Verified);
+
+        $context = $this->service()->availableContext();
+        $specializations = array_map(fn ($service) => $service->specialization, $context->services);
+
+        $this->assertNull($this->clinicInContext($context, $developmentClinic->id));
+        $this->assertNotNull($this->clinicInContext($context, $importedClinic->id));
+        $this->assertNotNull($this->clinicInContext($context, $verifiedClinic->id));
+        $this->assertNotContains('Ortho', $specializations);
+        $this->assertContains('Pediatrician', $specializations);
+        $this->assertContains('General Surgery', $specializations);
+        $this->assertSame([$importedDoctor->id], $this->service()->availableDoctors($importedClinic->id)->pluck('id')->all());
+        $this->assertSame([$verifiedDoctor->id], $this->service()->availableDoctors($verifiedClinic->id)->pluck('id')->all());
+        $this->assertCount(0, $this->service()->availableDoctors($developmentClinic->id));
+        $this->assertFalse($this->service()->eligibleDoctorsForSpecialization('Ortho')->contains('id', $developmentDoctor->id));
+        $this->assertTrue($this->service()->eligibleDoctorsForSpecialization('Pediatrician')->contains('id', $importedDoctor->id));
+    }
+
+    public function test_inactive_imported_records_are_excluded_from_grounding(): void
+    {
+        config(['hospital.data_source' => HospitalDataSource::Imported->value]);
+
+        $department = $this->department('Pending hospital mapping', DepartmentStatus::Active, null, HospitalDataSource::Imported);
+        $clinic = $this->clinic($department, 'Pediatrician', ClinicStatus::Active, null, HospitalDataSource::Imported);
+        $active = $this->doctor($clinic, 'Dr. Endaya, Hazel Anne', DoctorStatus::Active, 'Pediatrician', HospitalDataSource::Imported);
+        $inactive = $this->doctor($clinic, 'Dr. Inactive Imported', DoctorStatus::Inactive, 'Pediatrician', HospitalDataSource::Imported);
+
+        $this->assertTrue($this->service()->eligibleDoctorsForSpecialization('Pediatrician')->contains('id', $active->id));
+        $this->assertFalse($this->service()->eligibleDoctorsForSpecialization('Pediatrician')->contains('id', $inactive->id));
+
+        $clinic->update(['status' => ClinicStatus::Inactive]);
+        $this->assertNull($this->clinicInContext($this->service()->availableContext(), $clinic->id));
+        $this->assertTrue($this->service()->eligibleDoctorsForSpecialization('Pediatrician')->isEmpty());
+
+        $clinic->update(['status' => ClinicStatus::Active]);
+        $department->update(['status' => DepartmentStatus::Inactive]);
+        $this->assertSame([], $this->service()->availableContext()->clinics);
+    }
+
+    public function test_duplicate_specialization_labels_are_normalized_from_eligible_doctors_only(): void
+    {
+        config(['hospital.data_source' => HospitalDataSource::Imported->value]);
+
+        $importedDepartment = $this->department('Pending hospital mapping', DepartmentStatus::Active, null, HospitalDataSource::Imported);
+        $developmentDepartment = $this->department('Development Department A', DepartmentStatus::Active);
+        $importedClinic = $this->clinic($importedDepartment, 'Pediatrician', ClinicStatus::Active, null, HospitalDataSource::Imported);
+        $developmentClinic = $this->clinic($developmentDepartment, 'Development Clinic A', ClinicStatus::Active);
+
+        $this->doctor($importedClinic, 'Dr. Arada-Hocate, Maria Nickle', DoctorStatus::Active, 'Pediatrician', HospitalDataSource::Imported);
+        $this->doctor($importedClinic, 'Dr. Endaya, Hazel Anne', DoctorStatus::Active, 'pediatrician', HospitalDataSource::Imported);
+        $this->doctor($developmentClinic, 'Test Doctor 1', DoctorStatus::Active, 'Pediatrician');
+
+        $services = $this->service()->availableContext()->services;
+
+        $this->assertCount(1, $services);
+        $this->assertSame('Pediatrician', $services[0]->specialization);
+        $this->assertSame([$importedClinic->id], $services[0]->clinicIds);
+        $payload = json_encode($this->service()->availableContext()->toArray(), JSON_THROW_ON_ERROR);
+        $this->assertStringNotContainsString('Test Doctor 1', $payload);
+        $this->assertStringNotContainsString('Dr. Endaya', $payload);
+    }
+
+    public function test_verified_mode_includes_verified_doctors_only(): void
+    {
+        config(['hospital.data_source' => HospitalDataSource::Verified->value]);
+
+        $importedDepartment = $this->department('Pending hospital mapping', DepartmentStatus::Active, null, HospitalDataSource::Imported);
+        $verifiedDepartment = $this->department('Verified Mapping', DepartmentStatus::Active, null, HospitalDataSource::Verified);
+        $importedClinic = $this->clinic($importedDepartment, 'Pediatrician', ClinicStatus::Active, null, HospitalDataSource::Imported);
+        $verifiedClinic = $this->clinic($verifiedDepartment, 'General Surgery', ClinicStatus::Active, null, HospitalDataSource::Verified);
+        $this->doctor($importedClinic, 'Dr. Endaya, Hazel Anne', DoctorStatus::Active, 'Pediatrician', HospitalDataSource::Imported);
+        $verifiedDoctor = $this->doctor($verifiedClinic, 'Dr. Verified', DoctorStatus::Active, 'General Surgery', HospitalDataSource::Verified);
+
+        $context = $this->service()->availableContext();
+
+        $this->assertNull($this->clinicInContext($context, $importedClinic->id));
+        $this->assertNotNull($this->clinicInContext($context, $verifiedClinic->id));
+        $this->assertSame([$verifiedDoctor->id], $this->service()->availableDoctors($verifiedClinic->id)->pluck('id')->all());
+        $this->assertTrue($this->service()->validateProposedService(1, $context));
+        $this->assertFalse($this->service()->validateProposedClinic($importedClinic->id, $context));
+    }
+
+    public function test_imported_mapping_notes_are_marked_administrative_and_not_rewritten(): void
+    {
+        $mapping = 'Imported from the supplied clinic-schedule poster for this specialization. Mapping to an official hospital clinic requires confirmation. Not hospital-verified.';
+        $approved = 'Outpatient consultation for adult internal medicine concerns.';
+        $department = $this->department('Pending hospital mapping', DepartmentStatus::Active);
+        $mapped = $this->clinic($department, 'Internal Medicine', ClinicStatus::Active, $mapping);
+        $described = $this->clinic($department, 'Adult Medicine', ClinicStatus::Active, $approved);
+
+        $context = $this->service()->availableContext();
+        $mappedContext = $this->clinicInContext($context, $mapped->id);
+        $describedContext = $this->clinicInContext($context, $described->id);
+
+        $this->assertSame($mapping, $mappedContext?->clinicDescription);
+        $this->assertSame('administrative_mapping', $mappedContext?->descriptionKind->value);
+        $this->assertSame($approved, $describedContext?->clinicDescription);
+        $this->assertSame('approved_service_description', $describedContext?->descriptionKind->value);
+        $this->assertSame($mapping, $mapped->fresh()->description);
+        $this->assertSame($approved, $described->fresh()->description);
+    }
+
+    public function test_development_mode_still_includes_development_records(): void
+    {
+        $department = $this->department('Development Department A', DepartmentStatus::Active);
+        $clinic = $this->clinic($department, 'Development Clinic A', ClinicStatus::Active);
+        $doctor = $this->doctor($clinic, 'Test Doctor 1', DoctorStatus::Active, 'Development Specialization A');
+
+        $context = $this->service()->availableContext();
+
+        $this->assertSame(HospitalDataSource::Development, $context->dataSource);
+        $this->assertNotNull($this->clinicInContext($context, $clinic->id));
+        $this->assertTrue($this->service()->eligibleDoctorsForSpecialization('Development Specialization A')->contains('id', $doctor->id));
     }
 
     private function service(): AiHospitalContextService
@@ -384,32 +573,49 @@ class AiHospitalContextTest extends TestCase
         return null;
     }
 
-    private function department(string $name, DepartmentStatus $status, ?string $description = null): Department
-    {
+    private function department(
+        string $name,
+        DepartmentStatus $status,
+        ?string $description = null,
+        HospitalDataSource $dataSource = HospitalDataSource::Development,
+    ): Department {
         return Department::query()->create([
             'name' => $name,
             'description' => $description,
             'status' => $status,
+            'data_source' => $dataSource,
         ]);
     }
 
-    private function clinic(Department $department, string $name, ClinicStatus $status, ?string $description = null): Clinic
-    {
+    private function clinic(
+        Department $department,
+        string $name,
+        ClinicStatus $status,
+        ?string $description = null,
+        HospitalDataSource $dataSource = HospitalDataSource::Development,
+    ): Clinic {
         return Clinic::query()->create([
             'department_id' => $department->id,
             'name' => $name,
             'description' => $description,
             'status' => $status,
+            'data_source' => $dataSource,
         ]);
     }
 
-    private function doctor(Clinic $clinic, string $displayName, DoctorStatus $status): Doctor
-    {
+    private function doctor(
+        Clinic $clinic,
+        string $displayName,
+        DoctorStatus $status,
+        ?string $specialization = null,
+        HospitalDataSource $dataSource = HospitalDataSource::Development,
+    ): Doctor {
         return Doctor::query()->create([
             'clinic_id' => $clinic->id,
             'display_name' => $displayName,
-            'specialization' => null,
+            'specialization' => $specialization,
             'status' => $status,
+            'data_source' => $dataSource,
         ]);
     }
 }

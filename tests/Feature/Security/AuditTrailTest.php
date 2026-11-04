@@ -6,6 +6,7 @@ use App\Enums\AppointmentStatus;
 use App\Enums\AuditAction;
 use App\Enums\AuditOutcome;
 use App\Enums\ClinicStatus;
+use App\Enums\DepartmentStatus;
 use App\Enums\DoctorStatus;
 use App\Enums\RoleName;
 use App\Enums\Sex;
@@ -328,10 +329,24 @@ class AuditTrailTest extends TestCase
     public function test_schedule_clinic_doctor_department_and_account_changes_are_audited(): void
     {
         $admin = User::factory()->role(RoleName::ItAdministrator)->create();
-        $department = Department::query()->firstOrFail();
+        $this->actingAs($admin)->post(route('admin.departments.store'), [
+            'name' => 'Audit Department',
+            'description' => null,
+            'status' => DepartmentStatus::Active->value,
+        ])->assertRedirect();
+        $this->assertSame(1, AuditEvent::query()->where('action', AuditAction::DepartmentCreated->value)->count());
+
+        $createdDepartment = Department::query()->where('name', 'Audit Department')->firstOrFail();
+        $this->actingAs($admin)->patch(route('admin.departments.update', $createdDepartment), [
+            'name' => 'Audit Department',
+            'description' => 'Updated for audit coverage.',
+            'status' => DepartmentStatus::Active->value,
+        ])->assertRedirect();
+        $this->assertSame(1, AuditEvent::query()->where('action', AuditAction::DepartmentUpdated->value)->count());
+
         $this->actingAs($admin)->post(route('admin.clinics.store'), [
             'name' => 'Audit Clinic',
-            'department_id' => $department->id,
+            'department_id' => $createdDepartment->id,
             'description' => null,
             'status' => ClinicStatus::Active->value,
         ])->assertRedirect();
@@ -353,6 +368,11 @@ class AuditTrailTest extends TestCase
         $this->assertSame(1, AuditEvent::query()->where('action', AuditAction::DoctorCreated->value)->count());
         $this->assertStringNotContainsString('audit-doctor@example.com', (string) AuditEvent::query()->where('action', AuditAction::DoctorCreated->value)->value('context'));
 
+        $this->actingAs($admin)->patch(route('admin.departments.status', $createdDepartment), [
+            'status' => DepartmentStatus::Inactive->value,
+        ])->assertRedirect();
+        $this->assertSame(1, AuditEvent::query()->where('action', AuditAction::DepartmentStatusChanged->value)->count());
+
         $doctor = Doctor::query()->where('display_name', 'Test Doctor 1')->firstOrFail();
         app(DoctorScheduleManagementService::class)->create($doctor, [
             'day_of_week' => 'friday',
@@ -364,7 +384,7 @@ class AuditTrailTest extends TestCase
         $this->assertSame(1, AuditEvent::query()->where('action', AuditAction::ScheduleCreated->value)->count());
 
         $staff = User::factory()->role(RoleName::HospitalStaff)->create();
-        $staff->hospitalStaff()->create()->departments()->sync([$department->id]);
+        $staff->hospitalStaff()->create()->departments()->sync([$createdDepartment->id]);
         $this->actingAs($admin)->patch(route('admin.users.update', $staff), [
             'first_name' => $staff->first_name,
             'middle_name' => $staff->middle_name,

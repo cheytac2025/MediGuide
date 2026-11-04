@@ -11,10 +11,20 @@ use JsonException;
  * Isolated Anthropic Messages API client.
  *
  * The API key is sent only as a request header. It is never logged.
+ * Incomplete max_tokens results are retried once with a larger output budget.
+ * Partial JSON is never returned to callers.
  */
 class AnthropicMessagesClient
 {
     private const string ENDPOINT = 'https://api.anthropic.com/v1/messages';
+
+    private const int DEFAULT_MAX_TOKENS = 4096;
+
+    private const int DEFAULT_RETRY_MAX_TOKENS = 8192;
+
+    private const int MIN_MAX_TOKENS = 1024;
+
+    private const int ABSOLUTE_MAX_TOKENS = 16384;
 
     public function isConfigured(): bool
     {
@@ -37,17 +47,46 @@ class AnthropicMessagesClient
             return null;
         }
 
+        $first = $this->postStructuredMessage($system, $messages, $schema, $this->maxTokens());
+
+        if ($first['status'] === 'complete') {
+            return $first['payload'];
+        }
+
+        if ($first['status'] === 'incomplete') {
+            $retry = $this->postStructuredMessage($system, $messages, $schema, $this->retryMaxTokens());
+
+            if ($retry['status'] === 'complete') {
+                return $retry['payload'];
+            }
+
+            Log::warning('Claude guidance response was not a completed result.', [
+                'stop_reason' => 'max_tokens',
+                'retried' => true,
+            ]);
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  list<array{role: 'user'|'assistant', content: string}>  $messages
+     * @param  array<string, mixed>  $schema
+     * @return array{status: 'complete', payload: array<string, mixed>}|array{status: 'incomplete'}|array{status: 'failed'}
+     */
+    private function postStructuredMessage(string $system, array $messages, array $schema, int $maxTokens): array
+    {
         try {
             $response = Http::withHeaders([
-                'x-api-key' => $apiKey,
+                'x-api-key' => $this->apiKey(),
                 'anthropic-version' => $this->apiVersion(),
             ])
                 ->acceptJson()
                 ->asJson()
                 ->timeout($this->timeout())
                 ->post(self::ENDPOINT, [
-                    'model' => $model,
-                    'max_tokens' => 1024,
+                    'model' => $this->model(),
+                    'max_tokens' => $maxTokens,
                     'system' => $system,
                     'messages' => $messages,
                     'output_config' => [
@@ -60,7 +99,7 @@ class AnthropicMessagesClient
         } catch (HttpClientException $exception) {
             $this->logFailure($exception);
 
-            return null;
+            return ['status' => 'failed'];
         }
 
         if (! $response->successful()) {
@@ -68,7 +107,7 @@ class AnthropicMessagesClient
                 'http_status' => $response->status(),
             ]);
 
-            return null;
+            return ['status' => 'failed'];
         }
 
         $body = $response->json();
@@ -76,17 +115,21 @@ class AnthropicMessagesClient
         if (! is_array($body)) {
             Log::warning('Claude guidance response could not be parsed.');
 
-            return null;
+            return ['status' => 'failed'];
         }
 
         $stopReason = $body['stop_reason'] ?? null;
+
+        if ($stopReason === 'max_tokens') {
+            return ['status' => 'incomplete'];
+        }
 
         if ($stopReason !== 'end_turn') {
             Log::warning('Claude guidance response was not a completed result.', [
                 'stop_reason' => is_string($stopReason) ? $stopReason : null,
             ]);
 
-            return null;
+            return ['status' => 'failed'];
         }
 
         $text = $this->textContent($body);
@@ -94,10 +137,19 @@ class AnthropicMessagesClient
         if ($text === null) {
             Log::warning('Claude guidance response could not be parsed.');
 
-            return null;
+            return ['status' => 'failed'];
         }
 
-        return $this->decodeJsonObject($text);
+        $payload = $this->decodeJsonObject($text);
+
+        if ($payload === null) {
+            return ['status' => 'failed'];
+        }
+
+        return [
+            'status' => 'complete',
+            'payload' => $payload,
+        ];
     }
 
     private function apiKey(): ?string
@@ -148,6 +200,40 @@ class AnthropicMessagesClient
         $timeout = (int) $timeout;
 
         return $timeout > 0 ? $timeout : 20;
+    }
+
+    private function maxTokens(): int
+    {
+        return $this->boundedTokens(config('services.anthropic.max_tokens'), self::DEFAULT_MAX_TOKENS);
+    }
+
+    private function retryMaxTokens(): int
+    {
+        $retry = $this->boundedTokens(
+            config('services.anthropic.retry_max_tokens'),
+            self::DEFAULT_RETRY_MAX_TOKENS,
+        );
+
+        return max($retry, $this->maxTokens());
+    }
+
+    private function boundedTokens(mixed $value, int $default): int
+    {
+        if (! is_int($value) && ! is_numeric($value)) {
+            return $default;
+        }
+
+        $tokens = (int) $value;
+
+        if ($tokens < self::MIN_MAX_TOKENS) {
+            return self::MIN_MAX_TOKENS;
+        }
+
+        if ($tokens > self::ABSOLUTE_MAX_TOKENS) {
+            return self::ABSOLUTE_MAX_TOKENS;
+        }
+
+        return $tokens;
     }
 
     /**

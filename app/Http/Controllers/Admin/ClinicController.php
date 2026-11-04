@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreClinicRequest;
 use App\Http\Requests\Admin\UpdateClinicRequest;
 use App\Http\Requests\Admin\UpdateClinicStatusRequest;
+use App\Services\HospitalImport\RecordProvenanceService;
 use App\Models\Clinic;
 use App\Models\Department;
 use App\Models\User;
@@ -75,6 +76,7 @@ class ClinicController extends Controller
                     [
                         'department_id' => (int) $attributes['department_id'],
                         'status' => (string) $attributes['status'],
+                        'data_source' => (string) $attributes['data_source'],
                     ],
                 );
             });
@@ -98,7 +100,7 @@ class ClinicController extends Controller
         return view('admin.clinics.edit', [
             'admin' => $this->adminHeader($user),
             'active' => 'clinics',
-            'clinic' => $clinic,
+            'clinic' => $clinic->loadMissing(['department']),
             'departments' => $this->departments(),
             'statuses' => ClinicStatus::cases(),
         ]);
@@ -109,7 +111,23 @@ class ClinicController extends Controller
         try {
             DB::transaction(function () use ($request, $clinic): void {
                 $attributes = $request->clinicAttributes();
+                $before = $clinic->only(['name', 'description', 'department_id']);
                 $clinic->update($attributes);
+
+                $actor = $request->user();
+                if ($actor instanceof User) {
+                    app(RecordProvenanceService::class)->revokeIfClinicalFieldsChanged(
+                        $clinic->fresh() ?? $clinic,
+                        $before,
+                        [
+                            'name' => $attributes['name'],
+                            'description' => $attributes['description'] ?? null,
+                            'department_id' => (int) $attributes['department_id'],
+                        ],
+                        ['name', 'description', 'department_id'],
+                        $actor,
+                    );
+                }
 
                 app(AuditTrailService::class)->recordFor(
                     AuditAction::ClinicUpdated,

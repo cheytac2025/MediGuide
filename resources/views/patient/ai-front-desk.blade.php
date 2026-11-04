@@ -120,30 +120,37 @@
     </template>
 
     <template data-mg-tpl="doctors">
-        <article class="mg-chat-row mg-chat-row-ai">
+        <article class="mg-chat-row mg-chat-row-ai mg-suggested-doctors-row">
             <span class="mg-chat-avatar" aria-hidden="true">
                 <x-patient.icon name="sparkle" />
             </span>
-            <div class="mg-doctors-card">
+            <div class="mg-suggested-doctors">
                 <p class="mg-recommend-kicker">
-                    <span>Available Doctors</span>
-                    <span class="mg-recommend-tag">Development data</span>
+                    <span data-mg-source></span>
+                    <span class="mg-recommend-tag" data-mg-development-tag hidden>Development data</span>
                 </p>
-                <h2 class="mg-recommend-title" data-mg-doctors-clinic></h2>
+                <h2 class="mg-recommend-title">Suggested Doctors</h2>
+                <p class="mg-suggested-doctors-sub" data-mg-doctors-sub>
+                    Specialists who may match this hospital navigation suggestion.
+                </p>
+                <p class="mg-recommend-summary" data-mg-summary></p>
                 <p class="mg-doctors-message" data-mg-doctors-message hidden></p>
-                <div class="mg-doctors-list" data-mg-doctors-list></div>
+                <div class="mg-doctors-grid" data-mg-doctors-list></div>
+                <button type="button" class="mg-view-more-doctors" data-mg-view-more hidden>
+                    View More Doctors
+                </button>
             </div>
         </article>
     </template>
 
     <template data-mg-tpl="doctor-item">
-        <article class="mg-doctor-item">
+        <article class="mg-doctor-card">
             <h3 class="mg-doctor-name" data-mg-doctor-name></h3>
-            <p class="mg-doctor-meta" data-mg-doctor-specialization></p>
-            <p class="mg-doctor-meta" data-mg-doctor-clinic></p>
+            <p class="mg-doctor-specialty" data-mg-doctor-specialization></p>
+            <p class="mg-doctor-place" data-mg-doctor-clinic></p>
             <p class="mg-doctor-availability" data-mg-doctor-availability></p>
-            <button type="button" class="mg-recommend-btn" data-mg-book-appointment>
-                Book Appointment
+            <button type="button" class="mg-recommend-btn" data-mg-book-appointment hidden>
+                View Available Appointments
             </button>
         </article>
     </template>
@@ -163,7 +170,7 @@
                 <x-patient.icon name="exclamation-triangle" />
             </span>
             <div class="mg-safety-card">
-                <h2 class="mg-recommend-title">Safety guidance</h2>
+                <h2 class="mg-recommend-title">Urgent safety guidance</h2>
                 <p data-mg-text></p>
             </div>
         </article>
@@ -175,11 +182,9 @@
                 <x-patient.icon name="exclamation-triangle" />
             </span>
             <div class="mg-fallback-card">
-                <p class="mg-recommend-tag">Development data</p>
                 <h2 class="mg-recommend-title">Additional assistance needed</h2>
-                <p>We couldn't confidently determine the appropriate department from the information provided.</p>
-                <p>Please contact or approach authorized hospital personnel for assistance.</p>
-                <button type="button" class="mg-recommend-btn" disabled title="Hospital staff contact is not available yet">
+                <p data-mg-text></p>
+                <button type="button" class="mg-recommend-btn" data-mg-ask-staff disabled title="Hospital staff contact is not available yet">
                     Ask Hospital Staff
                 </button>
             </div>
