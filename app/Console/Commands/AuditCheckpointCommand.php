@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Support\Audit\AuditCheckpointStore;
 use App\Support\Audit\AuditTrailService;
 use App\Support\Audit\InactiveAuditCheckpointStore;
+use App\Support\Audit\MisconfiguredAuditCheckpointStore;
 use Illuminate\Console\Command;
 
 /**
@@ -30,17 +31,28 @@ class AuditCheckpointCommand extends Command
     {
         $execute = (bool) $this->option('execute');
         $checkpoint = $audit->checkpoint();
+        $protection = match (true) {
+            $store instanceof InactiveAuditCheckpointStore => 'inactive',
+            $store instanceof MisconfiguredAuditCheckpointStore => 'misconfigured',
+            default => 'configured',
+        };
 
         $this->line($execute ? 'Mode: CHECKPOINT' : 'Mode: DRY RUN (nothing written)');
         $this->line('Sequence: '.$checkpoint['sequence']);
         $this->line('Key version: '.$checkpoint['key_version']);
-        $this->line('Store: '.($store instanceof InactiveAuditCheckpointStore ? 'inactive' : 'configured'));
+        $this->line('Checkpoint protection: '.$protection);
+
+        if ($protection === 'misconfigured') {
+            $this->error(MisconfiguredAuditCheckpointStore::MESSAGE);
+
+            return self::FAILURE;
+        }
 
         if (! $execute) {
             return self::SUCCESS;
         }
 
-        if ($store instanceof InactiveAuditCheckpointStore) {
+        if ($protection === 'inactive') {
             $this->error('Checkpoint storage is inactive. Configure an off-database path before executing.');
 
             return self::FAILURE;

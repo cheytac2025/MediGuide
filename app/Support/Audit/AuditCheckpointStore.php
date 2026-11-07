@@ -4,10 +4,7 @@ namespace App\Support\Audit;
 
 interface AuditCheckpointStore
 {
-    /**
-     * @return array{sequence: int, tag: string, key_version: int, occurred_at: string, checkpoint_tag: string}|null
-     */
-    public function latest(): ?array;
+    public function status(): AuditCheckpointStatus;
 
     /**
      * @param  array{sequence: int, tag: string, key_version: int, occurred_at: string, checkpoint_tag: string}  $checkpoint

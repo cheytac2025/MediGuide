@@ -37,6 +37,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 use Tests\TestCase;
@@ -49,6 +50,7 @@ class AuditTrailTest extends TestCase
     {
         parent::setUp();
 
+        Http::preventStrayRequests();
         Carbon::setTestNow('2026-10-05 08:00:00');
         $this->seed(RoleSeeder::class);
         $this->seed(DevelopmentDepartmentSeeder::class);
@@ -126,7 +128,10 @@ class AuditTrailTest extends TestCase
         $this->assertSame($events[0]->tag, $events[1]->previous_tag);
 
         $count = AuditEvent::query()->count();
-        $this->artisan('mediguide:audit-verify')->assertSuccessful();
+        $this->artisan('mediguide:audit-verify')
+            ->assertSuccessful()
+            ->expectsOutputToContain('Checkpoint protection is inactive.')
+            ->expectsOutputToContain('Deletion of a still-valid chain tail is not detected.');
         $this->assertSame($count, AuditEvent::query()->count());
     }
 
@@ -249,6 +254,10 @@ class AuditTrailTest extends TestCase
         $this->assertFalse($tail['passed']);
         $this->assertSame('checkpoint', $tail['category']);
         $this->assertSame(2, $tail['first_sequence']);
+        $this->assertSame(2, $tail['checkpoint_sequence']);
+        $this->assertSame(1, $tail['head_sequence']);
+        $this->assertNull($tail['uncovered_events']);
+        $this->assertSame('The audit chain ends before the checkpoint sequence.', $tail['message']);
 
         DB::table('audit_events')->delete();
         DB::table('audit_chain_state')->where('id', 1)->update([
@@ -259,6 +268,10 @@ class AuditTrailTest extends TestCase
 
         $this->assertFalse($empty['passed']);
         $this->assertSame('checkpoint', $empty['category']);
+        $this->assertSame(2, $empty['first_sequence']);
+        $this->assertSame(2, $empty['checkpoint_sequence']);
+        $this->assertSame(0, $empty['head_sequence']);
+        $this->assertSame('The audit chain ends before the checkpoint sequence.', $empty['message']);
         $this->assertNotNull($second);
     }
 
@@ -454,8 +467,13 @@ class AuditTrailTest extends TestCase
 
     public function test_checkpoint_command_stays_inactive_without_an_external_path(): void
     {
-        $this->artisan('mediguide:audit-checkpoint')->assertSuccessful()->expectsOutputToContain('DRY RUN');
-        $this->artisan('mediguide:audit-checkpoint', ['--execute' => true])->assertFailed();
+        $this->artisan('mediguide:audit-checkpoint')
+            ->assertSuccessful()
+            ->expectsOutputToContain('DRY RUN')
+            ->expectsOutputToContain('Checkpoint protection: inactive');
+        $this->artisan('mediguide:audit-checkpoint', ['--execute' => true])
+            ->assertFailed()
+            ->expectsOutputToContain('Checkpoint storage is inactive.');
     }
 
     private function audit(): AuditTrailService

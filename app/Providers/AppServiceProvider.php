@@ -10,6 +10,7 @@ use App\Observers\RecordIntegrityObserver;
 use App\Support\Audit\AuditCheckpointStore;
 use App\Support\Audit\FileAuditCheckpointStore;
 use App\Support\Audit\InactiveAuditCheckpointStore;
+use App\Support\Audit\MisconfiguredAuditCheckpointStore;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
@@ -35,11 +36,15 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AuditCheckpointStore::class, function (): AuditCheckpointStore {
             $path = config('audit.checkpoint_path');
 
-            if (is_string($path) && $path !== '' && FileAuditCheckpointStore::pathIsOutsideWebRoot($path)) {
-                return new FileAuditCheckpointStore($path);
+            if (! is_string($path) || $path === '') {
+                return new InactiveAuditCheckpointStore;
             }
 
-            return new InactiveAuditCheckpointStore;
+            if (! FileAuditCheckpointStore::pathIsOutsideWebRoot($path)) {
+                return new MisconfiguredAuditCheckpointStore;
+            }
+
+            return new FileAuditCheckpointStore($path);
         });
     }
 

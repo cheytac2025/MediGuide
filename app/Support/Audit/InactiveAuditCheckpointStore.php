@@ -5,15 +5,17 @@ namespace App\Support\Audit;
 use RuntimeException;
 
 /**
- * Used when no off-database checkpoint has been configured.
+ * Used when the checkpoint path is intentionally empty.
  *
- * Tail deletion of a still-valid chain is not detected in this mode.
+ * Verification of this store checks the database chain only and reports
+ * checkpoint protection as inactive. Tail deletion of a still-valid chain
+ * is not detected in this mode.
  */
 class InactiveAuditCheckpointStore implements AuditCheckpointStore
 {
-    public function latest(): ?array
+    public function status(): AuditCheckpointStatus
     {
-        return null;
+        return AuditCheckpointStatus::inactive();
     }
 
     public function put(array $checkpoint): void

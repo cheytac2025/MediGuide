@@ -5,44 +5,62 @@ namespace App\Support\Audit;
 use RuntimeException;
 
 /**
- * Append-only checkpoint file. Protection depends on the file living outside
- * the web root and on copies being kept off the database host.
+ * Append-only checkpoint file. Reading never creates or rewrites it.
+ * Only the latest record is accepted. An older valid line is not used when
+ * the latest record cannot be read. Protection still depends on the file
+ * living outside the web root and on copies kept off the database host.
  */
 class FileAuditCheckpointStore implements AuditCheckpointStore
 {
+    public const MESSAGES = [
+        'missing' => 'Checkpoint protection is configured, but the checkpoint file is missing.',
+        'unreadable' => 'Checkpoint protection is configured, but the checkpoint file cannot be read.',
+        'empty' => 'Checkpoint protection is configured, but the checkpoint file is empty.',
+    ];
+
     public function __construct(private readonly string $path) {}
 
-    public function latest(): ?array
+    public function status(): AuditCheckpointStatus
     {
-        if (! is_file($this->path)) {
-            return null;
+        if (! file_exists($this->path)) {
+            return AuditCheckpointStatus::problem('missing', self::MESSAGES['missing']);
         }
 
-        $lines = file($this->path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if (! is_file($this->path) || ! is_readable($this->path)) {
+            return AuditCheckpointStatus::problem('unreadable', self::MESSAGES['unreadable']);
+        }
+
+        $raw = file_get_contents($this->path);
+
+        if ($raw === false) {
+            return AuditCheckpointStatus::problem('unreadable', self::MESSAGES['unreadable']);
+        }
+
+        $body = rtrim($raw, "\r\n");
+
+        if ($body === '') {
+            return AuditCheckpointStatus::problem('empty', self::MESSAGES['empty']);
+        }
+
+        $lines = preg_split("/\r\n|\n|\r/", $body);
 
         if ($lines === false || $lines === []) {
-            return null;
+            return AuditCheckpointStatus::problem('malformed', AuditCheckpointRecord::MESSAGES['malformed']);
         }
 
-        $decoded = json_decode((string) end($lines), true);
+        $decoded = json_decode((string) $lines[array_key_last($lines)], true);
 
-        if (! is_array($decoded)) {
-            return null;
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return AuditCheckpointStatus::problem('malformed', AuditCheckpointRecord::MESSAGES['malformed']);
         }
 
-        foreach (['sequence', 'tag', 'key_version', 'occurred_at', 'checkpoint_tag'] as $key) {
-            if (! array_key_exists($key, $decoded)) {
-                return null;
-            }
+        $inspected = AuditCheckpointRecord::inspect($decoded);
+
+        if ($inspected['checkpoint'] === null) {
+            return AuditCheckpointStatus::problem($inspected['state'], $inspected['message']);
         }
 
-        return [
-            'sequence' => (int) $decoded['sequence'],
-            'tag' => (string) $decoded['tag'],
-            'key_version' => (int) $decoded['key_version'],
-            'occurred_at' => (string) $decoded['occurred_at'],
-            'checkpoint_tag' => (string) $decoded['checkpoint_tag'],
-        ];
+        return AuditCheckpointStatus::ready($inspected['checkpoint']);
     }
 
     public function put(array $checkpoint): void
