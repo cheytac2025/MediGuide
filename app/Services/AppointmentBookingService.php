@@ -275,6 +275,7 @@ class AppointmentBookingService
                 'department' => 'The department is not active.',
                 'clinic' => 'The clinic is not active.',
                 'doctor_id' => 'The doctor is not active.',
+                'provisional_schedule' => 'This demonstration schedule is not available for booking in this environment.',
                 default => 'The schedule is not active.',
             },
         ]);
@@ -301,7 +302,33 @@ class AppointmentBookingService
             return 'doctor_schedule_id';
         }
 
+        if ($schedule->provisional_demonstration && ! $this->provisionalBookingAllowed()) {
+            return 'provisional_schedule';
+        }
+
         return null;
+    }
+
+    /**
+     * Poster demonstration schedules stay hidden unless this process is the
+     * local MediGuide database with the explicit local flag enabled.
+     */
+    private function provisionalBookingAllowed(): bool
+    {
+        if (config('hospital.provisional_local_booking') !== true) {
+            return false;
+        }
+
+        $connection = (string) config('database.default');
+
+        if ($connection === 'sqlite') {
+            return app()->environment('testing');
+        }
+
+        $host = (string) config("database.connections.{$connection}.host");
+
+        return app()->environment('local')
+            && in_array($host, ['127.0.0.1', 'localhost', '::1'], true);
     }
 
     private function assertDateIsInsideBookingWindow(Carbon $date): void

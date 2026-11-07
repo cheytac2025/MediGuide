@@ -111,6 +111,7 @@ class HospitalScheduleImportTest extends TestCase
             'end_time' => '16:00:00',
             'slot_duration' => 30,
             'status' => DoctorScheduleStatus::Active->value,
+            'provisional_demonstration' => true,
         ]);
 
         $cadiente = Doctor::query()->where('display_name', 'Dr. Cadiente, Gilbert')->firstOrFail();
@@ -264,6 +265,20 @@ class HospitalScheduleImportTest extends TestCase
 
         $strict = Doctor::query()->where('display_name', 'Dr. Saquitan-Epetia, Angeli')->firstOrFail();
         $this->assertNull(app(AppointmentBookingService::class)->nextAvailableSlot($strict));
+        $this->assertSame(0, $strict->schedules()->count());
+        $this->assertSame(21, DoctorSchedule::query()->where('provisional_demonstration', true)->count());
+    }
+
+    public function test_provisional_schedules_stay_hidden_when_local_booking_is_disabled(): void
+    {
+        app(HospitalScheduleImportService::class)->execute(30);
+        config(['hospital.provisional_local_booking' => false]);
+
+        $cadiente = Doctor::query()->where('display_name', 'Dr. Cadiente, Gilbert')->firstOrFail();
+
+        $this->assertNull(app(AppointmentBookingService::class)->nextAvailableSlot($cadiente));
+        $this->assertSame(21, DoctorSchedule::query()->count());
+        $this->assertSame(0, Appointment::query()->count());
     }
 
     public function test_ai_grounding_suggested_doctors_and_booking_handoff_use_imported_records(): void

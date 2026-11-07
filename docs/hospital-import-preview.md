@@ -2,6 +2,8 @@
 
 This preview is a dry-run plan. It was not written to the existing `mediguide` database.
 
+Stage L activation readiness is documented separately in `docs/hospital-schedule-activation.md`. That document does not replace the poster hours below.
+
 Source: Queen Mary Help of Christians Hospital, Inc., Cardona, Rizal — Clinic Schedules poster supplied on 4 Nov 2026. Both uploaded images were the same page. The poster is reference material, not proof that every doctor or hour is currently active.
 
 Verification status after any approved import: **pending hospital verification**. Records are marked `imported`, not `verified`.

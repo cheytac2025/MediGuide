@@ -21,12 +21,13 @@ use Illuminate\Validation\ValidationException;
  * @property string $end_time
  * @property int $slot_duration
  * @property DoctorScheduleStatus $status
+ * @property bool $provisional_demonstration
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Doctor $doctor
  * @property-read Collection<int, Appointment> $appointments
  */
-#[Fillable(['doctor_id', 'day_of_week', 'start_time', 'end_time', 'slot_duration', 'status'])]
+#[Fillable(['doctor_id', 'day_of_week', 'start_time', 'end_time', 'slot_duration', 'status', 'provisional_demonstration'])]
 class DoctorSchedule extends Model
 {
     /**
@@ -54,6 +55,7 @@ class DoctorSchedule extends Model
             'day_of_week' => DayOfWeek::class,
             'status' => DoctorScheduleStatus::class,
             'slot_duration' => 'integer',
+            'provisional_demonstration' => 'boolean',
         ];
     }
 

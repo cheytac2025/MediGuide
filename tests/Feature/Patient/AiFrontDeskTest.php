@@ -150,6 +150,31 @@ class AiFrontDeskTest extends TestCase
         $response->assertSee('aria-current="page"', false);
     }
 
+    public function test_acknowledgement_survives_refresh_and_a_cleared_session_requires_it_again(): void
+    {
+        $this->post(route('ai-disclaimer.acknowledge'), [
+            'acknowledged' => '1',
+        ])->assertRedirect(route('ai-front-desk'));
+
+        $this->get(route('ai-front-desk'))
+            ->assertOk()
+            ->assertSee('MediGuide provides patient navigation assistance only');
+
+        $this->get(route('ai-disclaimer'))
+            ->assertRedirect(route('ai-front-desk'));
+
+        $this->flushSession();
+
+        $this->get(route('ai-front-desk'))
+            ->assertRedirect(route('ai-disclaimer'));
+
+        $this->postJson(route('ai-front-desk.guidance'), [
+            'message' => 'Masakit ulo ko.',
+        ])->assertRedirect(route('ai-disclaimer'));
+
+        $this->assertFalse(session()->get(AiDisclaimer::SESSION_KEY) === true);
+    }
+
     public function test_acknowledged_session_is_not_asked_for_the_disclaimer_again(): void
     {
         $this->withSession([AiDisclaimer::SESSION_KEY => true])
@@ -210,6 +235,8 @@ class AiFrontDeskTest extends TestCase
         $this->assertStringContainsString('event.isComposing || event.keyCode === 229', $js);
         $this->assertStringContainsString('event.preventDefault();', $js);
         $this->assertStringContainsString('submitMessage(input.value);', $js);
+        $this->assertStringContainsString('response.redirected', $js);
+        $this->assertStringContainsString("window.location.assign(response.url || '/ai-disclaimer')", $js);
         $this->assertStringContainsString("form?.addEventListener('submit'", $js);
         $this->assertStringNotContainsString('event.ctrlKey || event.metaKey', $js);
 

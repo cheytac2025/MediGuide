@@ -43,5 +43,6 @@
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
         <env name="HOSPITAL_DATA_SOURCE" value="development" force="true"/>
+        <env name="HOSPITAL_PROVISIONAL_LOCAL_BOOKING" value="true" force="true"/>
     </php>
 </phpunit>

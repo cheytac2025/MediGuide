@@ -380,6 +380,7 @@ class HospitalScheduleImportService
                 'end_time' => $end.':00',
                 'slot_duration' => $bookableSlotMinutes,
                 'status' => DoctorScheduleStatus::Active,
+                'provisional_demonstration' => true,
             ]);
 
             app(AuditTrailService::class)->recordFor(
@@ -389,6 +390,9 @@ class HospitalScheduleImportService
                 [
                     'doctor_id' => $doctor->id,
                     'source' => 'hospital_schedule_import',
+                    'slot_duration' => $bookableSlotMinutes,
+                    'provisional_demonstration' => true,
+                    'hospital_verified' => false,
                 ],
             );
             $summary['created']['schedules']++;

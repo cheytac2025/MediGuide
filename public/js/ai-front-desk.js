@@ -502,6 +502,12 @@
             body: JSON.stringify({ message }),
         });
 
+        if (response.redirected) {
+            window.location.assign(response.url || '/ai-disclaimer');
+
+            return null;
+        }
+
         const contentType = response.headers.get('content-type') || '';
         const payload = contentType.includes('application/json')
             ? await response.json().catch(() => null)
@@ -551,7 +557,10 @@
         try {
             const payload = await requestGuidance(message);
             processing?.remove();
-            renderGuidance(payload);
+
+            if (payload) {
+                renderGuidance(payload);
+            }
         } catch (error) {
             processing?.remove();
             appendAssistantMessage(fallbackMessage);
@@ -580,6 +589,12 @@
                 },
                 credentials: 'same-origin',
             });
+
+            if (response.redirected) {
+                window.location.assign(response.url || '/ai-disclaimer');
+
+                return;
+            }
 
             if (!response.ok) {
                 return;
