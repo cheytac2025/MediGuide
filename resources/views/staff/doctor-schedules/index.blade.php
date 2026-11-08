@@ -20,13 +20,10 @@
                         <article class="mg-staff-request-card">
                             <div class="mg-staff-request-top">
                                 <div>
+                                    @php($placement = \App\Support\DoctorPlacement::labels($doctor))
                                     <h3>{{ $doctor->display_name }}</h3>
-                                    <p>{{ $doctor->specialization ?: 'No specialization listed' }}</p>
-                                    <p class="mg-appt-muted">
-                                        {{ $doctor->clinic?->name ?? 'Unknown clinic' }}
-                                        ·
-                                        {{ $doctor->clinic?->department?->name ?? 'Unknown department' }}
-                                    </p>
+                                    <p>{{ $placement['specialty'] }}</p>
+                                    <p class="mg-appt-muted">{{ $placement['detail'] }}</p>
                                     <p class="mg-appt-muted">
                                         {{ $doctor->active_schedules_count }} active schedule{{ $doctor->active_schedules_count === 1 ? '' : 's' }}
                                     </p>

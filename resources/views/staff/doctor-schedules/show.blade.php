@@ -17,13 +17,7 @@
             <div class="mg-appt-head">
                 <div>
                     <h1 class="mg-panel-title">{{ $doctorRecord->display_name }}</h1>
-                    <p class="mg-appt-subtitle">
-                        {{ $doctorRecord->specialization ?: 'No specialization listed' }}
-                        ·
-                        {{ $doctorRecord->clinic?->name ?? 'Unknown clinic' }}
-                        ·
-                        {{ $doctorRecord->clinic?->department?->name ?? 'Unknown department' }}
-                    </p>
+                    <p class="mg-appt-subtitle">{{ \App\Support\DoctorPlacement::labels($doctorRecord)['subtitle'] }}</p>
                 </div>
                 <a class="mg-appt-back" href="{{ route('staff.doctor-schedules') }}">Back to Doctors</a>
             </div>
