@@ -2,15 +2,20 @@
 
 namespace Tests\Feature\Patient;
 
+use App\Enums\AppointmentStatus;
 use App\Enums\ClinicStatus;
 use App\Enums\DepartmentStatus;
+use App\Enums\DoctorScheduleStatus;
 use App\Enums\DoctorStatus;
 use App\Enums\RoleName;
 use App\Enums\Sex;
+use App\Models\Appointment;
 use App\Models\Clinic;
 use App\Models\Department;
 use App\Models\Doctor;
+use App\Models\DoctorSchedule;
 use App\Models\User;
+use App\Services\AppointmentBookingService;
 use App\Support\AiDisclaimer;
 use App\Support\BookingIntent;
 use Database\Seeders\DevelopmentClinicSeeder;
@@ -19,6 +24,7 @@ use Database\Seeders\DevelopmentDoctorScheduleSeeder;
 use Database\Seeders\DevelopmentDoctorSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -214,6 +220,96 @@ class AiBookingHandoffTest extends TestCase
             ->assertOk()
             ->assertSee('Development Clinic A')
             ->assertSee('Test Doctor 1');
+    }
+
+    public function test_mocked_recommendation_books_the_suggested_doctor_for_the_same_patient(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-11-09 08:00:00', 'Asia/Manila'));
+
+        try {
+            $user = $this->patientUser();
+            $clinic = $this->clinicA();
+            $doctor = $this->doctor1();
+            $booking = app(AppointmentBookingService::class);
+            $slot = $booking->nextAvailableSlot($doctor);
+
+            $this->assertNotNull($slot);
+
+            $this->fakeGuidanceRecommendation($clinic);
+
+            $guidance = $this->actingAs($user)
+                ->withSession([AiDisclaimer::SESSION_KEY => true])
+                ->postJson(route('ai-front-desk.guidance'), [
+                    'message' => "I've had a headache since yesterday.",
+                ]);
+
+            $guidance->assertOk()
+                ->assertJsonPath('type', 'recommendation')
+                ->assertJsonPath('clinic.id', $clinic->id)
+                ->assertJsonPath('doctors.0.id', $doctor->id)
+                ->assertJsonPath('doctors.0.clinic_id', $clinic->id)
+                ->assertJsonPath('doctors.0.bookable', true)
+                ->assertJsonPath('doctors.0.next_available', $booking->formatSlotLabel($slot['date'], $slot['time']))
+                ->assertJsonPath('book_appointment_url', route('patient.book-appointment'))
+                ->assertJsonPath('is_authenticated_patient', true)
+                ->assertJsonMissingPath('doctor_id');
+
+            Http::assertSentCount(1);
+
+            $schedule = DoctorSchedule::query()
+                ->where('doctor_id', $doctor->id)
+                ->where('day_of_week', strtolower(Carbon::parse($slot['date'])->format('l')))
+                ->where('status', DoctorScheduleStatus::Active)
+                ->firstOrFail();
+
+            $selection = [
+                'clinic_id' => $guidance->json('doctors.0.clinic_id'),
+                'doctor_id' => $guidance->json('doctors.0.id'),
+                'appointment_date' => $slot['date'],
+                'start_time' => $slot['time'],
+            ];
+
+            $this->actingAs($user)
+                ->get(route('patient.book-appointment', $selection))
+                ->assertOk()
+                ->assertSee('Development Clinic A')
+                ->assertSee('Test Doctor 1')
+                ->assertSee('value="'.$schedule->id.'"', false)
+                ->assertSee($slot['time'], false);
+
+            $payload = [
+                ...$selection,
+                'doctor_schedule_id' => $schedule->id,
+                'patient_concern' => 'Synthetic navigation follow-up.',
+            ];
+
+            $this->actingAs($user)
+                ->post(route('patient.book-appointment.review'), $payload)
+                ->assertRedirect(route('patient.book-appointment', ['step' => 'review']));
+
+            $this->actingAs($user)
+                ->get(route('patient.book-appointment', ['step' => 'review']))
+                ->assertOk()
+                ->assertSee('Development Clinic A')
+                ->assertSee('Test Doctor 1')
+                ->assertSee('Synthetic navigation follow-up.')
+                ->assertSee('Confirm Appointment');
+
+            $this->actingAs($user)
+                ->post(route('patient.book-appointment.store'), $payload)
+                ->assertRedirect(route('patient.appointments'));
+
+            $appointment = Appointment::query()->sole();
+
+            $this->assertSame($user->patient->id, $appointment->patient_id);
+            $this->assertSame($doctor->id, $appointment->doctor_id);
+            $this->assertSame($schedule->id, $appointment->doctor_schedule_id);
+            $this->assertSame($slot['date'], $appointment->appointment_date->toDateString());
+            $this->assertSame($slot['time'].':00', $appointment->start_time);
+            $this->assertSame(AppointmentStatus::Pending, $appointment->status);
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_guest_book_appointment_stores_intent_and_redirects_to_login(): void
