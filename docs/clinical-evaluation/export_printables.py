@@ -15,6 +15,9 @@ DOCUMENTS = [
     ("C-clinical-safety-review-matrix.md", "C-clinical-safety-review-matrix.html", "Document C — Clinical Safety Review Matrix"),
     ("D-doctor-recommendation-evaluation.md", "D-doctor-recommendation-evaluation.html", "Document D — Doctor Recommendation Evaluation"),
     ("E-reviewer-assessment-form.md", "E-reviewer-assessment-form.html", "Document E — Reviewer Assessment Form"),
+    ("P3-clinical-relevance-review.md", "P3-clinical-relevance-review.html", "Stage P.3 — Clinical Relevance Review"),
+    ("P3-relevance-worksheet.md", "P3-relevance-worksheet.html", "Stage P.3 — Relevance Worksheet"),
+    ("P3-review-decision-form.md", "P3-review-decision-form.html", "Stage P.3 — Review Decision Form"),
 ]
 
 
@@ -161,7 +164,14 @@ def convert(markdown: str) -> str:
     return "\n".join(out)
 
 
-def wrap_html(title: str, body: str) -> str:
+def banner_for(source_name: str) -> str:
+    if source_name.startswith("P3-"):
+        return "Stage P.3 — 10 November 2026 — Not clinically approved"
+    return "Stage I — 4 November 2026 — Not clinically approved"
+
+
+def wrap_html(title: str, body: str, source_name: str) -> str:
+    banner = html.escape(banner_for(source_name))
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -171,7 +181,7 @@ def wrap_html(title: str, body: str) -> str:
 <link rel="stylesheet" href="print.css">
 </head>
 <body>
-<p class="doc-banner"><strong>MediGuide Clinical Evaluation Package</strong> — Stage I — 4 November 2026 — Not clinically approved</p>
+<p class="doc-banner"><strong>MediGuide Clinical Evaluation Package</strong> — {banner}</p>
 <p class="no-print meta">Print this file on A4. Leave reviewer fields blank unless you are the reviewer completing the form.</p>
 {body}
 </body>
@@ -185,7 +195,7 @@ def write_html() -> list[Path]:
         source = ROOT / source_name
         target = ROOT / html_name
         body = convert(source.read_text(encoding="utf-8"))
-        target.write_text(wrap_html(title, body), encoding="utf-8")
+        target.write_text(wrap_html(title, body, source_name), encoding="utf-8")
         written.append(target)
     return written
 
@@ -240,7 +250,7 @@ def write_docx() -> list[Path]:
         section.top_margin = Cm(1.8)
         section.bottom_margin = Cm(2.0)
         header = section.header.paragraphs[0]
-        header.text = "MediGuide Clinical Evaluation Package — Stage I — Not clinically approved"
+        header.text = "MediGuide Clinical Evaluation Package — " + banner_for(source_name)
         header.runs[0].font.size = Pt(9)
         footer = section.footer.paragraphs[0]
         footer.alignment = WD_ALIGN_PARAGRAPH.CENTER

@@ -168,7 +168,7 @@ class ClaudeGuidanceService
         $payload = $this->anthropic->createStructuredMessage(
             $this->systemPrompt($allowedContext, $state, $patientText, $facts),
             AiConversationContext::fromTurns($state->turns)->messagesEndingWith($concern),
-            $this->outputSchema(),
+            $this->wireSchema(config('ai.safety_evidence_schema') === true),
         );
 
         if ($payload === null) {
@@ -975,9 +975,94 @@ class ClaudeGuidanceService
     }
 
     /**
+     * Evaluation-only schema. This does not read or change the global flag.
+     *
      * @return array<string, mixed>
      */
-    private function outputSchema(): array
+    public function evaluationSchema(): array
+    {
+        return $this->wireSchema(true);
+    }
+
+    /**
+     * Schema sent to Anthropic. Length and item-count keywords are removed
+     * because the provider rejects them. Laravel still enforces those limits.
+     *
+     * @return array<string, mixed>
+     */
+    public function wireSchema(bool $withSafetyEvidence = false): array
+    {
+        return $this->withoutUnsupportedStructuredConstraints($this->outputSchema($withSafetyEvidence));
+    }
+
+    /**
+     * Anthropic structured outputs return HTTP 400 for length and item-count keywords.
+     * This copy is used only by the evaluation command. The evidence validator still
+     * enforces the quote count and character limits.
+     *
+     * @param  array<mixed>  $schema
+     * @return array<mixed>
+     */
+    private function withoutUnsupportedStructuredConstraints(array $schema): array
+    {
+        $compiled = [];
+
+        foreach ($schema as $key => $value) {
+            if ($key === 'minItems' && ($value === 0 || $value === 1)) {
+                $compiled[$key] = $value;
+
+                continue;
+            }
+
+            if (is_string($key) && in_array($key, [
+                'minLength',
+                'maxLength',
+                'minimum',
+                'maximum',
+                'exclusiveMinimum',
+                'exclusiveMaximum',
+                'multipleOf',
+                'minItems',
+                'maxItems',
+                'uniqueItems',
+            ], true)) {
+                continue;
+            }
+
+            $compiled[$key] = is_array($value)
+                ? $this->withoutUnsupportedStructuredConstraints($value)
+                : $value;
+        }
+
+        return $compiled;
+    }
+
+    /**
+     * Prompt and schema for one isolated evaluation request.
+     *
+     * @return array{
+     *     system: string,
+     *     messages: list<array{role: 'user'|'assistant', content: string}>,
+     *     schema: array<string, mixed>
+     * }
+     */
+    public function evaluationRequest(string $concern, AiConversationState $state): array
+    {
+        $allowedContext = $this->hospitalContext->availableContext();
+        $patientText = $this->patientReportedText($state, $concern);
+        $facts = AiConversationInterpreter::interpret($state, $concern);
+
+        return [
+            'system' => $this->systemPrompt($allowedContext, $state, $patientText, $facts),
+            'messages' => AiConversationContext::fromTurns($state->turns)->messagesEndingWith($concern),
+            'schema' => $this->evaluationSchema(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function outputSchema(bool $withSafetyEvidence = false): array
     {
         return [
             'anyOf' => [
@@ -1010,7 +1095,7 @@ class ClaudeGuidanceService
                     ],
                     'required' => ['type', 'message'],
                 ],
-                $this->safetySchema(),
+                $this->safetySchema($withSafetyEvidence),
             ],
         ];
     }
@@ -1018,7 +1103,7 @@ class ClaudeGuidanceService
     /**
      * @return array<string, mixed>
      */
-    private function safetySchema(): array
+    private function safetySchema(bool $withSafetyEvidence): array
     {
         $properties = [
             'type' => ['type' => 'string', 'enum' => ['safety']],
@@ -1026,7 +1111,7 @@ class ClaudeGuidanceService
         ];
         $required = ['type', 'message'];
 
-        if (config('ai.safety_evidence_schema') === true) {
+        if ($withSafetyEvidence) {
             $properties['basis'] = [
                 'type' => 'string',
                 'enum' => ['visitor_reported', 'model_inferred'],

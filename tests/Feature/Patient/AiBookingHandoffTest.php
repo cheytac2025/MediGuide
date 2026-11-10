@@ -4,9 +4,11 @@ namespace Tests\Feature\Patient;
 
 use App\Enums\AppointmentStatus;
 use App\Enums\ClinicStatus;
+use App\Enums\DayOfWeek;
 use App\Enums\DepartmentStatus;
 use App\Enums\DoctorScheduleStatus;
 use App\Enums\DoctorStatus;
+use App\Enums\HospitalDataSource;
 use App\Enums\RoleName;
 use App\Enums\Sex;
 use App\Models\Appointment;
@@ -46,6 +48,13 @@ class AiBookingHandoffTest extends TestCase
         $this->seed(DevelopmentClinicSeeder::class);
         $this->seed(DevelopmentDoctorSeeder::class);
         $this->seed(DevelopmentDoctorScheduleSeeder::class);
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
     }
 
     public function test_ai_recommendation_resolves_to_an_active_development_clinic(): void
@@ -656,6 +665,73 @@ class AiBookingHandoffTest extends TestCase
             'clinic_id' => $clinic->id,
             'doctor_id' => $this->doctor1()->id,
         ])->assertRedirect(route('ai-disclaimer'));
+    }
+
+    public function test_next_available_slot_comes_from_the_booking_service(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-11-10 08:00:00', 'Asia/Manila'));
+
+        $clinic = $this->clinicA();
+        $doctor = $this->doctor1();
+        $booking = app(AppointmentBookingService::class);
+        $slot = $booking->nextAvailableSlot($doctor);
+
+        $this->assertNotNull($slot);
+
+        $this->withSession([AiDisclaimer::SESSION_KEY => true])
+            ->getJson(route('ai-front-desk.clinics.doctors', $clinic))
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => $doctor->id,
+                'display_name' => 'Test Doctor 1',
+                'bookable' => true,
+                'next_available' => $booking->formatSlotLabel($slot['date'], $slot['time']),
+                'availability' => $booking->formatSlotLabel($slot['date'], $slot['time']),
+            ]);
+    }
+
+    public function test_an_active_schedule_without_a_bookable_slot_is_not_offered(): void
+    {
+        config(['hospital.provisional_local_booking' => false]);
+        Carbon::setTestNow(Carbon::parse('2026-11-10 08:00:00', 'Asia/Manila'));
+
+        $clinic = $this->clinicA();
+        $doctor = Doctor::query()->create([
+            'clinic_id' => $clinic->id,
+            'display_name' => 'Poster Only Doctor',
+            'specialization' => DevelopmentDoctorSeeder::SPECIALIZATION_A,
+            'status' => DoctorStatus::Active,
+        ]);
+        DoctorSchedule::query()->create([
+            'doctor_id' => $doctor->id,
+            'day_of_week' => DayOfWeek::Wednesday,
+            'start_time' => '13:00:00',
+            'end_time' => '14:00:00',
+            'slot_duration' => 30,
+            'status' => DoctorScheduleStatus::Active,
+            'provisional_demonstration' => true,
+        ]);
+
+        $card = collect($this->withSession([AiDisclaimer::SESSION_KEY => true])
+            ->getJson(route('ai-front-desk.clinics.doctors', $clinic))
+            ->assertOk()
+            ->json('doctors'))
+            ->firstWhere('display_name', 'Poster Only Doctor');
+
+        $this->assertIsArray($card);
+        $this->assertFalse($card['bookable']);
+        $this->assertNull($card['next_available']);
+        $this->assertNotSame('Schedule available', $card['availability']);
+    }
+
+    public function test_imported_mode_hides_development_clinics_and_doctors(): void
+    {
+        config(['hospital.data_source' => HospitalDataSource::Imported->value]);
+
+        $this->withSession([AiDisclaimer::SESSION_KEY => true])
+            ->getJson(route('ai-front-desk.clinics.doctors', $this->clinicA()))
+            ->assertNotFound()
+            ->assertJsonMissing(['display_name' => 'Test Doctor 1']);
     }
 
     public function test_empty_clinic_returns_no_available_doctors_message(): void

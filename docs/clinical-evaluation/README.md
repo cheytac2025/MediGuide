@@ -25,6 +25,7 @@ Related existing project documentation (not replaced by this package):
 - `docs/hospital-import-preview.md` — imported catalog reference; not a verified operational schedule
 - `docs/clinical-evaluation/STAGE-J-CONVERSATION-NOTES.md` — software conversation changes after Stage I; repeat listed scenarios; do not treat as clinical approval
 - `docs/clinical-evaluation/STAGE-K-READINESS-NOTES.md` — recommendation-readiness software change after Stage J, including one observed synthetic back-pain transcript; additional questions are not clinical safety approval
+- `docs/clinical-evaluation/P3-clinical-relevance-review.md` — Stage P.3 guide for source relevance. The worksheet and decision form are blank. Status: awaiting clinical review
 
 ## Scenario counts
 

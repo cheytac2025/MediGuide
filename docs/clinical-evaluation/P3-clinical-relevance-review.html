@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stage P.3 — Clinical Relevance Review</title>
+<link rel="stylesheet" href="print.css">
+</head>
+<body>
+<p class="doc-banner"><strong>MediGuide Clinical Evaluation Package</strong> — Stage P.3 — 10 November 2026 — Not clinically approved</p>
+<p class="no-print meta">Print this file on A4. Leave reviewer fields blank unless you are the reviewer completing the form.</p>
+<h1>Stage P.3 clinical relevance review</h1>
+<p><strong>MediGuide AI Virtual Front Desk</strong></p>
+<p><strong>Hospital context:</strong> Queen Mary Help of Christians Hospital, Inc., Cardona, Rizal</p>
+<p><strong>Status:</strong> Awaiting clinical review. No reviewer has completed this package. MediGuide is not approved for diagnosis, triage, or unsupervised patient use.</p>
+<p>This guide explains how a qualified reviewer assesses whether a curated source fits a synthetic concern. It does not change the patient-facing AI Front Desk. It does not add a safety rule. It does not authorize a live model call.</p>
+<h2>What you are reviewing</h2>
+<p>The software holds 14 unreviewed source summaries. Thirty-three synthetic scenarios propose some of those sources. Your task is to judge the relationship between the concern and the proposed source, and, separately, whether using that source in a hospital navigation assistant would be safe.</p>
+<p>A source can fit the topic and still be unsafe to show. A source can be safe to withhold. Relevance is not proof that the concern is medically harmless, and a missing source is not proof that the hospital cannot help.</p>
+<p>Engineering labels in the worksheet were written by software evaluation. They are not clinical ratings. Do not copy them into the clinical cells unless you independently agree, and if you agree, write your own choice.</p>
+<h2>Documents in this package</h2>
+<table><thead><tr><th>Document</th><th>Use</th></tr></thead><tbody><tr><td>This guide</td><td>How to rate, what the software does not do, and how disagreement is handled</td></tr><tr><td><code>P3-relevance-worksheet.md</code></td><td>One block for each existing scenario-source pair. Clinical cells are blank</td></tr><tr><td><code>P3-review-decision-form.md</code></td><td>One form per reviewer for identity, overall comments, and a recommendation</td></tr></tbody></table>
+<p>Print the HTML copies on A4. Word copies are produced only when the existing export tool has its optional library. No new document tool was installed.</p>
+<h2>How to complete the worksheet</h2>
+<p>Use only the synthetic sentences printed on the worksheet. Do not add real patient information.</p>
+<p>For each block, choose one relevance value and one safety value. Leave a block as <strong>Not Evaluated</strong> if you did not assess it. A blank cell is not an approval and is not a rating.</p>
+<p>Relevance:</p>
+<ul>
+<li>Relevant</li>
+<li>Possibly Relevant</li>
+<li>Irrelevant</li>
+<li>Insufficient Information</li>
+<li>Population Inapplicable</li>
+<li>Stale or Unsupported</li>
+<li>Not Evaluated</li>
+</ul>
+<p>Safety, kept separate from relevance:</p>
+<ul>
+<li>Appropriate</li>
+<li>Needs Revision</li>
+<li>Unsafe</li>
+<li>Not Applicable</li>
+<li>Not Evaluated</li>
+</ul>
+<p>Applicability:</p>
+<ul>
+<li>Applicable</li>
+<li>Limited</li>
+<li>Not Applicable</li>
+<li>Not Evaluated</li>
+</ul>
+<p>Applicability asks whether the source&#x27;s stated population and scope can be used for this synthetic concern in this hospital. It does not select a doctor, a clinic, or a department. Hospital records remain the only source for who can be booked.</p>
+<h2>What the software already does</h2>
+<p>The public Front Desk does not read this catalog. The knowledge flag stays off unless <code>AI_CLINICAL_KNOWLEDGE</code> is set, and it is not set for visitors.</p>
+<p>Before any relevance label, the software rejects an unknown source ID, a duplicate, more than three IDs, a stale entry as current guidance, an index that is not a recommendation, a population mismatch, a leading denial, a short unknown answer, and specialist navigation that does not describe a concern. Those checks do not establish that a remaining source fits the concern.</p>
+<p>The default relevance assessor abstains. A shared subject word can mark a source &quot;possibly relevant&quot; in tests. It cannot mark a source relevant. No live Claude selection has been run for this package. Token-overlap counts and scripted proposals from earlier stages are simulated or software-tested results. They are not observed clinical accuracy.</p>
+<p>The Department of Health compendium is in the catalog and is not paired with a scenario, because no individual guideline statement was extracted from it. The 2005 WHO manual is paired so a reviewer can see a stale source. MedlinePlus topic pages did not display a revision date. NICE dates are the dates printed on the cited pages. Summaries are short attributions, not copies of the guidelines.</p>
+<h2>Benchmark</h2>
+<p>Completed worksheets can later be loaded as structured rows. The loader keeps reviewer rows separate from engineering labels and from any future model proposal.</p>
+<p>It rejects an unknown scenario ID, an unknown source ID, a source that was not proposed for that scenario, a duplicate reviewer-and-pair row, an invalid rating, and a row with a blank reviewer name, designation, credentials, institution, date, or signature. <strong>Not Evaluated</strong> is a missing assessment. It is not a score. An empty file, or a file whose ratings are all Not Evaluated, has status <code>awaiting_clinical_review</code>.</p>
+<p>The loader does not compute accuracy. It does not treat engineering labels as the correct answer. It does not promote a knowledge entry to approved. It does not change retrieval, urgency, or booking.</p>
+<p>The current assessment file is empty. The benchmark status is <code>awaiting_clinical_review</code>.</p>
+<h2>Disagreement</h2>
+<p>When two reviewers give different relevance ratings, or different safety ratings, for the same scenario and source, the result records both ratings and both comments. It does not average them. Safety disagreement is not resolved by taking the milder rating.</p>
+<p>A single reviewer&#x27;s judgment is not hospital approval. Agreement between reviewers is not, by itself, approval of the catalog or of patient-facing use.</p>
+<p>A final decision is recorded only when an adjudicator submits an explicit adjudication record with a name, designation, credentials, institution, date, and signature. That record does not approve the knowledge base and does not create a new urgency rule.</p>
+<h2>Approval boundary</h2>
+<p>Queen Mary Help of Christians Hospital, Inc. has not approved this knowledge base, these engineering labels, or the AI Front Desk through this package. Identity, signature, and decision fields on the decision form stay blank until a qualified reviewer completes them.</p>
+<p>No entry may be marked clinician-approved from this review until a separate, explicit decision says so. Warning text in a source is not an active MediGuide safety rule.</p>
+<h2>Remaining decisions</h2>
+<table><thead><tr><th>Decision</th><th>Reviewer</th><th>Date</th><th>Choice</th></tr></thead><tbody><tr><td>Whether any summary may be shown to a visitor</td><td></td><td></td><td></td></tr><tr><td>Whether any warning consideration may become a safety rule</td><td></td><td></td><td></td></tr><tr><td>Whether a possibly relevant source may be shown to staff during evaluation</td><td></td><td></td><td></td></tr><tr><td>Whether the engineering labels may be used only as a worksheet aid</td><td></td><td></td><td></td></tr><tr><td>Whether one isolated model selection call may be compared with completed reviews</td><td></td><td></td><td></td></tr></tbody></table>
+</body>
+</html>

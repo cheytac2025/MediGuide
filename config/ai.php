@@ -40,4 +40,16 @@ return [
 
     'safety_evidence_schema' => filter_var(env('AI_SAFETY_EVIDENCE_SCHEMA', false), FILTER_VALIDATE_BOOL),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Clinical knowledge retrieval
+    |--------------------------------------------------------------------------
+    |
+    | Evaluation-only summaries. This flag does not change the Front Desk
+    | prompt, safety overlays, or booking. Leave it off for visitors.
+    |
+    */
+
+    'clinical_knowledge' => filter_var(env('AI_CLINICAL_KNOWLEDGE', false), FILTER_VALIDATE_BOOL),
+
 ];

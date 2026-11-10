@@ -17,7 +17,11 @@ use InvalidArgumentException;
  */
 final readonly class AiGuidanceResult
 {
-    public const int MAX_TEXT_LENGTH = 2000;
+    /**
+     * Same limit the provider schema used to declare with maxLength.
+     * The wire schema cannot send that keyword, so the limit is enforced here.
+     */
+    public const int MAX_TEXT_LENGTH = 400;
 
     private function __construct(
         public AiGuidanceType $type,

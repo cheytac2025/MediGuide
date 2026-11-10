@@ -28,7 +28,27 @@ class AnthropicMessagesClient
 
     public function isConfigured(): bool
     {
-        return $this->apiKey() !== null && $this->model() !== null;
+        return $this->hasApiKey() && $this->configuredModel() !== null;
+    }
+
+    public function hasApiKey(): bool
+    {
+        return $this->apiKey() !== null;
+    }
+
+    public function configuredModel(): ?string
+    {
+        return $this->model();
+    }
+
+    public function outputTokenLimit(): int
+    {
+        return $this->maxTokens();
+    }
+
+    public function retryOutputTokenLimit(): int
+    {
+        return $this->retryMaxTokens();
     }
 
     /**
@@ -70,9 +90,95 @@ class AnthropicMessagesClient
     }
 
     /**
+     * Send one evaluation request, retrying at most once, and never beyond $maxCalls.
+     *
+     * The returned payload is for in-memory validation. Callers must not log it.
+     *
      * @param  list<array{role: 'user'|'assistant', content: string}>  $messages
      * @param  array<string, mixed>  $schema
-     * @return array{status: 'complete', payload: array<string, mixed>}|array{status: 'incomplete'}|array{status: 'failed'}
+     * @return array{
+     *     status: 'complete'|'incomplete'|'failed',
+     *     payload: array<string, mixed>|null,
+     *     stop_reason: string|null,
+     *     usage: array{input_tokens: int|null, output_tokens: int|null}|null,
+     *     http_status: int|null,
+     *     schema_rejected: bool,
+     *     error_category: string|null,
+     *     calls: int
+     * }
+     */
+    public function sendEvaluationMessage(string $system, array $messages, array $schema, int $maxCalls): array
+    {
+        $maxCalls = max(0, $maxCalls);
+
+        if ($maxCalls === 0 || $messages === [] || ! $this->isConfigured()) {
+            return $this->evaluationResult(null, 0);
+        }
+
+        $first = $this->postStructuredMessage($system, $messages, $schema, $this->maxTokens());
+        $calls = 1;
+
+        if ($first['status'] !== 'incomplete' || $calls >= $maxCalls) {
+            return $this->evaluationResult($first, $calls);
+        }
+
+        $retry = $this->postStructuredMessage($system, $messages, $schema, $this->retryMaxTokens());
+
+        return $this->evaluationResult($retry, $calls + 1);
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $result
+     * @return array{
+     *     status: 'complete'|'incomplete'|'failed',
+     *     payload: array<string, mixed>|null,
+     *     stop_reason: string|null,
+     *     usage: array{input_tokens: int|null, output_tokens: int|null}|null,
+     *     http_status: int|null,
+     *     schema_rejected: bool,
+     *     error_category: string|null,
+     *     calls: int
+     * }
+     */
+    private function evaluationResult(?array $result, int $calls): array
+    {
+        if (! is_array($result)) {
+            return [
+                'status' => 'failed',
+                'payload' => null,
+                'stop_reason' => null,
+                'usage' => null,
+                'http_status' => null,
+                'schema_rejected' => false,
+                'error_category' => null,
+                'calls' => $calls,
+            ];
+        }
+
+        $status = $result['status'] ?? 'failed';
+
+        if (! in_array($status, ['complete', 'incomplete', 'failed'], true)) {
+            $status = 'failed';
+        }
+
+        $payload = $result['payload'] ?? null;
+
+        return [
+            'status' => $status,
+            'payload' => $status === 'complete' && is_array($payload) ? $payload : null,
+            'stop_reason' => is_string($result['stop_reason'] ?? null) ? $result['stop_reason'] : null,
+            'usage' => is_array($result['usage'] ?? null) ? $result['usage'] : null,
+            'http_status' => is_int($result['http_status'] ?? null) ? $result['http_status'] : null,
+            'schema_rejected' => ($result['schema_rejected'] ?? false) === true,
+            'error_category' => is_string($result['error_category'] ?? null) ? $result['error_category'] : null,
+            'calls' => $calls,
+        ];
+    }
+
+    /**
+     * @param  list<array{role: 'user'|'assistant', content: string}>  $messages
+     * @param  array<string, mixed>  $schema
+     * @return array{status: 'complete', payload?: array<string, mixed>, stop_reason?: string|null, usage?: array{input_tokens: int|null, output_tokens: int|null}|null, http_status?: int|null, schema_rejected?: bool}|array{status: 'incomplete', stop_reason?: string|null, http_status?: int|null}|array{status: 'failed', stop_reason?: string|null, http_status?: int|null, schema_rejected?: bool}
      */
     private function postStructuredMessage(string $system, array $messages, array $schema, int $maxTokens): array
     {
@@ -99,15 +205,29 @@ class AnthropicMessagesClient
         } catch (HttpClientException $exception) {
             $this->logFailure($exception);
 
-            return ['status' => 'failed'];
+            return [
+                'status' => 'failed',
+                'stop_reason' => null,
+                'http_status' => null,
+                'schema_rejected' => false,
+            ];
         }
 
         if (! $response->successful()) {
+            $errorCategory = $this->sanitizedErrorCategory($response->json());
+
             Log::warning('Claude guidance provider request failed.', [
                 'http_status' => $response->status(),
+                'error_category' => $errorCategory,
             ]);
 
-            return ['status' => 'failed'];
+            return [
+                'status' => 'failed',
+                'stop_reason' => null,
+                'http_status' => $response->status(),
+                'schema_rejected' => in_array($response->status(), [400, 422], true),
+                'error_category' => $errorCategory,
+            ];
         }
 
         $body = $response->json();
@@ -115,13 +235,24 @@ class AnthropicMessagesClient
         if (! is_array($body)) {
             Log::warning('Claude guidance response could not be parsed.');
 
-            return ['status' => 'failed'];
+            return [
+                'status' => 'failed',
+                'stop_reason' => null,
+                'http_status' => $response->status(),
+                'schema_rejected' => false,
+            ];
         }
 
         $stopReason = $body['stop_reason'] ?? null;
+        $usage = $this->usage($body);
 
         if ($stopReason === 'max_tokens') {
-            return ['status' => 'incomplete'];
+            return [
+                'status' => 'incomplete',
+                'stop_reason' => 'max_tokens',
+                'usage' => $usage,
+                'http_status' => $response->status(),
+            ];
         }
 
         if ($stopReason !== 'end_turn') {
@@ -129,7 +260,13 @@ class AnthropicMessagesClient
                 'stop_reason' => is_string($stopReason) ? $stopReason : null,
             ]);
 
-            return ['status' => 'failed'];
+            return [
+                'status' => 'failed',
+                'stop_reason' => is_string($stopReason) ? $stopReason : null,
+                'usage' => $usage,
+                'http_status' => $response->status(),
+                'schema_rejected' => false,
+            ];
         }
 
         $text = $this->textContent($body);
@@ -137,18 +274,93 @@ class AnthropicMessagesClient
         if ($text === null) {
             Log::warning('Claude guidance response could not be parsed.');
 
-            return ['status' => 'failed'];
+            return [
+                'status' => 'failed',
+                'stop_reason' => 'end_turn',
+                'usage' => $usage,
+                'http_status' => $response->status(),
+                'schema_rejected' => false,
+            ];
         }
 
         $payload = $this->decodeJsonObject($text);
 
         if ($payload === null) {
-            return ['status' => 'failed'];
+            return [
+                'status' => 'failed',
+                'stop_reason' => 'end_turn',
+                'usage' => $usage,
+                'http_status' => $response->status(),
+                'schema_rejected' => false,
+            ];
         }
 
         return [
             'status' => 'complete',
             'payload' => $payload,
+            'stop_reason' => 'end_turn',
+            'usage' => $usage,
+            'http_status' => $response->status(),
+            'schema_rejected' => false,
+        ];
+    }
+
+    /**
+     * Keep an allowlisted keyword or error type. The provider message is not stored.
+     */
+    private function sanitizedErrorCategory(mixed $body): ?string
+    {
+        if (! is_array($body) || ! is_array($body['error'] ?? null)) {
+            return null;
+        }
+
+        $message = $body['error']['message'] ?? null;
+
+        if (is_string($message)) {
+            foreach ([
+                'maxLength',
+                'minLength',
+                'maxItems',
+                'minItems',
+                'exclusiveMinimum',
+                'exclusiveMaximum',
+                'multipleOf',
+                'minimum',
+                'maximum',
+                'additionalProperties',
+                'pattern',
+                'uniqueItems',
+            ] as $keyword) {
+                if (preg_match('/\b'.preg_quote($keyword, '/').'\b/', $message) === 1) {
+                    return 'unsupported_schema_keyword:'.$keyword;
+                }
+            }
+        }
+
+        $type = $body['error']['type'] ?? null;
+
+        if (is_string($type) && preg_match('/^[a-z0-9_]{1,64}$/', $type) === 1) {
+            return $type;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<mixed>  $body
+     * @return array{input_tokens: int|null, output_tokens: int|null}|null
+     */
+    private function usage(array $body): ?array
+    {
+        $usage = $body['usage'] ?? null;
+
+        if (! is_array($usage)) {
+            return null;
+        }
+
+        return [
+            'input_tokens' => is_numeric($usage['input_tokens'] ?? null) ? (int) $usage['input_tokens'] : null,
+            'output_tokens' => is_numeric($usage['output_tokens'] ?? null) ? (int) $usage['output_tokens'] : null,
         ];
     }
 

@@ -10,11 +10,15 @@ use App\Enums\RoleName;
 use App\Http\Controllers\Controller;
 use App\Models\Clinic;
 use App\Models\Doctor;
+use App\Models\DoctorSchedule;
+use App\Services\AppointmentBookingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AiClinicDoctorsController extends Controller
 {
+    public function __construct(private AppointmentBookingService $booking) {}
+
     /**
      * List active doctors for an active clinic (public after AI disclaimer).
      */
@@ -25,6 +29,7 @@ class AiClinicDoctorsController extends Controller
         if (
             $clinic->status !== ClinicStatus::Active
             || $clinic->department?->status !== DepartmentStatus::Active
+            || ! $clinic->isEligibleForAiGrounding()
         ) {
             return response()->json([
                 'clinic' => null,
@@ -35,21 +40,11 @@ class AiClinicDoctorsController extends Controller
 
         $doctors = $clinic->doctors()
             ->where('status', DoctorStatus::Active)
-            ->withExists([
-                'schedules as has_active_schedule' => fn ($query) => $query->where('status', DoctorScheduleStatus::Active),
-            ])
+            ->forAiGrounding()
+            ->with(['schedules' => fn ($query) => $query->where('status', DoctorScheduleStatus::Active)])
             ->orderBy('display_name')
             ->get()
-            ->map(fn (Doctor $doctor): array => [
-                'id' => $doctor->id,
-                'display_name' => $doctor->display_name,
-                'specialization' => $doctor->specialization,
-                'clinic' => $clinic->name,
-                'bookable' => (bool) $doctor->has_active_schedule,
-                'availability' => $doctor->has_active_schedule
-                    ? 'Schedule available'
-                    : 'No available schedule',
-            ])
+            ->map(fn (Doctor $doctor): array => $this->doctorCard($doctor, $clinic))
             ->values();
 
         $message = null;
@@ -72,5 +67,31 @@ class AiClinicDoctorsController extends Controller
             'is_authenticated_patient' => $request->user()?->hasRole(RoleName::Patient) === true,
             'booking_intent_url' => route('ai-front-desk.booking-intent'),
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function doctorCard(Doctor $doctor, Clinic $clinic): array
+    {
+        $slot = $this->booking->nextAvailableSlot($doctor);
+        $bookable = $slot !== null;
+        $nextAvailable = $bookable
+            ? $this->booking->formatSlotLabel($slot['date'], $slot['time'])
+            : null;
+        $hasActiveSchedule = $doctor->schedules->contains(
+            fn (DoctorSchedule $schedule): bool => $schedule->status === DoctorScheduleStatus::Active,
+        );
+
+        return [
+            'id' => $doctor->id,
+            'display_name' => $doctor->display_name,
+            'specialization' => $doctor->specialization,
+            'clinic_id' => $clinic->id,
+            'clinic' => $clinic->name,
+            'bookable' => $bookable,
+            'next_available' => $nextAvailable,
+            'availability' => $nextAvailable ?? ($hasActiveSchedule ? null : 'No available schedule'),
+        ];
     }
 }
