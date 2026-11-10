@@ -31,20 +31,7 @@ final class AiConversationInterpreter
 
     public static function interpret(AiConversationState $state, string $latestConcern): AiConversationFacts
     {
-        $opening = $state->openingConcern;
-
-        if (! is_string($opening) || $opening === '') {
-            foreach ($state->turns as $turn) {
-                if ($turn['role'] === 'user') {
-                    $opening = $turn['content'];
-                    break;
-                }
-            }
-        }
-
-        if (! is_string($opening) || $opening === '') {
-            $opening = $latestConcern;
-        }
+        $opening = AiVisitorReply::firstStatedConcern($state->openingConcern, $state->turns, $latestConcern) ?? '';
 
         $kind = self::concernKind($opening);
         $anchor = self::anchorFor($kind);
@@ -86,7 +73,7 @@ final class AiConversationInterpreter
         $missing = self::missingPriority($kind, $answered, $facts['location']);
 
         return new AiConversationFacts(
-            primaryConcern: self::bounded($opening),
+            primaryConcern: $opening === '' ? null : self::bounded($opening),
             concernKind: $kind,
             bodyLocation: $facts['location'],
             locationAnchor: $anchor,

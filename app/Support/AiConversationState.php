@@ -59,7 +59,7 @@ final readonly class AiConversationState
                 continue;
             }
 
-            if ($opening === null && $role === 'user') {
+            if ($opening === null && $role === 'user' && AiVisitorReply::statesHealthConcern($content)) {
                 $opening = self::bounded($content);
             }
 
@@ -92,9 +92,11 @@ final readonly class AiConversationState
             $opening = null;
         }
 
-        if ($opening === null) {
+        if (! AiVisitorReply::statesHealthConcern($opening ?? '')) {
+            $opening = null;
+
             foreach ($context->turns as $turn) {
-                if ($turn['role'] === 'user') {
+                if ($turn['role'] === 'user' && AiVisitorReply::statesHealthConcern($turn['content'])) {
                     $opening = $turn['content'];
                     break;
                 }
@@ -172,7 +174,9 @@ final readonly class AiConversationState
             'content' => $assistantMessage,
         ];
 
-        $opening = $this->openingConcern ?? self::bounded($visitorMessage);
+        $opening = AiVisitorReply::statesHealthConcern($this->openingConcern ?? '')
+            ? $this->openingConcern
+            : (AiVisitorReply::statesHealthConcern($visitorMessage) ? self::bounded($visitorMessage) : null);
         $count = $this->clarificationCount;
         $asked = $this->askedQuestions;
 

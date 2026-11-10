@@ -49,6 +49,134 @@ final class AiVisitorReply
         'huwag na',
     ];
 
+    /**
+     * Requests for help choosing a service. These are not refusals to answer.
+     *
+     * @var list<string>
+     */
+    private const array SPECIALIST_NAVIGATION = [
+        'not sure which specialist',
+        'not sure which doctor',
+        'not sure which clinic',
+        'not sure which department',
+        'not sure what specialist',
+        'not sure what doctor',
+        'dont know which specialist',
+        'do not know which specialist',
+        'dont know which doctor',
+        'do not know which doctor',
+        'dont know what specialist',
+        'dont know what doctor',
+        'which specialist',
+        'which doctor',
+        'which department',
+        'what specialist',
+        'what kind of doctor',
+        'what kind of specialist',
+        'what type of doctor',
+        'what type of specialist',
+        'help me choose a specialist',
+        'help me choose a doctor',
+        'help me find a specialist',
+        'help me find a doctor',
+        'anong specialist',
+        'anong doktor',
+        'sinong doktor',
+        'sinong specialist',
+        'aling specialist',
+        'aling doktor',
+    ];
+
+    /**
+     * Words left behind by a specialist-choice request. These are not symptoms.
+     *
+     * @var array<string, true>
+     */
+    private const array NAVIGATION_STOPWORDS = [
+        'i' => true,
+        'im' => true,
+        'me' => true,
+        'my' => true,
+        'a' => true,
+        'an' => true,
+        'the' => true,
+        'this' => true,
+        'that' => true,
+        'it' => true,
+        'for' => true,
+        'to' => true,
+        'and' => true,
+        'or' => true,
+        'of' => true,
+        'should' => true,
+        'can' => true,
+        'could' => true,
+        'would' => true,
+        'please' => true,
+        'help' => true,
+        'see' => true,
+        'find' => true,
+        'choose' => true,
+        'need' => true,
+        'want' => true,
+        'know' => true,
+        'do' => true,
+        'not' => true,
+        'sure' => true,
+        'which' => true,
+        'what' => true,
+        'kind' => true,
+        'type' => true,
+        'doctor' => true,
+        'specialist' => true,
+        'clinic' => true,
+        'department' => true,
+        'am' => true,
+        'is' => true,
+        'are' => true,
+        'be' => true,
+        'with' => true,
+        'ako' => true,
+        'ko' => true,
+        'ang' => true,
+        'ng' => true,
+        'sa' => true,
+        'na' => true,
+        'po' => true,
+        'ba' => true,
+        'lang' => true,
+        'mga' => true,
+        'kung' => true,
+        'hindi' => true,
+        'wala' => true,
+        'alam' => true,
+        'kailangan' => true,
+        'anong' => true,
+        'sinong' => true,
+        'aling' => true,
+        'doktor' => true,
+        'ninyo' => true,
+        'kayo' => true,
+        'akong' => true,
+        'yung' => true,
+        'ito' => true,
+        'para' => true,
+        'sana' => true,
+        'paki' => true,
+        'pakiusap' => true,
+        'magtagalog' => true,
+        'ka' => true,
+        'tagalog' => true,
+        'filipino' => true,
+        'english' => true,
+        'speak' => true,
+        'in' => true,
+        'rin' => true,
+        'naman' => true,
+        'may' => true,
+        'parang' => true,
+    ];
+
     public static function negativeConfirmation(string $text): bool
     {
         $normalized = self::normalize(self::withoutLanguageInstruction($text));
@@ -104,6 +232,10 @@ final class AiVisitorReply
             return false;
         }
 
+        if (self::requestsSpecialistNavigation($text)) {
+            return false;
+        }
+
         if (in_array($normalized, self::EXACT, true)) {
             return true;
         }
@@ -115,6 +247,99 @@ final class AiVisitorReply
         }
 
         return false;
+    }
+
+    public static function requestsSpecialistNavigation(string $text): bool
+    {
+        $normalized = self::normalize(self::withoutLanguageInstruction($text));
+
+        if ($normalized === '') {
+            return false;
+        }
+
+        foreach (self::SPECIALIST_NAVIGATION as $phrase) {
+            if (str_contains($normalized, $phrase)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  list<array{role?: mixed, content?: mixed}>  $turns
+     */
+    public static function firstStatedConcern(?string $opening, array $turns, string $latest): ?string
+    {
+        $candidates = [];
+
+        if (is_string($opening) && trim($opening) !== '') {
+            $candidates[] = $opening;
+        }
+
+        foreach ($turns as $turn) {
+            if (($turn['role'] ?? null) === 'user' && is_string($turn['content'] ?? null)) {
+                $candidates[] = $turn['content'];
+            }
+        }
+
+        $candidates[] = $latest;
+
+        foreach ($candidates as $candidate) {
+            if (self::statesHealthConcern($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    public static function statesHealthConcern(string $text): bool
+    {
+        if (self::normalize($text) === '') {
+            return false;
+        }
+
+        if (! self::requestsSpecialistNavigation($text)) {
+            return true;
+        }
+
+        return self::hasDescribedConcern(self::withoutSpecialistNavigation($text));
+    }
+
+    /**
+     * True when text still describes a concern after navigation wording is removed.
+     * This does not match a symptom dictionary. Leftover helper words such as
+     * "I need" do not count as a described concern.
+     */
+    private static function hasDescribedConcern(string $text): bool
+    {
+        $normalized = self::normalize(self::withoutLanguageInstruction($text));
+
+        if ($normalized === '') {
+            return false;
+        }
+
+        foreach (preg_split('/\s+/u', $normalized) ?: [] as $token) {
+            if ($token !== '' && ! isset(self::NAVIGATION_STOPWORDS[$token])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static function withoutSpecialistNavigation(string $text): string
+    {
+        $normalized = self::normalize($text);
+        $phrases = self::SPECIALIST_NAVIGATION;
+        usort($phrases, fn (string $left, string $right): int => mb_strlen($right) <=> mb_strlen($left));
+
+        foreach ($phrases as $phrase) {
+            $normalized = str_replace($phrase, ' ', $normalized);
+        }
+
+        return trim(preg_replace('/\s+/u', ' ', $normalized) ?? $normalized);
     }
 
     public static function isGenericFollowUp(string $question): bool

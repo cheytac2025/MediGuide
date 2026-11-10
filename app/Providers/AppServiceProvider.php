@@ -7,6 +7,7 @@ use App\Listeners\RecordAuthenticationAudit;
 use App\Models\Appointment;
 use App\Models\Patient;
 use App\Observers\RecordIntegrityObserver;
+use App\Support\AiSafetyEvidenceShadow;
 use App\Support\Audit\AuditCheckpointStore;
 use App\Support\Audit\FileAuditCheckpointStore;
 use App\Support\Audit\InactiveAuditCheckpointStore;
@@ -33,6 +34,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // One instance must see both the updating and updated events.
         $this->app->singleton(RecordIntegrityObserver::class);
+        $this->app->singleton(AiSafetyEvidenceShadow::class);
         $this->app->singleton(AuditCheckpointStore::class, function (): AuditCheckpointStore {
             $path = config('audit.checkpoint_path');
 

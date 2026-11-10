@@ -25,4 +25,19 @@ return [
         'extended' => (bool) env('AI_PROMPT_EVALUATION_EXTENDED', false),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Safety evidence schema experiment
+    |--------------------------------------------------------------------------
+    |
+    | When false, Claude's structured safety response stays type and message.
+    | Turning this on asks the provider for evidence fields and can change
+    | model behavior. Leave it off until that schema change is approved.
+    | Evidence validation still runs in shadow mode on any fields that are
+    | already present. It does not change the visitor-facing response.
+    |
+    */
+
+    'safety_evidence_schema' => filter_var(env('AI_SAFETY_EVIDENCE_SCHEMA', false), FILTER_VALIDATE_BOOL),
+
 ];

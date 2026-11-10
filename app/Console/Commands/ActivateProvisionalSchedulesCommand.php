@@ -19,7 +19,8 @@ class ActivateProvisionalSchedulesCommand extends Command
      * @var string
      */
     protected $signature = 'mediguide:activate-provisional-schedules
-        {--confirm-local-demonstration : Required confirmation that this is the local mediguide database}';
+        {--confirm-local-demonstration : Required confirmation that this local demonstration database may be changed}
+        {--confirm-database= : Exact database name; must match the effective connection}';
 
     /**
      * @var string
@@ -34,8 +35,17 @@ class ActivateProvisionalSchedulesCommand extends Command
             return self::FAILURE;
         }
 
-        if (! $this->isLocalDemonstrationDatabase()) {
-            $this->error('Refusing to write. Provisional schedules can be activated only on local mediguide at 127.0.0.1.');
+        if (! $this->isLocalLoopbackMysql()) {
+            $this->error('Refusing to write. Provisional schedules can be activated only on local MySQL at 127.0.0.1.');
+
+            return self::FAILURE;
+        }
+
+        $confirmed = $this->option('confirm-database');
+        $effective = (string) config('database.connections.mysql.database');
+
+        if (! is_string($confirmed) || $confirmed === '' || $confirmed !== $effective) {
+            $this->error('Refusing to write. --confirm-database must exactly match the effective database connection.');
 
             return self::FAILURE;
         }
@@ -96,7 +106,10 @@ class ActivateProvisionalSchedulesCommand extends Command
         return self::SUCCESS;
     }
 
-    private function isLocalDemonstrationDatabase(): bool
+    /**
+     * Environment, driver, and host checks. The database name is confirmed separately.
+     */
+    private function isLocalLoopbackMysql(): bool
     {
         if (! app()->environment('local')) {
             return false;
@@ -109,10 +122,8 @@ class ActivateProvisionalSchedulesCommand extends Command
         }
 
         $host = (string) config('database.connections.mysql.host');
-        $database = (string) config('database.connections.mysql.database');
 
-        return $database === 'mediguide'
-            && in_array($host, ['127.0.0.1', 'localhost', '::1'], true);
+        return in_array($host, ['127.0.0.1', 'localhost', '::1'], true);
     }
 
     /**

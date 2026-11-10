@@ -14,6 +14,8 @@ use App\Support\AiHospitalContext;
 use App\Support\AiNavigationSafety;
 use App\Support\AiRecommendationReadiness;
 use App\Support\AiSafetyDecision;
+use App\Support\AiSafetyEvidenceShadow;
+use App\Support\AiSafetyEvidenceValidator;
 use App\Support\AiServiceContext;
 use App\Support\AiUrgentConcernDetector;
 use App\Support\AiVisitorReply;
@@ -44,6 +46,10 @@ class ClaudeGuidanceService
     public const string UNABLE_TO_ROUTE_MESSAGE = "That's okay. I don't have enough information to recommend an appropriate clinic yet. Please ask hospital staff for assistance. This is not a diagnosis.";
 
     public const string UNABLE_TO_ROUTE_MESSAGE_FILIPINO = 'Ayos lang po. Wala pa akong sapat na impormasyon para magmungkahi ng angkop na klinika. Mangyaring humingi ng tulong sa staff ng ospital. Hindi ito diagnosis.';
+
+    public const string OPENING_CONCERN_QUESTION_ENGLISH = 'What symptoms or health concern are you experiencing?';
+
+    public const string OPENING_CONCERN_QUESTION_FILIPINO = 'Ano pong sintomas o health concern ang nararamdaman ninyo?';
 
     public const string COUGH_DURATION_FILIPINO = 'Gaano na po katagal ang ubo?';
 
@@ -121,6 +127,8 @@ class ClaudeGuidanceService
         private AiUrgentConcernDetector $urgentConcerns,
         private AiNavigationSafety $navigationSafety,
         private AiRecommendationReadiness $readiness,
+        private AiSafetyEvidenceValidator $safetyEvidence,
+        private AiSafetyEvidenceShadow $safetyEvidenceShadow,
     ) {}
 
     /**
@@ -145,6 +153,12 @@ class ClaudeGuidanceService
 
         if ($safety->blocksRoutineNavigation()) {
             return $this->safetyResponse($safety, $patientText, $facts);
+        }
+
+        $navigation = $this->specialistNavigationResponse($state, $concern, $facts);
+
+        if ($navigation instanceof AiGuidanceResult) {
+            return $navigation;
         }
 
         if (! $this->anthropic->isConfigured()) {
@@ -174,6 +188,10 @@ class ClaudeGuidanceService
         }
 
         if ($result->type === AiGuidanceType::Safety) {
+            $this->safetyEvidenceShadow->record(
+                $this->safetyEvidence->evaluate($payload, $state, $concern),
+            );
+
             if ($this->urgentConcerns->attributesUnreportedSymptoms((string) $result->message, $patientText)) {
                 return $this->followUpInsteadOfUnconfirmedSafety($state, $concern, $facts);
             }
@@ -282,7 +300,7 @@ class ClaudeGuidanceService
 
         Use clarification when visitor information is still incomplete and another question would materially improve safety or routing, even if clinic descriptions are empty or administrative. Do not keep asking questions when the services list is empty or no listed specialization could reasonably support navigation. Do not recommend a clinic merely because one follow-up has been answered or because several questions have already been asked. Do not require a fixed number of questions. Do not delay safety to finish questioning.
 
-        If the visitor declines to answer or does not know, do not pressure them. Return uncertain unless a supported clinic recommendation is already possible from what they shared, or safety if warning signs are already present.
+        If the visitor declines to answer or does not know, do not pressure them. Return uncertain unless a supported clinic recommendation is already possible from what they shared, or safety if warning signs are already present. Asking for help choosing a specialist, doctor, clinic, or department is navigation intent, not a decline and not uncertainty. If no symptom or health concern has been stated, return clarification asking what symptoms or health concern the visitor is experiencing. If a concern was already stated, continue from that concern and ask only for relevant missing information. Do not recommend a service when no concern has been stated.
 
         If SESSION_CONVERSATION_STATE_JSON says clarification_limit_reached is true, do not ask another question. Return safety if an emergency or prompt-evaluation concern already applies. Do not use the clarification limit to force a routine recommendation. Return uncertain unless limited navigation is already appropriate and no safety concern remains.
 
@@ -613,6 +631,27 @@ class ClaudeGuidanceService
         $push($concern);
 
         return implode("\n", $parts);
+    }
+
+    private function specialistNavigationResponse(AiConversationState $state, string $concern, AiConversationFacts $facts): ?AiGuidanceResult
+    {
+        if (! AiVisitorReply::requestsSpecialistNavigation($concern) || $state->reachedClarificationLimit()) {
+            return null;
+        }
+
+        if (AiVisitorReply::firstStatedConcern($state->openingConcern, $state->turns, $concern) === null) {
+            return $this->clarification($facts->prefersFilipino()
+                ? self::OPENING_CONCERN_QUESTION_FILIPINO
+                : self::OPENING_CONCERN_QUESTION_ENGLISH);
+        }
+
+        if ($this->readiness->isReady($facts)) {
+            return null;
+        }
+
+        $followUp = $this->nextUnusedFollowUp($state, $facts);
+
+        return $followUp === null ? null : $this->clarification($followUp);
     }
 
     private function followUpInsteadOfUnconfirmedSafety(AiConversationState $state, string $concern, AiConversationFacts $facts): AiGuidanceResult
@@ -971,16 +1010,51 @@ class ClaudeGuidanceService
                     ],
                     'required' => ['type', 'message'],
                 ],
-                [
+                $this->safetySchema(),
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function safetySchema(): array
+    {
+        $properties = [
+            'type' => ['type' => 'string', 'enum' => ['safety']],
+            'message' => ['type' => 'string', 'maxLength' => 400],
+        ];
+        $required = ['type', 'message'];
+
+        if (config('ai.safety_evidence_schema') === true) {
+            $properties['basis'] = [
+                'type' => 'string',
+                'enum' => ['visitor_reported', 'model_inferred'],
+            ];
+            $properties['evidence'] = [
+                'type' => 'array',
+                'maxItems' => AiSafetyEvidenceValidator::MAX_QUOTES,
+                'items' => [
                     'type' => 'object',
                     'additionalProperties' => false,
                     'properties' => [
-                        'type' => ['type' => 'string', 'enum' => ['safety']],
-                        'message' => ['type' => 'string', 'maxLength' => 400],
+                        'quote' => ['type' => 'string', 'maxLength' => AiSafetyEvidenceValidator::MAX_QUOTE_CHARACTERS],
                     ],
-                    'required' => ['type', 'message'],
+                    'required' => ['quote'],
                 ],
-            ],
+            ];
+            $properties['proposed_level'] = [
+                'type' => 'string',
+                'enum' => ['emergency', 'prompt_evaluation'],
+            ];
+            $required = ['type', 'message', 'basis', 'evidence', 'proposed_level'];
+        }
+
+        return [
+            'type' => 'object',
+            'additionalProperties' => false,
+            'properties' => $properties,
+            'required' => $required,
         ];
     }
 

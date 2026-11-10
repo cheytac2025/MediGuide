@@ -80,6 +80,16 @@ class AiUrgentConcernDetectorTest extends TestCase
         $this->assertTrue(AiVisitorReply::declinedOrUnknown('prefer not to say'));
         $this->assertFalse(AiVisitorReply::declinedOrUnknown('Dalawang araw na.'));
         $this->assertFalse(AiVisitorReply::declinedOrUnknown('Masakit ulo ko.'));
+        $this->assertFalse(AiVisitorReply::declinedOrUnknown("I'm not sure which specialist I need"));
+        $this->assertTrue(AiVisitorReply::declinedOrUnknown("I'm not sure."));
+        $this->assertTrue(AiVisitorReply::requestsSpecialistNavigation('I do not know which doctor I should see'));
+        $this->assertFalse(AiVisitorReply::statesHealthConcern("I'm not sure which specialist I need"));
+        $this->assertFalse(AiVisitorReply::statesHealthConcern('I do not know which doctor I should see'));
+        $this->assertFalse(AiVisitorReply::statesHealthConcern('Hindi ko alam kung anong specialist ang kailangan ko.'));
+        $this->assertTrue(AiVisitorReply::statesHealthConcern('I have a headache'));
+        $this->assertTrue(AiVisitorReply::statesHealthConcern('Parang may kumikirot sa tagiliran ko. Which specialist should I see?'));
+        $this->assertTrue(AiVisitorReply::statesHealthConcern('nagsusuka ako which doctor'));
+        $this->assertTrue(AiVisitorReply::statesHealthConcern('masakit ulo ko'));
         $this->assertTrue(AiVisitorReply::negativeConfirmation('Hindi'));
         $this->assertTrue(AiVisitorReply::negativeConfirmation('No'));
         $this->assertFalse(AiVisitorReply::negativeConfirmation('Dalawang araw na.'));

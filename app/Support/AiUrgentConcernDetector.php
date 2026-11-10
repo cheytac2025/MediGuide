@@ -155,6 +155,44 @@ final class AiUrgentConcernDetector
         return $this->hasAffirmedOccurrence($normalized, $this->normalize($phrase));
     }
 
+    /**
+     * Whether a quotation appears as a whole phrase in visitor text.
+     *
+     * This does not decide clinical urgency. A negated occurrence is not
+     * treated as a positive report.
+     *
+     * @return 'absent'|'affirmed'|'negated'
+     */
+    public function phraseAttribution(string $visitorText, string $quote): string
+    {
+        $visitor = $this->normalize($visitorText);
+        $phrase = $this->normalize($quote);
+
+        if ($visitor === '' || $phrase === '') {
+            return 'absent';
+        }
+
+        $found = false;
+        $offset = 0;
+        $length = mb_strlen($phrase);
+
+        while (($position = mb_strpos($visitor, $phrase, $offset)) !== false) {
+            if ($this->isWholePhrase($visitor, $position, $length)) {
+                $found = true;
+                $windowStart = max(0, $position - 48);
+                $prefix = trim(mb_substr($visitor, $windowStart, $position - $windowStart));
+
+                if (! $this->prefixNegates($prefix)) {
+                    return 'affirmed';
+                }
+            }
+
+            $offset = $position + 1;
+        }
+
+        return $found ? 'negated' : 'absent';
+    }
+
     public function isUrgent(string $text): bool
     {
         $normalized = $this->normalize($text);
