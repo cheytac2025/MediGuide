@@ -69,6 +69,8 @@
                     <dd>{{ $recordTrusted ? ($appointment->patient_concern ?: '—') : 'Unavailable' }}</dd>
                 </div>
             </dl>
+
+            @include('partials.appointment-messages', ['recordTrusted' => $recordTrusted])
         </section>
     </div>
 @endsection

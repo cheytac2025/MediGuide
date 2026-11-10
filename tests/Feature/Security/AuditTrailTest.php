@@ -330,7 +330,7 @@ class AuditTrailTest extends TestCase
         $this->assertSame(1, AuditEvent::query()->where('action', AuditAction::AppointmentConfirmed->value)->where('actor_user_id', $staff->id)->count());
 
         $second = $this->book($patient, $concern, '10:00');
-        $this->actingAs($staff)->patch(route('staff.appointments.reject', $second))->assertRedirect();
+        $this->actingAs($staff)->patch(route('staff.appointments.reject', $second), ['reason' => 'The requested time is unavailable.'])->assertRedirect();
         $this->assertSame(1, AuditEvent::query()->where('action', AuditAction::AppointmentRejected->value)->count());
 
         $third = $this->book($patient, $concern, '11:00');

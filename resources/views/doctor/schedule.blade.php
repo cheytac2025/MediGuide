@@ -37,6 +37,29 @@
                     @endforeach
                 </div>
             @endif
+
+            @if (($overrides ?? collect())->isNotEmpty())
+                <h2 class="mg-book-heading">Date-specific changes</h2>
+                <p class="mg-schedule-note">These replace the weekly hours on that date only.</p>
+                <div class="mg-staff-appt-list">
+                    @foreach ($overrides as $override)
+                        <article class="mg-staff-request-card">
+                            <h3>{{ $override->override_date->format('l, F j, Y') }}</h3>
+                            @if ($override->unavailable)
+                                <p>Day off. No bookable slots.</p>
+                            @else
+                                @foreach ($override->windows as $window)
+                                    <p>
+                                        {{ \Illuminate\Support\Carbon::parse($window->start_time)->format('h:i A') }}
+                                        –
+                                        {{ \Illuminate\Support\Carbon::parse($window->end_time)->format('h:i A') }}
+                                    </p>
+                                @endforeach
+                            @endif
+                        </article>
+                    @endforeach
+                </div>
+            @endif
         </section>
     </div>
 @endsection

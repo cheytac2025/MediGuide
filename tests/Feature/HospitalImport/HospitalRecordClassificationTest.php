@@ -158,7 +158,11 @@ class HospitalRecordClassificationTest extends TestCase
         $this->assertNotContains('Development Clinic A', $names);
         $this->assertContains('Pediatrician', $names);
         $this->assertContains('Pediatrician', $specializations);
-        $this->assertNotContains('Development Specialization A', $specializations);
+        $this->assertFalse(
+            app(AiHospitalContextService::class)
+                ->eligibleDoctorsForSpecialization(DevelopmentDoctorSeeder::SPECIALIZATION_A)
+                ->contains(fn (Doctor $doctor): bool => $doctor->display_name === 'Test Doctor 1'),
+        );
         $this->assertCount(12, $specializations);
         $this->assertSame(16, Doctor::query()->where('data_source', HospitalDataSource::Imported->value)->count());
         $this->assertFalse(

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Doctor;
 use App\Enums\DayOfWeek;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Doctor\Concerns\InteractsWithLinkedDoctor;
+use App\Models\DoctorDateOverride;
 use App\Models\DoctorSchedule;
 use App\Models\User;
 use App\Support\DoctorHeader;
@@ -36,10 +37,20 @@ class DoctorScheduleController extends Controller
             ])
             ->values();
 
+        $overrides = DoctorDateOverride::query()
+            ->where('doctor_id', $doctor->id)
+            ->whereNull('removed_at')
+            ->whereDate('override_date', '>=', now()->toDateString())
+            ->with('windows')
+            ->orderBy('override_date')
+            ->limit(14)
+            ->get();
+
         return view('doctor.schedule', [
             'doctor' => DoctorHeader::from($user, $doctor),
             'active' => 'schedule',
             'schedules' => $schedules,
+            'overrides' => $overrides,
         ]);
     }
 

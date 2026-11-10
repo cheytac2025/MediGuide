@@ -62,4 +62,9 @@ enum AppointmentStatus: string
     {
         return $this === self::Pending;
     }
+
+    public function canStaffReschedule(): bool
+    {
+        return $this->isUpcoming();
+    }
 }

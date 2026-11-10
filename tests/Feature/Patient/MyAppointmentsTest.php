@@ -122,7 +122,7 @@ class MyAppointmentsTest extends TestCase
             ->assertSee('Development Clinic A')
             ->assertSee('Development Department A')
             ->assertSee('Test Doctor 1')
-            ->assertSee('Development Specialization A')
+            ->assertSee(DevelopmentDoctorSeeder::SPECIALIZATION_A)
             ->assertSee('Monday, October 5, 2026')
             ->assertSee('09:00 AM')
             ->assertSee('09:30 AM')
@@ -367,7 +367,7 @@ class MyAppointmentsTest extends TestCase
                 'Upcoming',
                 'Test Doctor 1',
                 'Development Clinic A',
-                'Development Specialization A',
+                DevelopmentDoctorSeeder::SPECIALIZATION_A,
                 'Pending Hospital Confirmation',
                 'View Details',
             ])

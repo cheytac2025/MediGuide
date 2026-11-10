@@ -22,7 +22,7 @@
                     <h1 class="mg-panel-title">Appointment Details</h1>
                     <p class="mg-appt-subtitle">Appointment #{{ $appointment->id }}</p>
                 </div>
-                <a class="mg-appt-back" href="{{ route('staff.appointments') }}">Back to Appointments</a>
+                <a class="mg-appt-back" href="{{ route('staff.appointments', $listQuery ?? []) }}">Back to Appointments</a>
             </div>
 
             @if (session('appointment_status'))
@@ -98,52 +98,84 @@
                 </div>
             </dl>
 
-            @if ($recordTrusted && ($appointment->status->canStaffConfirm() || $appointment->status->canStaffReject()))
+            @include('partials.appointment-messages', ['recordTrusted' => $recordTrusted])
+
+            @if ($recordTrusted && ($appointment->status->canStaffConfirm() || $appointment->status->canStaffReject() || $appointment->status->canStaffReschedule()))
                 <div class="mg-staff-actions">
                     @if ($appointment->status->canStaffConfirm())
                         <button type="button" class="mg-appt-details" data-mg-confirm-open>
-                            Confirm Appointment
+                            Approve
                         </button>
                     @endif
 
                     @if ($appointment->status->canStaffReject())
                         <button type="button" class="mg-appt-cancel" data-mg-reject-open>
-                            Reject Appointment
+                            Reject
                         </button>
+                    @endif
+
+                    @if ($appointment->status->canStaffReschedule())
+                        <a class="mg-appt-details" href="{{ route('staff.appointments.reschedule', $appointment) }}">
+                            Reschedule
+                        </a>
                     @endif
                 </div>
 
+                @if ($errors->any())
+                    <div class="mg-book-alert" role="alert">{{ $errors->first() }}</div>
+                @endif
+
                 @if ($appointment->status->canStaffConfirm())
-                    <div class="mg-cancel-dialog mg-staff-confirm-dialog" data-mg-confirm-dialog hidden>
-                        <p>Confirm this appointment?</p>
+                    <div class="mg-cancel-dialog mg-staff-confirm-dialog" data-mg-confirm-dialog @if (! $errors->has('note')) hidden @endif>
+                        <p>Approve this appointment?</p>
                         <p class="mg-staff-action-note">
-                            The appointment will become confirmed and will be visible as a confirmed booking for the assigned doctor.
+                            The patient will see this appointment as confirmed. An optional note below is also visible to the patient.
                         </p>
-                        <div class="mg-cancel-actions">
-                            <button type="button" class="mg-appt-keep" data-mg-confirm-cancel>Cancel</button>
-                            <form method="POST" action="{{ route('staff.appointments.confirm', $appointment) }}">
+                        <form method="POST" action="{{ route('staff.appointments.confirm', $appointment) }}">
                                 @csrf
                                 @method('PATCH')
-                                <button type="submit" class="mg-appt-details">Confirm Appointment</button>
-                            </form>
-                        </div>
+                                @foreach (($listQuery ?? []) as $key => $value)
+                                    <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                                @endforeach
+                                <label class="mg-book-label" for="approval-note">
+                                Note for the patient (optional)
+                                <textarea id="approval-note" name="note" maxlength="500" rows="3">{{ old('note') }}</textarea>
+                            </label>
+                            @error('note')
+                                <p class="mg-field-error">{{ $message }}</p>
+                            @enderror
+                            <div class="mg-cancel-actions">
+                                <button type="button" class="mg-appt-keep" data-mg-confirm-cancel>Cancel</button>
+                                <button type="submit" class="mg-appt-details" data-mg-once>Approve</button>
+                            </div>
+                        </form>
                     </div>
                 @endif
 
                 @if ($appointment->status->canStaffReject())
-                    <div class="mg-cancel-dialog" data-mg-reject-dialog hidden>
+                    <div class="mg-cancel-dialog" data-mg-reject-dialog @if (! $errors->has('reason')) hidden @endif>
                         <p>Reject this appointment request?</p>
                         <p class="mg-staff-action-note">
-                            Rejecting the request will release the appointment slot for booking again.
+                            The patient will see the reason below. Rejecting the request releases the time.
                         </p>
-                        <div class="mg-cancel-actions">
-                            <button type="button" class="mg-appt-keep" data-mg-reject-keep>Keep Request</button>
-                            <form method="POST" action="{{ route('staff.appointments.reject', $appointment) }}">
+                        <form method="POST" action="{{ route('staff.appointments.reject', $appointment) }}">
                                 @csrf
                                 @method('PATCH')
-                                <button type="submit" class="mg-appt-cancel">Reject Appointment</button>
-                            </form>
-                        </div>
+                                @foreach (($listQuery ?? []) as $key => $value)
+                                    <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                                @endforeach
+                                <label class="mg-book-label" for="rejection-reason">
+                                Reason for the patient
+                                <textarea id="rejection-reason" name="reason" maxlength="500" rows="3" required>{{ old('reason') }}</textarea>
+                            </label>
+                            @error('reason')
+                                <p class="mg-field-error">{{ $message }}</p>
+                            @enderror
+                            <div class="mg-cancel-actions">
+                                <button type="button" class="mg-appt-keep" data-mg-reject-keep>Keep Request</button>
+                                <button type="submit" class="mg-appt-cancel" data-mg-once>Reject Appointment</button>
+                            </div>
+                        </form>
                     </div>
                 @endif
             @endif
@@ -180,6 +212,14 @@
         rejectKeep?.addEventListener('click', () => {
             rejectDialog?.setAttribute('hidden', '');
             rejectOpen?.focus();
+        });
+
+        document.querySelectorAll('form').forEach((form) => {
+            form.addEventListener('submit', () => {
+                form.querySelectorAll('[data-mg-once]').forEach((button) => {
+                    button.disabled = true;
+                });
+            });
         });
     </script>
 @endpush

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\AppointmentMessageKind;
 use App\Enums\AppointmentStatus;
 use App\Enums\AuditAction;
 use App\Enums\AuditOutcome;
@@ -11,11 +12,16 @@ use App\Enums\DoctorScheduleStatus;
 use App\Enums\DoctorStatus;
 use App\Models\Appointment;
 use App\Models\Doctor;
+use App\Models\DoctorDateOverride;
 use App\Models\DoctorSchedule;
 use App\Models\Patient;
+use App\Models\User;
+use App\Services\Scheduling\EffectiveScheduleService;
 use App\Support\Audit\AuditTrailService;
 use App\Support\Integrity\IntegrityStatus;
 use App\Support\Integrity\RecordIntegrityService;
+use App\Support\Scheduling\ConsultationWindows;
+use App\Support\Scheduling\EffectiveDay;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
@@ -51,9 +57,9 @@ class AppointmentBookingService
             $this->assertScheduleBelongsToDoctor($doctor, $schedule);
             $this->assertHierarchyIsActive($doctor, $schedule);
             $this->assertDateIsInsideBookingWindow($date);
-            $this->assertDayMatchesSchedule($date, $schedule);
+            $this->lockDateOverride($doctor, $date);
 
-            $end = $this->resolveSlotEnd($schedule, $start);
+            $end = $this->resolveEffectiveSlotEnd($doctor, $schedule, $date, $start);
             $this->assertStartHasNotPassed($date, $start);
             $this->assertDoctorIsAvailable($doctor, $date, $start, $end);
             $this->assertPatientIsAvailable($patient, $date, $start, $end);
@@ -89,10 +95,17 @@ class AppointmentBookingService
     /**
      * Bookable start times (H:i) for a doctor schedule on a date.
      *
+     * A date override replaces the weekly hours. The anchor schedule is the
+     * only schedule that returns those replacement slots.
+     *
      * @return list<string>
      */
-    public function getAvailableSlots(Doctor $doctor, DoctorSchedule $schedule, string $appointmentDate): array
-    {
+    public function getAvailableSlots(
+        Doctor $doctor,
+        DoctorSchedule $schedule,
+        string $appointmentDate,
+        ?int $exceptAppointmentId = null,
+    ): array {
         try {
             $date = $this->parseAppointmentDate($appointmentDate);
         } catch (ValidationException) {
@@ -114,14 +127,21 @@ class AppointmentBookingService
             return [];
         }
 
-        if (! $this->dateIsInsideBookingWindow($date) || ! $this->dayMatchesSchedule($date, $schedule)) {
+        if (! $this->dateIsInsideBookingWindow($date)) {
             return [];
         }
 
-        $blocked = $this->blockingAppointments($doctor->id, $date->toDateString());
+        $day = app(EffectiveScheduleService::class)->forDate($doctor, $date);
+        $slots = $this->slotsForSchedule($day, $schedule, $date);
+
+        if ($slots === []) {
+            return [];
+        }
+
+        $blocked = $this->blockingAppointments($doctor->id, $date->toDateString(), false, $exceptAppointmentId);
         $available = [];
 
-        foreach ($this->scheduleSlots($schedule) as $slot) {
+        foreach ($slots as $slot) {
             if ($this->slotHasPassed($date, $slot['start']) || $this->isBlocked($slot['start'], $slot['end'], $blocked)) {
                 continue;
             }
@@ -130,6 +150,114 @@ class AppointmentBookingService
         }
 
         return $available;
+    }
+
+    /**
+     * Open start times for a date, each paired with the schedule row that books it.
+     *
+     * @return list<array{start: string, schedule_id: int}>
+     */
+    public function openSlots(Doctor $doctor, string $appointmentDate, ?int $exceptAppointmentId = null): array
+    {
+        $doctor = Doctor::query()->find($doctor->getKey());
+
+        if (! $doctor instanceof Doctor) {
+            return [];
+        }
+
+        $choices = [];
+
+        $schedules = DoctorSchedule::query()
+            ->where('doctor_id', $doctor->id)
+            ->where('status', DoctorScheduleStatus::Active)
+            ->orderBy('id')
+            ->get();
+
+        foreach ($schedules as $schedule) {
+            foreach ($this->getAvailableSlots($doctor, $schedule, $appointmentDate, $exceptAppointmentId) as $start) {
+                $choices[$start] = [
+                    'start' => $start,
+                    'schedule_id' => $schedule->id,
+                ];
+            }
+        }
+
+        ksort($choices);
+
+        return array_values($choices);
+    }
+
+    /**
+     * Every start the effective schedule defines, including times that are already booked.
+     *
+     * @return list<array{start: string, schedule_id: int}>
+     */
+    public function definedSlotChoices(Doctor $doctor, string $appointmentDate): array
+    {
+        try {
+            $date = $this->parseAppointmentDate($appointmentDate);
+        } catch (ValidationException) {
+            return [];
+        }
+
+        $doctor = Doctor::query()->with(['clinic.department', 'schedules'])->find($doctor->getKey());
+
+        if (! $doctor instanceof Doctor || ! $this->dateIsInsideBookingWindow($date)) {
+            return [];
+        }
+
+        $day = app(EffectiveScheduleService::class)->forDate($doctor, $date);
+        $choices = [];
+
+        foreach ($day->slots() as $slot) {
+            if ($slot['schedule_id'] === null) {
+                continue;
+            }
+
+            if ($slot['provisional'] && ! $this->provisionalBookingAllowed()) {
+                continue;
+            }
+
+            $schedule = $doctor->schedules->firstWhere('id', $slot['schedule_id']);
+
+            if (! $schedule instanceof DoctorSchedule || $this->inactiveReason($doctor, $schedule) !== null) {
+                continue;
+            }
+
+            $choices[substr($slot['start'], 0, 5)] = [
+                'start' => substr($slot['start'], 0, 5),
+                'schedule_id' => (int) $slot['schedule_id'],
+            ];
+        }
+
+        ksort($choices);
+
+        return array_values($choices);
+    }
+
+    public function scheduleApplies(Doctor $doctor, DoctorSchedule $schedule, string $appointmentDate): bool
+    {
+        try {
+            $date = $this->parseAppointmentDate($appointmentDate);
+        } catch (ValidationException) {
+            return false;
+        }
+
+        if ((int) $schedule->doctor_id !== (int) $doctor->id || $schedule->status !== DoctorScheduleStatus::Active) {
+            return false;
+        }
+
+        $day = app(EffectiveScheduleService::class)->forDate($doctor, $date);
+
+        if ($day->source === EffectiveDay::UNAVAILABLE) {
+            return false;
+        }
+
+        if ($day->source === EffectiveDay::OVERRIDE) {
+            return (int) $day->anchorScheduleId === (int) $schedule->id;
+        }
+
+        return $this->dayMatchesSchedule($date, $schedule);
     }
 
     /**
@@ -178,6 +306,115 @@ class AppointmentBookingService
         }
 
         return null;
+    }
+
+    /**
+     * Move a pending or confirmed appointment without changing its identity or status.
+     *
+     * The original row is left unchanged when validation fails.
+     */
+    public function reschedule(
+        Appointment $appointment,
+        DoctorSchedule $schedule,
+        string $appointmentDate,
+        string $startTime,
+        string $reason,
+        User $actor,
+    ): Appointment {
+        $date = $this->parseAppointmentDate($appointmentDate);
+        $start = $this->toHis($startTime);
+
+        return DB::transaction(function () use ($appointment, $schedule, $date, $start, $reason, $actor): Appointment {
+            $patient = Patient::query()->whereKey($appointment->patient_id)->lockForUpdate()->firstOrFail();
+            $doctor = Doctor::query()->whereKey($appointment->doctor_id)->lockForUpdate()->firstOrFail();
+            $lockedSchedule = DoctorSchedule::query()->whereKey($schedule->getKey())->lockForUpdate()->firstOrFail();
+            $doctor->load('clinic.department');
+
+            /** @var Appointment $locked */
+            $locked = Appointment::query()->whereKey($appointment->getKey())->lockForUpdate()->firstOrFail();
+
+            if ((int) $locked->patient_id !== (int) $patient->id || (int) $locked->doctor_id !== (int) $doctor->id) {
+                throw ValidationException::withMessages([
+                    'appointment' => 'This appointment can no longer be rescheduled.',
+                ]);
+            }
+
+            if (! $locked->status->canStaffReschedule()) {
+                throw ValidationException::withMessages([
+                    'appointment' => 'This appointment can no longer be rescheduled.',
+                ]);
+            }
+
+            $this->assertScheduleBelongsToDoctor($doctor, $lockedSchedule);
+            $this->assertHierarchyIsActive($doctor, $lockedSchedule);
+            $this->assertDateIsInsideBookingWindow($date);
+            $this->lockDateOverride($doctor, $date);
+
+            if ($locked->appointment_date->toDateString() === $date->toDateString()
+                && ConsultationWindows::normalize((string) $locked->start_time) === $start) {
+                throw ValidationException::withMessages([
+                    'start_time' => 'Choose a different date or time. This appointment is already scheduled then.',
+                ]);
+            }
+
+            $end = $this->resolveEffectiveSlotEnd($doctor, $lockedSchedule, $date, $start);
+            $this->assertStartHasNotPassed($date, $start);
+            $this->assertDoctorIsAvailable($doctor, $date, $start, $end, $locked->id);
+            $this->assertPatientIsAvailable($patient, $date, $start, $end, $locked->id);
+
+            $offered = $this->openSlots($doctor, $date->toDateString(), $locked->id);
+            $match = collect($offered)->first(
+                fn (array $slot): bool => $slot['start'] === substr($start, 0, 5) && (int) $slot['schedule_id'] === (int) $lockedSchedule->id,
+            );
+
+            if ($match === null) {
+                throw ValidationException::withMessages([
+                    'start_time' => 'That time is no longer available.',
+                ]);
+            }
+
+            $fromDate = $locked->appointment_date->toDateString();
+            $fromStart = ConsultationWindows::normalize((string) $locked->start_time);
+            $fromEnd = ConsultationWindows::normalize((string) $locked->end_time);
+
+            $locked->update([
+                'doctor_schedule_id' => $lockedSchedule->id,
+                'appointment_date' => $date->toDateString(),
+                'start_time' => $start,
+                'end_time' => $end,
+            ]);
+
+            app(AppointmentMessageRecorder::class)->record(
+                $locked,
+                AppointmentMessageKind::RescheduleReason,
+                $reason,
+                $actor,
+                [
+                    'from_date' => $fromDate,
+                    'from_start' => $fromStart,
+                    'from_end' => $fromEnd,
+                    'to_date' => $date->toDateString(),
+                    'to_start' => $start,
+                    'to_end' => $end,
+                ],
+            );
+
+            app(AuditTrailService::class)->recordFor(
+                AuditAction::AppointmentRescheduled,
+                AuditOutcome::Success,
+                $locked,
+                [
+                    'doctor_id' => (int) $locked->doctor_id,
+                    'patient_id' => (int) $locked->patient_id,
+                    'status' => $locked->status->value,
+                    'from_date' => $fromDate,
+                    'to_date' => $date->toDateString(),
+                ],
+                $actor,
+            );
+
+            return $locked->fresh();
+        });
     }
 
     public function formatSlotLabel(string $date, string $time): string
@@ -363,6 +600,98 @@ class AppointmentBookingService
         }
     }
 
+    private function resolveEffectiveSlotEnd(Doctor $doctor, DoctorSchedule $schedule, Carbon $date, string $start): string
+    {
+        $day = app(EffectiveScheduleService::class)->forDate($doctor, $date);
+
+        if ($day->source === EffectiveDay::UNAVAILABLE) {
+            throw ValidationException::withMessages([
+                'appointment_date' => 'The doctor is not available on this date.',
+            ]);
+        }
+
+        if ($day->source === EffectiveDay::OVERRIDE) {
+            if ((int) $day->anchorScheduleId !== (int) $schedule->id) {
+                throw ValidationException::withMessages([
+                    'doctor_schedule_id' => 'The selected schedule does not match this date.',
+                ]);
+            }
+
+            foreach ($day->slots() as $slot) {
+                if ($slot['start'] !== $start || (int) $slot['schedule_id'] !== (int) $schedule->id) {
+                    continue;
+                }
+
+                if ($slot['provisional'] && ! $this->provisionalBookingAllowed()) {
+                    throw ValidationException::withMessages([
+                        'provisional_schedule' => 'This demonstration schedule is not available for booking in this environment.',
+                    ]);
+                }
+
+                return $slot['end'];
+            }
+
+            throw ValidationException::withMessages([
+                'start_time' => 'The start time is not a valid slot for this schedule.',
+            ]);
+        }
+
+        $this->assertDayMatchesSchedule($date, $schedule);
+
+        return $this->resolveSlotEnd($schedule, $start);
+    }
+
+    /**
+     * @return list<array{start: string, end: string}>
+     */
+    private function slotsForSchedule(EffectiveDay $day, DoctorSchedule $schedule, Carbon $date): array
+    {
+        if ($day->source === EffectiveDay::UNAVAILABLE) {
+            return [];
+        }
+
+        if ($day->source === EffectiveDay::OVERRIDE) {
+            if ((int) $day->anchorScheduleId !== (int) $schedule->id) {
+                return [];
+            }
+
+            $slots = [];
+
+            foreach ($day->slots() as $slot) {
+                if ((int) $slot['schedule_id'] !== (int) $schedule->id) {
+                    continue;
+                }
+
+                if ($slot['provisional'] && ! $this->provisionalBookingAllowed()) {
+                    continue;
+                }
+
+                $slots[] = [
+                    'start' => $slot['start'],
+                    'end' => $slot['end'],
+                ];
+            }
+
+            return $slots;
+        }
+
+        if (! $this->dayMatchesSchedule($date, $schedule)) {
+            return [];
+        }
+
+        return $this->scheduleSlots($schedule);
+    }
+
+    private function lockDateOverride(Doctor $doctor, Carbon $date): void
+    {
+        DoctorDateOverride::query()
+            ->where('doctor_id', $doctor->id)
+            ->whereDate('override_date', $date->toDateString())
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
+    }
+
     private function dayMatchesSchedule(Carbon $date, DoctorSchedule $schedule): bool
     {
         return strtolower($date->format('l')) === $schedule->day_of_week->value;
@@ -415,9 +744,14 @@ class AppointmentBookingService
         }
     }
 
-    private function assertDoctorIsAvailable(Doctor $doctor, Carbon $date, string $start, string $end): void
-    {
-        $blocked = $this->blockingAppointments($doctor->id, $date->toDateString(), lock: true);
+    private function assertDoctorIsAvailable(
+        Doctor $doctor,
+        Carbon $date,
+        string $start,
+        string $end,
+        ?int $exceptAppointmentId = null,
+    ): void {
+        $blocked = $this->blockingAppointments($doctor->id, $date->toDateString(), true, $exceptAppointmentId);
 
         if ($this->isBlocked($start, $end, $blocked)) {
             throw ValidationException::withMessages([
@@ -426,12 +760,22 @@ class AppointmentBookingService
         }
     }
 
-    private function assertPatientIsAvailable(Patient $patient, Carbon $date, string $start, string $end): void
-    {
+    private function assertPatientIsAvailable(
+        Patient $patient,
+        Carbon $date,
+        string $start,
+        string $end,
+        ?int $exceptAppointmentId = null,
+    ): void {
         $query = Appointment::query()
             ->where('patient_id', $patient->id)
             ->whereDate('appointment_date', $date->toDateString())
+            ->orderBy('id')
             ->lockForUpdate();
+
+        if ($exceptAppointmentId !== null) {
+            $query->whereKeyNot($exceptAppointmentId);
+        }
 
         $blocked = $query->get()->filter(fn (Appointment $appointment): bool => $this->occupiesSlot($appointment))->values();
         $blocked = $this->withDisplacedSlots(
@@ -474,11 +818,16 @@ class AppointmentBookingService
     /**
      * @return Collection<int, Appointment>
      */
-    private function blockingAppointments(int $doctorId, string $date, bool $lock = false): Collection
+    private function blockingAppointments(int $doctorId, string $date, bool $lock = false, ?int $exceptAppointmentId = null): Collection
     {
         $query = Appointment::query()
             ->where('doctor_id', $doctorId)
-            ->whereDate('appointment_date', $date);
+            ->whereDate('appointment_date', $date)
+            ->orderBy('id');
+
+        if ($exceptAppointmentId !== null) {
+            $query->whereKeyNot($exceptAppointmentId);
+        }
 
         if ($lock) {
             $query->lockForUpdate();

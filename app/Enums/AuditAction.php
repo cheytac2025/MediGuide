@@ -32,9 +32,12 @@ enum AuditAction: string
     case DoctorStatusChanged = 'admin.doctor.status_changed';
     case AppointmentConfirmed = 'staff.appointment.confirmed';
     case AppointmentRejected = 'staff.appointment.rejected';
+    case AppointmentRescheduled = 'staff.appointment.rescheduled';
     case ScheduleCreated = 'staff.schedule.created';
     case ScheduleUpdated = 'staff.schedule.updated';
     case ScheduleStatusChanged = 'staff.schedule.status_changed';
+    case DateOverrideSaved = 'staff.schedule.date_override_saved';
+    case DateOverrideRemoved = 'staff.schedule.date_override_removed';
     case AppointmentCreated = 'patient.appointment.created';
     case AppointmentCancelled = 'patient.appointment.cancelled';
     case IntegrityFailed = 'security.integrity.failed';

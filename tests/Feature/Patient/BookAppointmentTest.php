@@ -126,7 +126,7 @@ class BookAppointmentTest extends TestCase
             ->get(route('patient.book-appointment', ['clinic_id' => $clinic->id]))
             ->assertOk()
             ->assertSee('Test Doctor 1')
-            ->assertSee('Development Specialization A')
+            ->assertSee(DevelopmentDoctorSeeder::SPECIALIZATION_A)
             ->assertDontSee('Test Doctor 2');
     }
 
@@ -743,7 +743,7 @@ class BookAppointmentTest extends TestCase
             ->assertOk()
             ->assertSee('Development Clinic A')
             ->assertSee('Test Doctor 1')
-            ->assertSee('Development Specialization A')
+            ->assertSee(DevelopmentDoctorSeeder::SPECIALIZATION_A)
             ->assertSee('Monday, October 5, 2026')
             ->assertSee('09:00 AM')
             ->assertSee('Sore throat since yesterday')

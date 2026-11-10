@@ -332,7 +332,7 @@ class BookAppointmentController extends Controller
         $date = $this->parseDate((string) ($input['appointment_date'] ?? ''));
         $start = $this->normalizeStart((string) ($input['start_time'] ?? ''));
 
-        if (! $date instanceof Carbon || strtolower($date->format('l')) !== $schedule->day_of_week->value) {
+        if (! $date instanceof Carbon || ! $this->booking->scheduleApplies($doctor, $schedule, $date->toDateString())) {
             return [...$empty, 'error' => 'The selected appointment date is no longer available.'];
         }
 
@@ -397,27 +397,13 @@ class BookAppointmentController extends Controller
      */
     private function bookableDates(Doctor $doctor): array
     {
-        $schedules = DoctorSchedule::query()
-            ->where('doctor_id', $doctor->id)
-            ->where('status', DoctorScheduleStatus::Active)
-            ->get();
-
         $dates = [];
         $cursor = $this->hospitalToday();
         $last = $this->booking->lastBookableDate();
 
         while ($cursor->lte($last)) {
-            $weekday = strtolower($cursor->format('l'));
-
-            foreach ($schedules as $schedule) {
-                if ($schedule->day_of_week->value !== $weekday) {
-                    continue;
-                }
-
-                if ($this->booking->getAvailableSlots($doctor, $schedule, $cursor->toDateString()) !== []) {
-                    $dates[] = $cursor;
-                    break;
-                }
+            if ($this->booking->openSlots($doctor, $cursor->toDateString()) !== []) {
+                $dates[] = $cursor;
             }
 
             $cursor = $cursor->addDay();
@@ -450,19 +436,15 @@ class BookAppointmentController extends Controller
     {
         $slots = [];
 
-        foreach ($this->schedulesOn($doctor, $date) as $schedule) {
-            foreach ($this->booking->getAvailableSlots($doctor, $schedule, $date->toDateString()) as $start) {
-                $slots[$start] = [
-                    'start' => $start,
-                    'label' => $this->formatTime($start),
-                    'doctor_schedule_id' => $schedule->id,
-                ];
-            }
+        foreach ($this->booking->openSlots($doctor, $date->toDateString()) as $slot) {
+            $slots[] = [
+                'start' => $slot['start'],
+                'label' => $this->formatTime($slot['start']),
+                'doctor_schedule_id' => $slot['schedule_id'],
+            ];
         }
 
-        ksort($slots);
-
-        return array_values($slots);
+        return $slots;
     }
 
     /**
@@ -476,15 +458,13 @@ class BookAppointmentController extends Controller
         $open = array_flip(array_column($available, 'start'));
         $slots = [];
 
-        foreach ($this->schedulesOn($doctor, $date) as $schedule) {
-            foreach ($this->booking->getScheduleSlotStarts($schedule) as $start) {
-                $slots[$start] = [
-                    'start' => $start,
-                    'label' => $this->formatTime($start),
-                    'available' => isset($open[$start]),
-                    'starts_at' => CarbonImmutable::parse($date->toDateString().' '.$start, config('app.timezone'))->format('Y-m-d\TH:i:sP'),
-                ];
-            }
+        foreach ($this->booking->definedSlotChoices($doctor, $date->toDateString()) as $choice) {
+            $slots[$choice['start']] = [
+                'start' => $choice['start'],
+                'label' => $this->formatTime($choice['start']),
+                'available' => isset($open[$choice['start']]),
+                'starts_at' => CarbonImmutable::parse($date->toDateString().' '.$choice['start'], config('app.timezone'))->format('Y-m-d\TH:i:sP'),
+            ];
         }
 
         ksort($slots);

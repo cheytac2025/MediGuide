@@ -214,12 +214,12 @@ class StaffAppointmentTest extends TestCase
             ->assertSee('Development Clinic A')
             ->assertSee('Development Department A')
             ->assertSee('Test Doctor 1')
-            ->assertSee('Development Specialization A')
+            ->assertSee(DevelopmentDoctorSeeder::SPECIALIZATION_A)
             ->assertSee('Monday, October 12, 2026')
             ->assertSee('09:00 AM')
             ->assertSee('09:30 AM')
             ->assertSee('Persistent headache')
-            ->assertSee('Confirm Appointment')
+            ->assertSee('Approve')
             ->assertSee('Reject Appointment');
     }
 
@@ -279,7 +279,7 @@ class StaffAppointmentTest extends TestCase
 
         $this->actingAs($this->staffUser())
             ->from(route('staff.appointments.show', $appointment))
-            ->patch(route('staff.appointments.reject', $appointment))
+            ->patch(route('staff.appointments.reject', $appointment), ['reason' => 'The requested time is unavailable.'])
             ->assertRedirect(route('staff.appointments.show', $appointment))
             ->assertSessionHas('appointment_status', 'Appointment request rejected.');
 
@@ -320,7 +320,7 @@ class StaffAppointmentTest extends TestCase
         );
 
         $this->actingAs($this->staffUser())
-            ->patch(route('staff.appointments.reject', $appointment))
+            ->patch(route('staff.appointments.reject', $appointment), ['reason' => 'The requested time is unavailable.'])
             ->assertRedirect(route('staff.appointments.show', $appointment))
             ->assertSessionHas(
                 'appointment_error',
@@ -360,7 +360,7 @@ class StaffAppointmentTest extends TestCase
         );
 
         $this->actingAs(User::factory()->role($role)->create())
-            ->patch(route('staff.appointments.reject', $appointment))
+            ->patch(route('staff.appointments.reject', $appointment), ['reason' => 'The requested time is unavailable.'])
             ->assertForbidden();
 
         $this->assertSame(AppointmentStatus::Pending, $appointment->fresh()->status);
@@ -379,7 +379,7 @@ class StaffAppointmentTest extends TestCase
         $this->patch(route('staff.appointments.confirm', $appointment))
             ->assertRedirect(route('login'));
 
-        $this->patch(route('staff.appointments.reject', $appointment))
+        $this->patch(route('staff.appointments.reject', $appointment), ['reason' => 'The requested time is unavailable.'])
             ->assertRedirect(route('login'));
 
         $this->assertSame(AppointmentStatus::Pending, $appointment->fresh()->status);
@@ -396,7 +396,7 @@ class StaffAppointmentTest extends TestCase
         );
 
         $this->actingAs($this->staffUser())
-            ->patch(route('staff.appointments.reject', $appointment))
+            ->patch(route('staff.appointments.reject', $appointment), ['reason' => 'The requested time is unavailable.'])
             ->assertRedirect(route('staff.appointments.show', $appointment));
 
         $replacement = app(AppointmentBookingService::class)->book(
@@ -482,7 +482,7 @@ class StaffAppointmentTest extends TestCase
         );
 
         $this->actingAs($this->staffUser())
-            ->patch(route('staff.appointments.reject', $appointment));
+            ->patch(route('staff.appointments.reject', $appointment), ['reason' => 'The requested time is unavailable.']);
 
         $this->actingAs($patientUser)
             ->get(route('patient.appointments', ['section' => 'history']))

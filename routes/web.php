@@ -23,6 +23,7 @@ use App\Http\Controllers\Patient\PatientAppointmentController;
 use App\Http\Controllers\Patient\ProfileController;
 use App\Http\Controllers\Staff\DashboardController as StaffDashboardController;
 use App\Http\Controllers\Staff\StaffAppointmentController;
+use App\Http\Controllers\Staff\StaffAppointmentRescheduleController;
 use App\Http\Controllers\Staff\StaffDoctorScheduleController;
 use Illuminate\Support\Facades\Route;
 
@@ -122,6 +123,12 @@ Route::middleware('auth')->group(function () {
         Route::patch('/staff/appointments/{appointment}/reject', [StaffAppointmentController::class, 'reject'])
             ->whereNumber('appointment')
             ->name('staff.appointments.reject');
+        Route::get('/staff/appointments/{appointment}/reschedule', [StaffAppointmentRescheduleController::class, 'create'])
+            ->whereNumber('appointment')
+            ->name('staff.appointments.reschedule');
+        Route::post('/staff/appointments/{appointment}/reschedule', [StaffAppointmentRescheduleController::class, 'store'])
+            ->whereNumber('appointment')
+            ->name('staff.appointments.reschedule.store');
 
         Route::get('/staff/doctor-schedules', [StaffDoctorScheduleController::class, 'index'])
             ->name('staff.doctor-schedules');
@@ -137,6 +144,12 @@ Route::middleware('auth')->group(function () {
         Route::patch('/staff/doctor-schedules/{doctorSchedule}/status', [StaffDoctorScheduleController::class, 'updateStatus'])
             ->whereNumber('doctorSchedule')
             ->name('staff.doctor-schedules.status');
+        Route::post('/staff/doctor-schedules/{doctor}/date-overrides', [StaffDoctorScheduleController::class, 'storeOverride'])
+            ->whereNumber('doctor')
+            ->name('staff.doctor-schedules.date-overrides.store');
+        Route::delete('/staff/doctor-schedules/{doctor}/date-overrides', [StaffDoctorScheduleController::class, 'destroyOverride'])
+            ->whereNumber('doctor')
+            ->name('staff.doctor-schedules.date-overrides.destroy');
     });
 
     Route::middleware('role:'.RoleName::ItAdministrator->value)->group(function () {

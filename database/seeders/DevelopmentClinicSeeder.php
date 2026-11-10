@@ -11,7 +11,9 @@ use Illuminate\Database\Seeder;
  * DEVELOPMENT ONLY.
  *
  * Seeds obvious placeholder clinics for local development and tests.
- * These records are not Queen Mary Hospital data.
+ * Clinic names stay synthetic. Descriptions mark these as test fixtures and
+ * note which catalog specialization labels their linked doctors use.
+ * These records are not Queen Mary Hospital data and are not promoted.
  *
  * Replace or remove this seeder when verified hospital clinic
  * information becomes available.
@@ -52,19 +54,19 @@ class DevelopmentClinicSeeder extends Seeder
             [
                 'department' => 'Development Department A',
                 'name' => 'Development Clinic A',
-                'description' => 'Placeholder clinic for local development. Not hospital data.',
+                'description' => 'TEST fixture clinic for local development and automated tests. Linked doctors use the catalog specialization label "'.DevelopmentDoctorSeeder::SPECIALIZATION_A.'". Not hospital data.',
                 'status' => ClinicStatus::Active,
             ],
             [
                 'department' => 'Development Department B',
                 'name' => 'Development Clinic B',
-                'description' => 'Placeholder clinic for local development. Not hospital data.',
+                'description' => 'Test fixture clinic for local development and automated tests. Linked doctors use the catalog specialization label "'.DevelopmentDoctorSeeder::SPECIALIZATION_B.'". Not hospital data.',
                 'status' => ClinicStatus::Active,
             ],
             [
                 'department' => 'Development Department C',
                 'name' => 'Development Clinic C',
-                'description' => 'Placeholder clinic for local development. Not hospital data.',
+                'description' => 'Inactive test fixture clinic for local development and automated tests. Not hospital data.',
                 'status' => ClinicStatus::Inactive,
             ],
         ];

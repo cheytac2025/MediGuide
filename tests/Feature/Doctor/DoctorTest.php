@@ -213,19 +213,19 @@ class DoctorTest extends TestCase
 
         $this->assertDatabaseHas('doctors', [
             'display_name' => 'Test Doctor 1',
-            'specialization' => 'Development Specialization A',
+            'specialization' => DevelopmentDoctorSeeder::SPECIALIZATION_A,
             'status' => DoctorStatus::Active->value,
             'user_id' => null,
         ]);
         $this->assertDatabaseHas('doctors', [
             'display_name' => 'Test Doctor 2',
-            'specialization' => 'Development Specialization B',
+            'specialization' => DevelopmentDoctorSeeder::SPECIALIZATION_B,
             'status' => DoctorStatus::Active->value,
             'user_id' => null,
         ]);
         $this->assertDatabaseHas('doctors', [
             'display_name' => 'Test Doctor 3',
-            'specialization' => 'Development Specialization A',
+            'specialization' => DevelopmentDoctorSeeder::SPECIALIZATION_A,
             'status' => DoctorStatus::Inactive->value,
             'user_id' => null,
         ]);

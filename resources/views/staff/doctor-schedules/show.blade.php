@@ -41,10 +41,145 @@
             <div class="mg-panel-head">
                 <h2 class="mg-panel-title">
                     <x-patient.icon name="calendar" />
-                    {{ $editingSchedule ? 'Edit Schedule' : 'Add Schedule' }}
+                    {{ $selectedDate->format('l, F j, Y') }}
                 </h2>
             </div>
 
+            <div class="mg-staff-cal-layout">
+                <x-scheduling.month :calendar="$calendar" />
+
+                <div>
+                    <p class="mg-schedule-note">
+                        @if ($effectiveDay->source === \App\Support\Scheduling\EffectiveDay::UNAVAILABLE)
+                            <strong>Day off.</strong> This date has no bookable slots. The weekly schedule is unchanged.
+                        @elseif ($effectiveDay->source === \App\Support\Scheduling\EffectiveDay::OVERRIDE)
+                            <strong>Date-specific hours.</strong> These hours replace the weekly schedule for this date only.
+                        @else
+                            <strong>Weekly hours.</strong> No date-specific change is saved for this date.
+                        @endif
+                    </p>
+                    <p class="mg-schedule-note">
+                        A date-specific schedule replaces the weekly hours for that date. A day off offers no slots. With neither, the weekly schedule is used.
+                    </p>
+                    <p>{{ $bookedCount === 1 ? '1 pending or confirmed appointment' : $bookedCount.' pending or confirmed appointments' }} on this date.</p>
+
+                    @if ($effectiveDay->windows === [])
+                        <p class="mg-book-empty">No consultation windows on this date.</p>
+                    @else
+                        <ul class="mg-message-list">
+                            @foreach ($effectiveDay->windows as $window)
+                                <li>
+                                    {{ \Illuminate\Support\Carbon::parse($window['start'])->format('g:i A') }}
+                                    –
+                                    {{ \Illuminate\Support\Carbon::parse($window['end'])->format('g:i A') }}
+                                    · {{ $window['slot_duration'] }} minute slots
+                                    @if ($window['provisional'])
+                                        · demonstration hours
+                                    @endif
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
+
+                    @if ($overrideHistory->isNotEmpty())
+                        <h3 class="mg-book-heading">Earlier changes for this date</h3>
+                        <ul class="mg-message-list">
+                            @foreach ($overrideHistory as $previous)
+                                <li>
+                                    {{ $previous->unavailable ? 'Marked unavailable' : 'Date-specific hours' }}
+                                    · {{ $previous->created_at?->timezone(config('app.timezone'))->format('M j, Y g:i A') }}
+                                    @if ($previous->createdBy)
+                                        · {{ $previous->createdBy->name }}
+                                    @endif
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
+                </div>
+            </div>
+
+            @unless ($appointmentOnly)
+                <div class="mg-date-override">
+                    <h3 class="mg-book-heading">This date only</h3>
+                    <p class="mg-schedule-note">This does not change the weekly schedule. Existing appointments stay in place; a change that would leave a pending or confirmed appointment outside the new hours is blocked.</p>
+
+                    <form method="POST" action="{{ route('staff.doctor-schedules.date-overrides.store', $doctorRecord) }}" class="mg-staff-schedule-form">
+                        @csrf
+                        <input type="hidden" name="date" value="{{ $selectedDate->toDateString() }}">
+                        <fieldset class="mg-book-label">
+                            <legend>Hours for {{ $selectedDate->format('F j, Y') }}</legend>
+                            <label>
+                                <input type="radio" name="unavailable" value="0" @checked(! old('unavailable', $effectiveDay->source === \App\Support\Scheduling\EffectiveDay::UNAVAILABLE))>
+                                Replacement consultation windows
+                            </label>
+                            <label>
+                                <input type="radio" name="unavailable" value="1" @checked(old('unavailable', $effectiveDay->source === \App\Support\Scheduling\EffectiveDay::UNAVAILABLE))>
+                                Mark the whole date unavailable
+                            </label>
+                        </fieldset>
+                        @error('date')
+                            <p class="mg-field-error">{{ $message }}</p>
+                        @enderror
+                        @error('windows')
+                            <p class="mg-field-error">{{ $message }}</p>
+                        @enderror
+
+                        @for ($index = 0; $index < 3; $index++)
+                            <div class="mg-staff-schedule-grid">
+                                <label class="mg-book-label">
+                                    Window {{ $index + 1 }} start
+                                    <input type="time" name="windows[{{ $index }}][start_time]" value="{{ old('windows.'.$index.'.start_time') }}">
+                                </label>
+                                <label class="mg-book-label">
+                                    End
+                                    <input type="time" name="windows[{{ $index }}][end_time]" value="{{ old('windows.'.$index.'.end_time') }}">
+                                </label>
+                                <label class="mg-book-label">
+                                    Slot minutes
+                                    <input type="number" min="1" name="windows[{{ $index }}][slot_duration]" value="{{ old('windows.'.$index.'.slot_duration', $index === 0 ? 30 : '') }}">
+                                </label>
+                            </div>
+                            @error('windows.'.$index.'.start_time')
+                                <p class="mg-field-error">{{ $message }}</p>
+                            @enderror
+                            @error('windows.'.$index.'.end_time')
+                                <p class="mg-field-error">{{ $message }}</p>
+                            @enderror
+                            @error('windows.'.$index.'.slot_duration')
+                                <p class="mg-field-error">{{ $message }}</p>
+                            @enderror
+                        @endfor
+
+                        <div class="mg-staff-actions">
+                            <button type="submit" class="mg-appt-details" data-mg-once>Save this date</button>
+                        </div>
+                    </form>
+
+                    @if ($effectiveDay->source !== \App\Support\Scheduling\EffectiveDay::RECURRING)
+                        <form method="POST" action="{{ route('staff.doctor-schedules.date-overrides.destroy', $doctorRecord) }}">
+                            @csrf
+                            @method('DELETE')
+                            <input type="hidden" name="date" value="{{ $selectedDate->toDateString() }}">
+                            <p class="mg-schedule-note">Removing this change restores the weekly hours. Appointments already booked stay where they are.</p>
+                            <button type="submit" class="mg-appt-cancel" data-mg-once>Use weekly hours again</button>
+                        </form>
+                    @endif
+                </div>
+            @else
+                <p class="mg-book-alert" role="status">This doctor is available by appointment only. Ordinary public hours cannot be added.</p>
+            @endunless
+        </section>
+
+        <section class="mg-panel mt-3">
+            <div class="mg-panel-head">
+                <h2 class="mg-panel-title">
+                    <x-patient.icon name="calendar" />
+                    Weekly schedule
+                </h2>
+            </div>
+            <p class="mg-schedule-note">These hours repeat on the selected weekday. Editing them changes future occurrences of that weekday, not one date.</p>
+
+            @unless ($appointmentOnly)
             @if ($editingSchedule)
                 <form
                     method="POST"
@@ -135,7 +270,7 @@
                                 @foreach ($days as $day)
                                     <option
                                         value="{{ $day->value }}"
-                                        @selected(old('day_of_week', 'monday') === $day->value)
+                                        @selected(old('day_of_week', $selectedWeekday ?? 'monday') === $day->value)
                                     >
                                         {{ $day->label() }}
                                     </option>
@@ -178,6 +313,7 @@
                     </div>
                 </form>
             @endif
+            @endunless
         </section>
 
         <section class="mg-panel mt-3">

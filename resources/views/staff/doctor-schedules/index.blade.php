@@ -8,7 +8,7 @@
             <div class="mg-appt-head">
                 <div>
                     <h1 class="mg-panel-title">Doctor Schedules</h1>
-                    <p class="mg-appt-subtitle">Manage weekly clinic hours for active doctors.</p>
+                    <p class="mg-appt-subtitle">Choose a doctor, then set weekly hours or a single date.</p>
                 </div>
             </div>
 

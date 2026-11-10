@@ -2,20 +2,30 @@
 
 namespace App\Http\Controllers\Staff;
 
+use App\Enums\AppointmentStatus;
 use App\Enums\DayOfWeek;
 use App\Enums\DoctorScheduleStatus;
 use App\Enums\DoctorStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Staff\StoreDoctorDateOverrideRequest;
 use App\Http\Requests\Staff\StoreDoctorScheduleRequest;
 use App\Http\Requests\Staff\UpdateDoctorScheduleRequest;
 use App\Http\Requests\Staff\UpdateDoctorScheduleStatusRequest;
+use App\Models\Appointment;
 use App\Models\Doctor;
+use App\Models\DoctorDateOverride;
 use App\Models\DoctorSchedule;
 use App\Models\User;
 use App\Services\DoctorScheduleManagementService;
 use App\Services\HospitalStaffScope;
+use App\Services\Scheduling\DoctorDateOverrideService;
+use App\Services\Scheduling\EffectiveScheduleService;
+use App\Support\Scheduling\AppointmentOnlyDoctors;
+use App\Support\Scheduling\MonthCalendar;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -24,6 +34,9 @@ class StaffDoctorScheduleController extends Controller
     public function __construct(
         private readonly DoctorScheduleManagementService $schedules,
         private readonly HospitalStaffScope $scope,
+        private readonly DoctorDateOverrideService $overrides,
+        private readonly EffectiveScheduleService $effective,
+        private readonly MonthCalendar $calendar,
     ) {}
 
     public function index(Request $request): View
@@ -71,6 +84,18 @@ class StaffDoctorScheduleController extends Controller
             $editingSchedule = $schedules->firstWhere('id', (int) $editId);
         }
 
+        $selected = $this->selectedDate($request);
+        $month = $this->selectedMonth($request, $selected);
+        $day = $this->effective->forDate($doctor, $selected);
+        $history = DoctorDateOverride::query()
+            ->where('doctor_id', $doctor->id)
+            ->whereDate('override_date', $selected->toDateString())
+            ->whereNotNull('removed_at')
+            ->with(['windows', 'createdBy'])
+            ->orderByDesc('id')
+            ->limit(5)
+            ->get();
+
         return view('staff.doctor-schedules.show', [
             'staff' => $this->staffHeader($user),
             'active' => 'doctor-schedules',
@@ -79,6 +104,13 @@ class StaffDoctorScheduleController extends Controller
             'editingSchedule' => $editingSchedule,
             'days' => DayOfWeek::cases(),
             'statuses' => DoctorScheduleStatus::cases(),
+            'selectedDate' => $selected,
+            'selectedWeekday' => strtolower($selected->format('l')),
+            'calendar' => $this->monthCalendar($doctor, $month, $selected),
+            'effectiveDay' => $day,
+            'bookedCount' => $this->bookedCount($doctor, $selected),
+            'overrideHistory' => $history,
+            'appointmentOnly' => AppointmentOnlyDoctors::excludes($doctor),
         ]);
     }
 
@@ -156,6 +188,53 @@ class StaffDoctorScheduleController extends Controller
             ->with('schedule_status', $message);
     }
 
+    public function storeOverride(StoreDoctorDateOverrideRequest $request, Doctor $doctor): RedirectResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+        $this->scope->ensureDoctor($user, $doctor);
+        $date = (string) $request->validated('date');
+
+        try {
+            $this->overrides->save(
+                $doctor,
+                $date,
+                (bool) $request->validated('unavailable'),
+                $request->windows(),
+                $user,
+            );
+        } catch (ValidationException $exception) {
+            return redirect()
+                ->route('staff.doctor-schedules.show', ['doctor' => $doctor, 'date' => $date])
+                ->withInput()
+                ->withErrors($exception->errors());
+        }
+
+        return redirect()
+            ->route('staff.doctor-schedules.show', ['doctor' => $doctor, 'date' => $date])
+            ->with('schedule_status', 'The hours for this date were saved. Weekly hours were not changed.');
+    }
+
+    public function destroyOverride(Request $request, Doctor $doctor): RedirectResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+        $this->scope->ensureDoctor($user, $doctor);
+        $date = (string) $request->input('date');
+
+        try {
+            $this->overrides->remove($doctor, $date, $user);
+        } catch (ValidationException $exception) {
+            return redirect()
+                ->route('staff.doctor-schedules.show', ['doctor' => $doctor, 'date' => $date])
+                ->withErrors($exception->errors());
+        }
+
+        return redirect()
+            ->route('staff.doctor-schedules.show', ['doctor' => $doctor, 'date' => $date])
+            ->with('schedule_status', 'This date now uses the weekly schedule again.');
+    }
+
     private function daySortOrder(DayOfWeek $day): int
     {
         return match ($day) {
@@ -167,6 +246,117 @@ class StaffDoctorScheduleController extends Controller
             DayOfWeek::Saturday => 6,
             DayOfWeek::Sunday => 7,
         };
+    }
+
+    private function selectedDate(Request $request): Carbon
+    {
+        $value = $request->query('date', $request->old('date'));
+        $today = Carbon::now(config('app.timezone'))->startOfDay();
+
+        if (! is_string($value) || preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) !== 1) {
+            return $today;
+        }
+
+        try {
+            $parsed = Carbon::createFromFormat('!Y-m-d', $value, config('app.timezone'));
+        } catch (\Throwable) {
+            return $today;
+        }
+
+        return $parsed instanceof Carbon && $parsed->format('Y-m-d') === $value
+            ? $parsed->startOfDay()
+            : $today;
+    }
+
+    private function selectedMonth(Request $request, Carbon $selected): CarbonImmutable
+    {
+        $value = $request->query('month');
+
+        if (is_string($value) && preg_match('/^\d{4}-\d{2}$/', $value) === 1) {
+            try {
+                $parsed = CarbonImmutable::createFromFormat('!Y-m', $value, config('app.timezone'));
+            } catch (\Throwable) {
+                $parsed = false;
+            }
+
+            if ($parsed instanceof CarbonImmutable && $parsed->format('Y-m') === $value) {
+                return $parsed->startOfMonth();
+            }
+        }
+
+        return CarbonImmutable::parse($selected->toDateString())->startOfMonth();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function monthCalendar(Doctor $doctor, CarbonImmutable $month, Carbon $selected): array
+    {
+        $start = $month->startOfMonth()->toDateString();
+        $end = $month->endOfMonth()->toDateString();
+        $overrides = DoctorDateOverride::query()
+            ->where('doctor_id', $doctor->id)
+            ->whereNull('removed_at')
+            ->whereDate('override_date', '>=', $start)
+            ->whereDate('override_date', '<=', $end)
+            ->get()
+            ->keyBy(fn (DoctorDateOverride $override): string => $override->override_date->toDateString());
+        $counts = Appointment::query()
+            ->where('doctor_id', $doctor->id)
+            ->whereIn('status', [AppointmentStatus::Pending, AppointmentStatus::Confirmed])
+            ->whereDate('appointment_date', '>=', $start)
+            ->whereDate('appointment_date', '<=', $end)
+            ->get()
+            ->groupBy(fn (Appointment $appointment): string => $appointment->appointment_date->toDateString())
+            ->map->count();
+
+        $calendar = $this->calendar->build(
+            $month,
+            $selected->toDateString(),
+            null,
+            null,
+            function (array $day) use ($doctor, $overrides, $counts): array {
+                $override = $overrides->get($day['date']);
+                $marker = '';
+
+                if ($override instanceof DoctorDateOverride) {
+                    $marker = $override->unavailable ? 'is-off' : 'is-override';
+                }
+
+                $count = (int) ($counts[$day['date']] ?? 0);
+                $suffix = trim(($marker === 'is-off' ? 'day off' : ($marker === 'is-override' ? 'date-specific hours' : '')).($count > 0 ? ', '.$count.' booked' : ''));
+
+                return [
+                    ...$day,
+                    'href' => route('staff.doctor-schedules.show', [
+                        'doctor' => $doctor,
+                        'date' => $day['date'],
+                        'month' => substr($day['date'], 0, 7),
+                    ]),
+                    'count' => $count,
+                    'marker' => $marker,
+                    'label' => $day['label'].($suffix !== '' ? ', '.$suffix : ''),
+                ];
+            },
+        );
+
+        $calendar['prevUrl'] = is_string($calendar['prev'])
+            ? route('staff.doctor-schedules.show', ['doctor' => $doctor, 'month' => $calendar['prev'], 'date' => $selected->toDateString()])
+            : null;
+        $calendar['nextUrl'] = is_string($calendar['next'])
+            ? route('staff.doctor-schedules.show', ['doctor' => $doctor, 'month' => $calendar['next'], 'date' => $selected->toDateString()])
+            : null;
+
+        return $calendar;
+    }
+
+    private function bookedCount(Doctor $doctor, Carbon $date): int
+    {
+        return Appointment::query()
+            ->where('doctor_id', $doctor->id)
+            ->whereDate('appointment_date', $date->toDateString())
+            ->whereIn('status', [AppointmentStatus::Pending, AppointmentStatus::Confirmed])
+            ->count();
     }
 
     /**

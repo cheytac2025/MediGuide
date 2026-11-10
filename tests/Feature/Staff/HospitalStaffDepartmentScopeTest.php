@@ -312,7 +312,7 @@ class HospitalStaffDepartmentScopeTest extends TestCase
         $appointment = $this->place($this->doctor('Test Doctor 1'), AppointmentStatus::Pending, 'Ada');
 
         $this->actingAs($this->staff(['Development Department A']))
-            ->patch(route('staff.appointments.reject', $appointment))
+            ->patch(route('staff.appointments.reject', $appointment), ['reason' => 'The requested time is unavailable.'])
             ->assertRedirect(route('staff.appointments.show', $appointment));
 
         $this->assertSame(AppointmentStatus::Rejected, $appointment->fresh()->status);
@@ -323,7 +323,7 @@ class HospitalStaffDepartmentScopeTest extends TestCase
         $appointment = $this->place($this->doctor('Test Doctor 2'), AppointmentStatus::Pending, 'Bea');
 
         $this->actingAs($this->staff(['Development Department A']))
-            ->patch(route('staff.appointments.reject', $appointment))
+            ->patch(route('staff.appointments.reject', $appointment), ['reason' => 'The requested time is unavailable.'])
             ->assertNotFound();
 
         $this->assertSame(AppointmentStatus::Pending, $appointment->fresh()->status);
@@ -468,7 +468,7 @@ class HospitalStaffDepartmentScopeTest extends TestCase
             ->assertRedirect();
 
         $this->actingAs($staff)
-            ->patch(route('staff.appointments.reject', $appointmentB))
+            ->patch(route('staff.appointments.reject', $appointmentB), ['reason' => 'The requested time is unavailable.'])
             ->assertRedirect();
 
         $this->assertSame(AppointmentStatus::Confirmed, $appointmentA->fresh()->status);
@@ -520,7 +520,7 @@ class HospitalStaffDepartmentScopeTest extends TestCase
             ->assertNotFound();
 
         $this->actingAs($staff)
-            ->patch(route('staff.appointments.reject', $appointment))
+            ->patch(route('staff.appointments.reject', $appointment), ['reason' => 'The requested time is unavailable.'])
             ->assertNotFound();
 
         $this->actingAs($staff)

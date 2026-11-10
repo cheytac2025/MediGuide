@@ -238,7 +238,7 @@ class AdminDepartmentTest extends TestCase
 
         $context = app(AiHospitalContextService::class)->availableContext();
         $this->assertFalse($context->includesClinic($clinic->id));
-        $this->assertTrue(app(AiHospitalContextService::class)->eligibleDoctorsForSpecialization('Development Specialization A')->isEmpty());
+        $this->assertTrue(app(AiHospitalContextService::class)->eligibleDoctorsForSpecialization(DevelopmentDoctorSeeder::SPECIALIZATION_A)->isEmpty());
 
         $this->actingAs($this->patient())
             ->get(route('patient.book-appointment'))

@@ -3,13 +3,16 @@
 namespace App\Models;
 
 use App\Casts\EncryptedPatientData;
+use App\Enums\AppointmentMessageKind;
 use App\Enums\AppointmentStatus;
 use App\Models\Concerns\ChecksRecordIntegrity;
 use App\Models\Concerns\WritesRecordIntegrity;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -27,6 +30,7 @@ use Illuminate\Support\Carbon;
  * @property-read Patient $patient
  * @property-read Doctor $doctor
  * @property-read DoctorSchedule $doctorSchedule
+ * @property-read Collection<int, AppointmentMessage> $messages
  */
 #[Fillable([
     'patient_id',
@@ -74,6 +78,23 @@ class Appointment extends Model
     public function doctorSchedule(): BelongsTo
     {
         return $this->belongsTo(DoctorSchedule::class);
+    }
+
+    /**
+     * @return HasMany<AppointmentMessage, $this>
+     */
+    public function messages(): HasMany
+    {
+        return $this->hasMany(AppointmentMessage::class)->orderBy('id');
+    }
+
+    public function latestMessage(AppointmentMessageKind $kind): ?AppointmentMessage
+    {
+        if ($this->relationLoaded('messages')) {
+            return $this->messages->where('kind', $kind)->sortBy('id')->last();
+        }
+
+        return $this->messages()->where('kind', $kind)->orderByDesc('id')->first();
     }
 
     /**

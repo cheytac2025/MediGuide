@@ -155,7 +155,7 @@ class PatientNotificationTest extends TestCase
         $appointment = $this->pendingAppointment($patientUser->patient);
 
         $this->actingAs($this->staffUser($appointment))
-            ->patch(route('staff.appointments.reject', $appointment))
+            ->patch(route('staff.appointments.reject', $appointment), ['reason' => 'The requested time is unavailable.'])
             ->assertRedirect(route('staff.appointments.show', $appointment));
 
         $notification = $patientUser->fresh()->notifications()
@@ -173,14 +173,14 @@ class PatientNotificationTest extends TestCase
         $appointment = $this->pendingAppointment($patientUser->patient);
 
         $this->actingAs($this->staffUser($appointment))
-            ->patch(route('staff.appointments.reject', $appointment));
+            ->patch(route('staff.appointments.reject', $appointment), ['reason' => 'The requested time is unavailable.']);
 
         $this->assertSame(1, $patientUser->fresh()->notifications()
             ->where('type', AppointmentRejectedNotification::class)
             ->count());
 
         $this->actingAs($this->staffUser($appointment))
-            ->patch(route('staff.appointments.reject', $appointment))
+            ->patch(route('staff.appointments.reject', $appointment), ['reason' => 'The requested time is unavailable.'])
             ->assertSessionHas('appointment_error');
 
         $this->assertSame(1, $patientUser->fresh()->notifications()

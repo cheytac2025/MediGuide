@@ -77,6 +77,8 @@
                 </dl>
             </section>
 
+            @include('partials.appointment-messages', ['recordTrusted' => $recordTrusted])
+
             @if ($recordTrusted && $appointment->patient_concern)
                 <section class="mg-appt-detail-group" aria-labelledby="patient-concern">
                     <h2 id="patient-concern" class="mg-book-heading">Patient Concern</h2>

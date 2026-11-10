@@ -221,7 +221,7 @@ class AdminHospitalClassificationTest extends TestCase
         config(['hospital.data_source' => HospitalDataSource::Imported->value]);
         $importedContext = app(AiHospitalContextService::class);
         $this->assertTrue($importedContext->eligibleDoctorsForSpecialization('Family Medicine')->contains('id', $doctor->id));
-        $this->assertFalse($importedContext->eligibleDoctorsForSpecialization('Development Specialization A')->contains('id', $developmentDoctor->id));
+        $this->assertFalse($importedContext->eligibleDoctorsForSpecialization(DevelopmentDoctorSeeder::SPECIALIZATION_A)->contains('id', $developmentDoctor->id));
 
         $doctor->update(['status' => DoctorStatus::Inactive]);
         $this->assertFalse($importedContext->eligibleDoctorsForSpecialization('Family Medicine')->contains('id', $doctor->id));
@@ -243,12 +243,12 @@ class AdminHospitalClassificationTest extends TestCase
         config(['hospital.data_source' => HospitalDataSource::Verified->value]);
         $verifiedContext = app(AiHospitalContextService::class);
         $this->assertTrue($verifiedContext->eligibleDoctorsForSpecialization('Family Medicine')->contains('id', $doctor->fresh()->id));
-        $this->assertFalse($verifiedContext->eligibleDoctorsForSpecialization('Development Specialization A')->contains('id', $developmentDoctor->id));
+        $this->assertFalse($verifiedContext->eligibleDoctorsForSpecialization(DevelopmentDoctorSeeder::SPECIALIZATION_A)->contains('id', $developmentDoctor->id));
 
         config(['hospital.data_source' => HospitalDataSource::Development->value]);
         $this->assertTrue(
             app(AiHospitalContextService::class)
-                ->eligibleDoctorsForSpecialization('Development Specialization A')
+                ->eligibleDoctorsForSpecialization(DevelopmentDoctorSeeder::SPECIALIZATION_A)
                 ->contains('id', $developmentDoctor->id),
         );
     }

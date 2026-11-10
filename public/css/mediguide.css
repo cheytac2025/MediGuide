@@ -4263,3 +4263,83 @@ a.mg-sched-slot:hover {
     }
 }
 
+.mg-staff-filter-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1rem;
+    align-items: end;
+    margin: 0.25rem 0 1rem;
+}
+
+.mg-staff-filter-form .mg-book-label {
+    min-width: min(100%, 12rem);
+}
+
+.mg-field-error {
+    margin: 0.35rem 0 0;
+    color: var(--mg-danger);
+    font-size: 0.85rem;
+    font-weight: 650;
+}
+
+.mg-schedule-note {
+    margin: 0.4rem 0 0.8rem;
+    color: var(--mg-muted);
+    line-height: 1.45;
+}
+
+.mg-status-note {
+    margin: 0.75rem 0;
+    padding: 0.75rem 0.9rem;
+    border-radius: 0.75rem;
+    background: var(--mg-primary-soft);
+}
+
+.mg-message-list {
+    display: grid;
+    gap: 0.75rem;
+    margin: 0.5rem 0 0;
+    padding-left: 1.2rem;
+}
+
+.mg-message-kind {
+    margin: 0;
+    font-weight: 750;
+}
+
+.mg-staff-cal-layout {
+    display: grid;
+    grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: start;
+}
+
+.mg-date-override {
+    margin-top: 1.25rem;
+}
+
+.mg-cal-day.is-override {
+    box-shadow: inset 0 0 0 2px var(--mg-primary);
+}
+
+.mg-cal-day.is-off {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.mg-sched-slot.is-selected {
+    outline: 2px solid var(--mg-primary);
+}
+
+@media (max-width: 720px) {
+    .mg-staff-cal-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .mg-staff-filter-form .mg-book-label,
+    .mg-staff-filter-form .mg-appt-details,
+    .mg-staff-filter-form .mg-appt-back {
+        width: 100%;
+    }
+}
+

@@ -11,6 +11,7 @@ use App\Models\Appointment;
 use App\Models\Doctor;
 use App\Models\DoctorSchedule;
 use App\Support\Audit\AuditTrailService;
+use App\Support\Scheduling\AppointmentOnlyDoctors;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
@@ -28,6 +29,12 @@ class DoctorScheduleManagementService
     public function create(Doctor $doctor, array $attributes): DoctorSchedule
     {
         return DB::transaction(function () use ($doctor, $attributes): DoctorSchedule {
+            if (AppointmentOnlyDoctors::excludes($doctor)) {
+                throw ValidationException::withMessages([
+                    'doctor' => 'This doctor is available by appointment only. Ordinary public hours cannot be added.',
+                ]);
+            }
+
             try {
                 $schedule = DoctorSchedule::query()->create([
                     'doctor_id' => $doctor->id,

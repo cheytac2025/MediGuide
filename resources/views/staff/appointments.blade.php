@@ -14,7 +14,7 @@
 
             <nav class="mg-staff-filters" aria-label="Appointment status filters">
                 <a
-                    href="{{ route('staff.appointments') }}"
+                    href="{{ route('staff.appointments', array_filter(['date' => $dateFilter, 'doctor' => $doctorFilter])) }}"
                     class="mg-staff-filter {{ $statusFilter === null ? 'is-active' : '' }}"
                     @if ($statusFilter === null) aria-current="page" @endif
                 >
@@ -22,7 +22,7 @@
                 </a>
                 @foreach ($statusFilters as $filter)
                     <a
-                        href="{{ route('staff.appointments', ['status' => $filter->value]) }}"
+                        href="{{ route('staff.appointments', array_filter(['status' => $filter->value, 'date' => $dateFilter, 'doctor' => $doctorFilter])) }}"
                         class="mg-staff-filter {{ $statusFilter === $filter ? 'is-active' : '' }}"
                         @if ($statusFilter === $filter) aria-current="page" @endif
                     >
@@ -30,6 +30,31 @@
                     </a>
                 @endforeach
             </nav>
+
+            <form class="mg-staff-filter-form" method="GET" action="{{ route('staff.appointments') }}">
+                @if ($statusFilter)
+                    <input type="hidden" name="status" value="{{ $statusFilter->value }}">
+                @endif
+                <label class="mg-book-label">
+                    Date
+                    <input type="date" name="date" value="{{ $dateFilter }}">
+                </label>
+                <label class="mg-book-label">
+                    Doctor
+                    <select name="doctor">
+                        <option value="">All doctors</option>
+                        @foreach ($doctors as $doctor)
+                            <option value="{{ $doctor->id }}" @selected((string) $doctorFilter === (string) $doctor->id)>
+                                {{ $doctor->display_name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </label>
+                <button type="submit" class="mg-appt-details">Apply filters</button>
+                @if ($dateFilter || $doctorFilter || $statusFilter)
+                    <a class="mg-appt-back" href="{{ route('staff.appointments') }}">Clear</a>
+                @endif
+            </form>
 
             @if ($appointments->isEmpty())
                 <p class="mg-book-empty">{{ $emptyMessage }}</p>
@@ -71,13 +96,15 @@
                                 </div>
                             </dl>
 
-                            <a class="mg-appt-details" href="{{ route('staff.appointments.show', $appointment) }}">
+                            <a class="mg-appt-details" href="{{ route('staff.appointments.show', ['appointment' => $appointment] + $listQuery) }}">
                                 View Details
                             </a>
                         </article>
                     @endforeach
                 </div>
             @endif
+
+            {{ $appointments->links('pagination::bootstrap-5') }}
         </section>
     </div>
 @endsection

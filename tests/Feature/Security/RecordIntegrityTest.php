@@ -311,7 +311,7 @@ class RecordIntegrityTest extends TestCase
             ->patch(route('staff.appointments.confirm', $confirmed))
             ->assertRedirect();
         $this->actingAs($staff)
-            ->patch(route('staff.appointments.reject', $rejected))
+            ->patch(route('staff.appointments.reject', $rejected), ['reason' => 'The requested time is unavailable.'])
             ->assertRedirect();
         $this->actingAs($cancelled->patient->user)
             ->patch(route('patient.appointments.cancel', $cancelled))

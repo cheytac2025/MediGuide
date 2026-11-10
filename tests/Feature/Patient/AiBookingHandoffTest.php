@@ -15,13 +15,16 @@ use App\Models\Department;
 use App\Models\Doctor;
 use App\Models\DoctorSchedule;
 use App\Models\User;
+use App\Services\AiHospitalContextService;
 use App\Services\AppointmentBookingService;
 use App\Support\AiDisclaimer;
 use App\Support\BookingIntent;
 use Database\Seeders\DevelopmentClinicSeeder;
 use Database\Seeders\DevelopmentDepartmentSeeder;
+use Database\Seeders\DevelopmentDoctorAccountSeeder;
 use Database\Seeders\DevelopmentDoctorScheduleSeeder;
 use Database\Seeders\DevelopmentDoctorSeeder;
+use Database\Seeders\DevelopmentHospitalStaffSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -98,7 +101,7 @@ class AiBookingHandoffTest extends TestCase
             ->assertJsonPath('is_authenticated_patient', false)
             ->assertJsonFragment([
                 'display_name' => 'Test Doctor 1',
-                'specialization' => 'Development Specialization A',
+                'specialization' => DevelopmentDoctorSeeder::SPECIALIZATION_A,
                 'clinic' => 'Development Clinic A',
                 'bookable' => true,
             ]);
@@ -171,7 +174,7 @@ class AiBookingHandoffTest extends TestCase
         $doctor = Doctor::query()->create([
             'clinic_id' => $clinic->id,
             'display_name' => 'Unscheduled Development Doctor',
-            'specialization' => 'Development Specialization A',
+            'specialization' => DevelopmentDoctorSeeder::SPECIALIZATION_A,
             'status' => DoctorStatus::Active,
         ]);
 
@@ -235,7 +238,7 @@ class AiBookingHandoffTest extends TestCase
 
             $this->assertNotNull($slot);
 
-            $this->fakeGuidanceRecommendation($clinic);
+            $this->fakeGuidanceServiceRecommendation(DevelopmentDoctorSeeder::SPECIALIZATION_A);
 
             $guidance = $this->actingAs($user)
                 ->withSession([AiDisclaimer::SESSION_KEY => true])
@@ -245,7 +248,7 @@ class AiBookingHandoffTest extends TestCase
 
             $guidance->assertOk()
                 ->assertJsonPath('type', 'recommendation')
-                ->assertJsonPath('clinic.id', $clinic->id)
+                ->assertJsonPath('specialization', DevelopmentDoctorSeeder::SPECIALIZATION_A)
                 ->assertJsonPath('doctors.0.id', $doctor->id)
                 ->assertJsonPath('doctors.0.clinic_id', $clinic->id)
                 ->assertJsonPath('doctors.0.bookable', true)
@@ -307,6 +310,121 @@ class AiBookingHandoffTest extends TestCase
             $this->assertSame($slot['date'], $appointment->appointment_date->toDateString());
             $this->assertSame($slot['time'].':00', $appointment->start_time);
             $this->assertSame(AppointmentStatus::Pending, $appointment->status);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_guest_mocked_recommendation_survives_login_booking_staff_confirm_and_doctor_visibility(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-11-10 08:00:00', 'Asia/Manila'));
+
+        try {
+            $this->seed(DevelopmentDoctorAccountSeeder::class);
+            $this->seed(DevelopmentHospitalStaffSeeder::class);
+
+            $patient = $this->patientUser();
+            $clinic = $this->clinicA();
+            $doctor = $this->doctor1();
+            $booking = app(AppointmentBookingService::class);
+            $slot = $booking->nextAvailableSlot($doctor);
+
+            $this->assertNotNull($slot);
+
+            $this->fakeGuidanceServiceRecommendation(DevelopmentDoctorSeeder::SPECIALIZATION_A);
+
+            $guidance = $this->withSession([AiDisclaimer::SESSION_KEY => true])
+                ->postJson(route('ai-front-desk.guidance'), [
+                    'message' => 'This is a synthetic demonstration. I have had a mild headache since yesterday.',
+                ]);
+
+            $guidance->assertOk()
+                ->assertJsonPath('type', 'recommendation')
+                ->assertJsonPath('specialization', DevelopmentDoctorSeeder::SPECIALIZATION_A)
+                ->assertJsonPath('doctors.0.id', $doctor->id)
+                ->assertJsonPath('doctors.0.clinic_id', $clinic->id)
+                ->assertJsonPath('doctors.0.bookable', true)
+                ->assertJsonPath('is_authenticated_patient', false);
+
+            $this->withSession([AiDisclaimer::SESSION_KEY => true])
+                ->post(route('ai-front-desk.booking-intent'), [
+                    'clinic_id' => $guidance->json('doctors.0.clinic_id'),
+                    'doctor_id' => $guidance->json('doctors.0.id'),
+                ])
+                ->assertRedirect(route('login'))
+                ->assertSessionHas(BookingIntent::SESSION_KEY, [
+                    'clinic_id' => $clinic->id,
+                    'doctor_id' => $doctor->id,
+                ]);
+
+            $this->post(route('login.store'), [
+                'email' => $patient->email,
+                'password' => 'password',
+            ])->assertRedirect(route('patient.book-appointment', [
+                'clinic_id' => $clinic->id,
+                'doctor_id' => $doctor->id,
+            ]));
+
+            $schedule = DoctorSchedule::query()
+                ->where('doctor_id', $doctor->id)
+                ->where('day_of_week', strtolower(Carbon::parse($slot['date'])->format('l')))
+                ->where('status', DoctorScheduleStatus::Active)
+                ->firstOrFail();
+
+            $selection = [
+                'clinic_id' => $clinic->id,
+                'doctor_id' => $doctor->id,
+                'appointment_date' => $slot['date'],
+                'start_time' => $slot['time'],
+            ];
+
+            $this->actingAs($patient)
+                ->get(route('patient.book-appointment', $selection))
+                ->assertOk()
+                ->assertSee('Development Clinic A')
+                ->assertSee('Test Doctor 1');
+
+            $payload = [
+                ...$selection,
+                'doctor_schedule_id' => $schedule->id,
+                'patient_concern' => 'Synthetic browser verification follow-up.',
+            ];
+
+            $this->actingAs($patient)
+                ->post(route('patient.book-appointment.review'), $payload)
+                ->assertRedirect(route('patient.book-appointment', ['step' => 'review']));
+
+            $this->actingAs($patient)
+                ->post(route('patient.book-appointment.store'), $payload)
+                ->assertRedirect(route('patient.appointments'));
+
+            $appointment = Appointment::query()->sole();
+            $this->assertSame($patient->patient->id, $appointment->patient_id);
+            $this->assertSame($doctor->id, $appointment->doctor_id);
+            $this->assertSame(AppointmentStatus::Pending, $appointment->status);
+
+            $staff = User::query()->where('email', DevelopmentHospitalStaffSeeder::EMAIL)->firstOrFail();
+
+            $this->actingAs($staff)
+                ->patch(route('staff.appointments.confirm', $appointment))
+                ->assertRedirect(route('staff.appointments.show', $appointment));
+
+            $this->assertSame(AppointmentStatus::Confirmed, $appointment->fresh()->status);
+
+            $doctorUser = User::query()->where('email', DevelopmentDoctorAccountSeeder::EMAIL)->firstOrFail();
+
+            $this->actingAs($doctorUser)
+                ->get(route('doctor.appointments'))
+                ->assertOk()
+                ->assertSee('Test Doctor 1')
+                ->assertSee(route('doctor.appointments.show', $appointment), false);
+
+            $this->actingAs($doctorUser)
+                ->get(route('doctor.appointments.show', $appointment))
+                ->assertOk()
+                ->assertSee('CONFIRMED')
+                ->assertSee('Development Clinic A')
+                ->assertSee('Patient User'.$this->patientSequence);
         } finally {
             Carbon::setTestNow();
         }
@@ -561,6 +679,42 @@ class AiBookingHandoffTest extends TestCase
 
     private function fakeGuidanceRecommendation(Clinic $clinic): void
     {
+        $this->fakeAnthropicPayload([
+            'type' => 'recommendation',
+            'clinic_id' => $clinic->id,
+            'reason' => 'The stored clinic description supports this service.',
+            'confidence' => null,
+        ]);
+    }
+
+    private function fakeGuidanceServiceRecommendation(string $specialization): int
+    {
+        $serviceId = null;
+
+        foreach (app(AiHospitalContextService::class)->availableContext()->services as $service) {
+            if ($service->specialization === $specialization) {
+                $serviceId = $service->serviceId;
+                break;
+            }
+        }
+
+        $this->assertNotNull($serviceId);
+
+        $this->fakeAnthropicPayload([
+            'type' => 'recommendation',
+            'service_id' => $serviceId,
+            'reason' => 'Navigation suggestion based on the listed hospital specialization '.$specialization.'.',
+            'confidence' => 0.7,
+        ]);
+
+        return $serviceId;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function fakeAnthropicPayload(array $payload): void
+    {
         config([
             'services.anthropic.key' => 'test-anthropic-key',
             'services.anthropic.model' => 'claude-sonnet-5',
@@ -572,12 +726,7 @@ class AiBookingHandoffTest extends TestCase
                 'stop_reason' => 'end_turn',
                 'content' => [[
                     'type' => 'text',
-                    'text' => json_encode([
-                        'type' => 'recommendation',
-                        'clinic_id' => $clinic->id,
-                        'reason' => 'The stored clinic description supports this service.',
-                        'confidence' => null,
-                    ], JSON_THROW_ON_ERROR),
+                    'text' => json_encode($payload, JSON_THROW_ON_ERROR),
                 ]],
             ]),
         ]);
