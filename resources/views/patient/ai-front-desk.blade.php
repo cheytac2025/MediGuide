@@ -130,7 +130,8 @@
                     <span data-mg-source></span>
                     <span class="mg-recommend-tag" data-mg-development-tag hidden>Development data</span>
                 </p>
-                <h2 class="mg-recommend-title">Suggested Doctors</h2>
+                <h2 class="mg-recommend-title" data-mg-service-heading>Suggested Doctors</h2>
+                <p class="mg-service-note" data-mg-service-note hidden></p>
                 <p class="mg-suggested-doctors-sub" data-mg-doctors-sub>
                     Specialists who may match this hospital navigation suggestion.
                 </p>
@@ -173,6 +174,10 @@
             <div class="mg-safety-card">
                 <h2 class="mg-recommend-title">Urgent safety guidance</h2>
                 <p data-mg-text></p>
+                <div class="mg-where" data-mg-where hidden>
+                    <h3 data-mg-where-heading></h3>
+                    <p data-mg-where-text></p>
+                </div>
             </div>
         </article>
     </template>
@@ -185,9 +190,10 @@
             <div class="mg-fallback-card">
                 <h2 class="mg-recommend-title">Additional assistance needed</h2>
                 <p data-mg-text></p>
-                <button type="button" class="mg-recommend-btn" data-mg-ask-staff disabled title="Hospital staff contact is not available yet">
-                    Ask Hospital Staff
-                </button>
+                <div class="mg-where" data-mg-where hidden>
+                    <h3 data-mg-where-heading></h3>
+                    <p data-mg-where-text></p>
+                </div>
             </div>
         </article>
     </template>

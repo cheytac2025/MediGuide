@@ -12,6 +12,8 @@ use App\Http\Requests\Patient\StoreAiGuidanceRequest;
 use App\Models\Clinic;
 use App\Services\Ai\AiSuggestedDoctorService;
 use App\Services\Ai\ClaudeGuidanceService;
+use App\Services\Ai\HospitalNavigationResolver;
+use App\Support\AiConversationInterpreter;
 use App\Support\AiFrontDeskConversation;
 use App\Support\AiGuidanceResult;
 use Illuminate\Http\JsonResponse;
@@ -34,11 +36,18 @@ class AiGuidanceController extends Controller
             ], 422);
         }
 
-        $result = $guidance->guide(
+        $state = AiFrontDeskConversation::state($request->session());
+        $result = $guidance->guide($message, $state);
+        $language = AiConversationInterpreter::resolveReplyLanguage(
+            $state,
             $message,
-            AiFrontDeskConversation::state($request->session()),
+            (string) $state->openingConcern,
         );
-        $payload = $this->present($result, $request);
+        $payload = $this->present(
+            $result,
+            $request,
+            $language === 'filipino' || $language === 'taglish',
+        );
 
         AiFrontDeskConversation::remember(
             $request->session(),
@@ -62,27 +71,29 @@ class AiGuidanceController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function present(AiGuidanceResult $result, Request $request): array
+    private function present(AiGuidanceResult $result, Request $request, bool $filipino): array
     {
+        $navigation = app(HospitalNavigationResolver::class);
+
         return match ($result->type) {
-            AiGuidanceType::Recommendation => $this->presentRecommendation($result, $request),
+            AiGuidanceType::Recommendation => $this->presentRecommendation($result, $request, $filipino),
             AiGuidanceType::Clarification => [
                 'type' => AiGuidanceType::Clarification->value,
                 'question' => $result->question,
             ],
-            AiGuidanceType::Uncertain => $this->presentUncertain($result),
-            AiGuidanceType::Safety => [
+            AiGuidanceType::Uncertain => $this->presentUncertain($result, $filipino),
+            AiGuidanceType::Safety => $this->withNavigation([
                 'type' => AiGuidanceType::Safety->value,
                 'message' => $result->message,
                 'safety_kind' => ($result->safetyKind ?? AiSafetyKind::Emergency)->value,
-            ],
+            ], $navigation->forSafety($result->safetyKind ?? AiSafetyKind::Emergency, $filipino)),
         };
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function presentUncertain(AiGuidanceResult $result): array
+    private function presentUncertain(AiGuidanceResult $result, bool $filipino): array
     {
         $payload = [
             'type' => AiGuidanceType::Uncertain->value,
@@ -91,15 +102,20 @@ class AiGuidanceController extends Controller
 
         if ($result->message === ClaudeGuidanceService::PROCESSING_FALLBACK_MESSAGE) {
             $payload['processing_failed'] = true;
+
+            return $payload;
         }
 
-        return $payload;
+        return $this->withNavigation(
+            $payload,
+            app(HospitalNavigationResolver::class)->forUncertain($filipino),
+        );
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function presentRecommendation(AiGuidanceResult $result, Request $request): array
+    private function presentRecommendation(AiGuidanceResult $result, Request $request, bool $filipino): array
     {
         $clinic = null;
 
@@ -111,10 +127,10 @@ class AiGuidanceController extends Controller
                 || $clinic->status !== ClinicStatus::Active
                 || $clinic->department->status !== DepartmentStatus::Active
             ) {
-                return [
+                return $this->withNavigation([
                     'type' => AiGuidanceType::Uncertain->value,
                     'message' => ClaudeGuidanceService::INSUFFICIENT_HOSPITAL_INFORMATION_MESSAGE,
-                ];
+                ], app(HospitalNavigationResolver::class)->forUncertain($filipino));
             }
         }
 
@@ -134,8 +150,8 @@ class AiGuidanceController extends Controller
         if ($clinic instanceof Clinic) {
             $payload['clinic'] = [
                 'id' => $clinic->id,
-                'name' => $clinic->name,
-                'department' => $clinic->department->name,
+                'name' => $this->visitorFacingPlace($clinic->name),
+                'department' => $this->visitorFacingPlace($clinic->department->name),
             ];
             $payload['doctors_url'] = route('ai-front-desk.clinics.doctors', $clinic);
         }
@@ -146,7 +162,39 @@ class AiGuidanceController extends Controller
 
         unset($payload['doctor_id']);
 
+        $navigation = app(HospitalNavigationResolver::class)->forRecommendation($result, $filipino);
+        $hasBookableDoctor = collect($suggested['doctors'])->contains(
+            fn (array $doctor): bool => ($doctor['bookable'] ?? false) === true,
+        );
+
+        if (! $hasBookableDoctor) {
+            $navigation['booking_permitted'] = false;
+        }
+
+        return $this->withNavigation($payload, $navigation);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $navigation
+     * @return array<string, mixed>
+     */
+    private function withNavigation(array $payload, array $navigation): array
+    {
+        $payload['navigation'] = $navigation;
+
         return $payload;
+    }
+
+    private function visitorFacingPlace(string $label): string
+    {
+        $normalized = mb_strtolower(trim($label));
+
+        if ($normalized === '' || str_contains($normalized, 'pending hospital mapping')) {
+            return '';
+        }
+
+        return $label;
     }
 
     /**

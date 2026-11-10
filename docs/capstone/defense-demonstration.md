@@ -29,17 +29,34 @@ Create these accounts inside the isolated database. Do not print passwords on sl
 
 The development staff seeder account belongs to the development data source. It is not the imported-hospital demonstration account.
 
+## Clinic-first navigation
+
+A routine recommendation leads with the validated service label, then a server-written note, then Suggested Doctors. The note says the result is a navigation suggestion and not a diagnosis. For imported poster records, the same note says the name is a listed hospital record and not a verified physical clinic location.
+
+“Pending hospital mapping” is an internal department label. The visitor card must not present it as a place to go. A clinic name that repeats the specialization is a temporary grouping, not a room assignment.
+
+A Hospital Verified clinic with a distinct name can be labeled as a verified destination. The imported poster rows are not Hospital Verified, so the defense catalog stays on the listed-record wording.
+
+## Prompt evaluation, emergency, and uncertain concerns
+
+These responses keep the existing urgency wording. They add a separate assistance section and do not show booking controls.
+
+- Prompt medical evaluation: keep the prompt-evaluation message. The assistance section tells the visitor to ask hospital staff where to go for prompt in-person assessment. It does not name an outpatient clinic and does not offer a routine appointment.
+- Emergency: keep the immediate emergency message. If the database has no Hospital Verified emergency destination, the section tells the visitor to seek immediate emergency assistance. Do not add a follow-up question before that instruction.
+- Uncertain: say the information is not enough to choose a clinic, and give the same kind of staff-assistance instruction. Do not invent a clinic.
+
+Filipino and Taglish visitors receive the Filipino assistance text. English visitors receive the English text. There is no verified staff-contact channel on this screen, so the old disabled “Ask Hospital Staff” button is not shown.
+
 ## Synthetic conversation
 
 Use a synthetic concern. A deterministic defense should inject mocked Claude responses in the browser and label them as mocked.
 
-1. Patient logs in.
-2. The AI disclaimer appears when the session has not acknowledged it. The patient checks the acknowledgement and continues.
-3. The Virtual Front Desk opens.
-4. The patient submits one synthetic concern, for example a short Filipino headache sentence.
-5. The mocked or model response asks one relevant follow-up. For a recognized headache, the current application follow-up is “Kailan po nagsimula ang sakit ng ulo?” when a generic safety payload is replaced by that clarification.
-6. The patient answers that question. The next turn still refers to the opening concern.
-7. A mocked recommendation returns one eligible service ID for Pediatrician. Laravel must reject any other service ID.
+1. The patient opens the AI Front Desk. If the disclaimer has not been acknowledged in that session, it is required before the desk opens. The patient checks the acknowledgement and continues.
+2. The patient submits one synthetic concern, for example a short Filipino headache sentence.
+3. The mocked response asks one relevant follow-up. For a recognized headache, the application follow-up is “Kailan po nagsimula ang sakit ng ulo?” when a generic safety payload is replaced by that clarification.
+4. The patient answers that question. The next turn still refers to the opening concern.
+5. A mocked recommendation returns the eligible Pediatrician service ID. Laravel rejects any other service ID.
+6. The card heading is the listed service, followed by the non-diagnostic note, then the eligible imported doctors and the calculated next slot.
 
 Do not describe a mocked reply as a live Claude result. Do not describe schema acceptance as a clinical judgment.
 
@@ -50,7 +67,7 @@ For the Pediatrician service, the database can show:
 - Dr. Arada-Hocate, Maria Nickle. Poster windows: Tuesday 15:00–17:00 and Thursday 14:00–17:00.
 - Dr. Endaya, Hazel Anne. Poster window: Saturday 14:00–17:00.
 
-Names come from the imported rows. A booking button appears only when `AppointmentBookingService` returns a next slot. The slot label and the calendar must match that calculation. On 10 November 2026, an isolated check showed Dr. Arada-Hocate’s next demonstration slot as Thursday, 12 November 2026, 2:00–2:30 PM. On a later demonstration date, use the slot the booking service calculates that day.
+Names come from the imported rows. A booking button appears only when `AppointmentBookingService` returns a next slot. The slot label and the calendar must match that calculation. On 10 November 2026, an isolated check showed Dr. Arada-Hocate’s next demonstration slot as Thursday, 12 November 2026, 2:00–2:30 PM. On a later demonstration date, use the slot the booking service calculates that day. Do not hard-code that Thursday slot into the script.
 
 These doctors have no ordinary public booking slots. The demonstration must not invent one:
 
@@ -79,6 +96,8 @@ Development doctors, including Test Doctor 1, stay hidden while the data source 
 ## If the demonstration fails
 
 - Guidance spinner or a processing message: the isolated process is still using a blocked key, or the mock was not installed. Reload the mocked path. Do not switch the process to the live key during the defense unless a live call was approved in advance.
+- The card names a room, a telephone number, or “Pending hospital mapping” as the destination: stop. That text is not part of the visitor navigation. Reload the isolated imported database and use the listed-service card.
+- A safety card shows a booking button: stop. Safety and emergency responses must not open the booking calendar.
 - No booking button: the doctor has no calculated slot. Choose a doctor who has one, or confirm provisional local booking is enabled only on the isolated testing process. Do not type a time that is not on the calendar.
 - Wrong doctor: stop. The URL must still contain the selected doctor and clinic IDs.
 - Duplicate appointment: do not submit again. Check the patient history for the single pending row.
@@ -89,8 +108,9 @@ Development doctors, including Test Doctor 1, stay hidden while the data source 
 ## Known limitations
 
 - Provisional 30-minute slots are for local demonstration. They are not hospital-verified appointment lengths, and the imported hours are pending hospital verification.
-- Clinic names copied from specialization labels are temporary.
+- Clinic names copied from specialization labels are temporary. They are not official room assignments.
+- Prompt-evaluation and emergency navigation use staff-assistance wording because the imported catalog has no Hospital Verified emergency or urgent-assessment destination. Naming a particular clinic for those concerns needs a reviewed hospital policy first.
 - Clinical knowledge is unreviewed and stays off.
 - A generic model safety response is still handled differently for a recognized pain concern than for other wording. That difference is awaiting a clinical policy decision.
-- The corrected Front Desk schema has passed offline checks. A live provider acceptance call still needs separate approval.
+- One synthetic Front Desk schema call was accepted by the configured model. Further live calls need separate approval. That acceptance was not a clinical judgment.
 - Passing the automated suite is not clinical validation.

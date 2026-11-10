@@ -12,6 +12,7 @@ use App\Models\Clinic;
 use App\Models\Department;
 use App\Models\Doctor;
 use App\Services\Ai\ClaudeGuidanceService;
+use App\Services\Ai\HospitalNavigationResolver;
 use App\Support\AiConversationContext;
 use App\Support\AiConversationState;
 use App\Support\AiDisclaimer;
@@ -171,6 +172,15 @@ class AiFrontDeskGuidanceTest extends TestCase
             ->assertExactJson([
                 'type' => 'uncertain',
                 'message' => 'I understand your concern, but I do not have enough hospital service information yet.',
+                'navigation' => [
+                    'status' => HospitalNavigationResolver::STATUS_STAFF_ASSISTANCE,
+                    'heading' => HospitalNavigationResolver::UNCERTAIN_HEADING_FILIPINO,
+                    'guidance' => HospitalNavigationResolver::UNCERTAIN_GUIDANCE_FILIPINO,
+                    'note' => null,
+                    'service_label' => null,
+                    'booking_permitted' => false,
+                    'temporary_mapping' => false,
+                ],
             ]);
     }
 
@@ -188,6 +198,15 @@ class AiFrontDeskGuidanceTest extends TestCase
                 'type' => 'safety',
                 'message' => ClaudeGuidanceService::URGENT_SAFETY_MESSAGE,
                 'safety_kind' => 'emergency',
+                'navigation' => [
+                    'status' => HospitalNavigationResolver::STATUS_STAFF_ASSISTANCE,
+                    'heading' => HospitalNavigationResolver::WHERE_TO_GO_ENGLISH,
+                    'guidance' => HospitalNavigationResolver::EMERGENCY_GUIDANCE_ENGLISH,
+                    'note' => null,
+                    'service_label' => null,
+                    'booking_permitted' => false,
+                    'temporary_mapping' => false,
+                ],
             ]);
     }
 
@@ -431,7 +450,7 @@ class AiFrontDeskGuidanceTest extends TestCase
         $this->assertStringContainsString("payload?.type === 'recommendation'", $js);
         $this->assertStringContainsString('appendRecommendation(payload);', $js);
         $this->assertStringContainsString('appendSuggestedDoctors(payload);', $js);
-        $this->assertStringContainsString('appendFallback(message)', $js);
+        $this->assertStringContainsString('appendFallback(payload)', $js);
         $this->assertStringContainsString('processing_failed', $js);
         $this->assertStringNotContainsString('No clinic available', $js);
         $this->assertStringContainsString('textContent', $js);
@@ -637,7 +656,7 @@ class AiFrontDeskGuidanceTest extends TestCase
 
         $js = file_get_contents(public_path('js/ai-front-desk.js'));
         $this->assertIsString($js);
-        $this->assertStringContainsString('appendFallback(message)', $js);
+        $this->assertStringContainsString('appendFallback(payload)', $js);
         $this->assertStringContainsString('payload?.processing_failed === true || message === fallbackMessage', $js);
         $this->assertDoesNotMatchRegularExpression(
             '/appendAssistantMessage\(message\);\s*if \(payload\?\.processing_failed === true \|\| message === fallbackMessage\) \{\s*return;\s*\}\s*appendFallback/',
@@ -647,9 +666,10 @@ class AiFrontDeskGuidanceTest extends TestCase
         $page = $this->withSession([AiDisclaimer::SESSION_KEY => true])->get(route('ai-front-desk'));
         $page->assertOk();
         $fallback = $this->templateHtml($page->getContent(), 'fallback');
-        $this->assertStringContainsString('Ask Hospital Staff', $fallback);
         $this->assertStringContainsString('data-mg-text', $fallback);
-        $this->assertStringContainsString('data-mg-ask-staff', $fallback);
+        $this->assertStringContainsString('data-mg-where', $fallback);
+        $this->assertStringNotContainsString('data-mg-ask-staff', $fallback);
+        $this->assertStringNotContainsString('<button', $fallback);
         $this->assertStringNotContainsString('Development data', $fallback);
         $this->assertStringNotContainsString("We couldn't confidently determine the appropriate department", $fallback);
     }

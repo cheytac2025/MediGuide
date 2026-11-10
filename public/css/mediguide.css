@@ -2444,6 +2444,30 @@ select.mg-input {
     overflow-wrap: anywhere;
 }
 
+.mg-where {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(31, 42, 55, 0.12);
+}
+
+.mg-where h3 {
+    margin: 0 0 0.35rem;
+    font-size: 0.95rem;
+}
+
+.mg-where p {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.mg-service-note {
+    margin: 0 0 0.5rem;
+    color: var(--mg-text);
+    font-size: 0.85rem;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
 .mg-recommend-summary,
 .mg-fallback-card p {
     margin: 0 0 0.7rem;

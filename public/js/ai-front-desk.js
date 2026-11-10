@@ -199,7 +199,37 @@
         }
 
         row.querySelector('[data-mg-text]').textContent = text;
+        fillWhere(row, payload && typeof payload === 'object' ? payload.navigation : null);
         log.appendChild(row);
+    };
+
+    const fillWhere = (row, navigation) => {
+        const where = row.querySelector('[data-mg-where]');
+
+        if (!where) {
+            return;
+        }
+
+        const heading = typeof navigation?.heading === 'string' ? navigation.heading : '';
+        const guidance = typeof navigation?.guidance === 'string' ? navigation.guidance : '';
+
+        if (navigation?.booking_permitted === true || heading === '' || guidance === '') {
+            where.hidden = true;
+            return;
+        }
+
+        const headingEl = where.querySelector('[data-mg-where-heading]');
+        const textEl = where.querySelector('[data-mg-where-text]');
+
+        if (headingEl) {
+            headingEl.textContent = heading;
+        }
+
+        if (textEl) {
+            textEl.textContent = guidance;
+        }
+
+        where.hidden = false;
     };
 
     const appendFallback = (message) => {
@@ -210,11 +240,15 @@
         }
 
         const text = row.querySelector('[data-mg-text]');
+        const messageText = typeof message === 'string'
+            ? message
+            : (typeof message?.message === 'string' ? message.message : '');
 
         if (text) {
-            text.textContent = typeof message === 'string' && message !== '' ? message : fallbackMessage;
+            text.textContent = messageText !== '' ? messageText : fallbackMessage;
         }
 
+        fillWhere(row, message && typeof message === 'object' ? message.navigation : null);
         log.appendChild(row);
         scrollToEnd();
     };
@@ -242,7 +276,7 @@
             return;
         }
 
-        appendFallback(message);
+        appendFallback(payload);
     };
 
     const appendDoctors = (payload) => {
@@ -267,6 +301,27 @@
 
         if (developmentTag) {
             developmentTag.hidden = !isDevelopment;
+        }
+
+        const navigation = payload.navigation && typeof payload.navigation === 'object' ? payload.navigation : null;
+        const serviceLabel = typeof navigation?.service_label === 'string' ? navigation.service_label.trim() : '';
+        const headingEl = row.querySelector('[data-mg-service-heading]');
+        const doctorsSub = row.querySelector('[data-mg-doctors-sub]');
+
+        if (headingEl && serviceLabel !== '') {
+            headingEl.textContent = serviceLabel;
+        }
+
+        if (doctorsSub && serviceLabel !== '') {
+            doctorsSub.textContent = 'Suggested Doctors';
+        }
+
+        const noteEl = row.querySelector('[data-mg-service-note]');
+
+        if (noteEl) {
+            const note = typeof navigation?.note === 'string' ? navigation.note : '';
+            noteEl.textContent = note;
+            noteEl.hidden = note === '';
         }
 
         const summaryEl = row.querySelector('[data-mg-summary]');
@@ -337,7 +392,8 @@
 
             if (bookBtn) {
                 if (
-                    doctor.bookable === true
+                    navigation?.booking_permitted !== false
+                    && doctor.bookable === true
                     && Number.isInteger(doctorId)
                     && doctorId > 0
                     && Number.isInteger(clinicId)
