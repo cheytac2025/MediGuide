@@ -59,6 +59,7 @@ $env = $set($env, 'MAIL_SCHEME', 'null');
 $env = $set($env, 'MAIL_USERNAME', 'null');
 $env = $set($env, 'MAIL_PASSWORD', 'null');
 $env = $set($env, 'AUTH_REQUIRE_VERIFIED_PATIENT', 'false');
+$env = $set($env, 'AUTH_ENFORCE_EMAIL_VERIFICATION', 'false');
 $env = $set($env, 'AUTH_EMAIL_OTP_ENABLED', 'false');
 $env = $set($env, 'AUTH_REQUIRE_TOTP_PRIVILEGED', 'false');
 file_put_contents($path, $env);

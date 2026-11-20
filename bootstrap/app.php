@@ -7,6 +7,7 @@ use App\Exceptions\RecordIntegrityException;
 use App\Http\Middleware\AssignAuditCorrelation;
 use App\Http\Middleware\EnsureAccountIsActive;
 use App\Http\Middleware\EnsureAiDisclaimerAcknowledged;
+use App\Http\Middleware\EnsureEmailIsVerifiedWhenEnforced;
 use App\Http\Middleware\EnsureEmailOtpSatisfied;
 use App\Http\Middleware\EnsurePatientEmailVerified;
 use App\Http\Middleware\EnsurePrivilegedTotpEnabled;
@@ -47,6 +48,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => EnsureUserHasRole::class,
             'ai.disclaimer' => EnsureAiDisclaimerAcknowledged::class,
             'patient.verified' => EnsurePatientEmailVerified::class,
+            // Override Laravel's verified alias for Stage B transition safety.
+            'verified' => EnsureEmailIsVerifiedWhenEnforced::class,
         ]);
 
         $middleware->redirectUsersTo(fn (Request $request) => AuthenticatedHome::route($request->user()));

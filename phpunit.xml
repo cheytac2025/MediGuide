@@ -49,6 +49,7 @@
         <env name="HOSPITAL_DATA_SOURCE" value="development" force="true"/>
         <env name="HOSPITAL_PROVISIONAL_LOCAL_BOOKING" value="true" force="true"/>
         <env name="AUTH_REQUIRE_VERIFIED_PATIENT" value="false" force="true"/>
+        <env name="AUTH_ENFORCE_EMAIL_VERIFICATION" value="false" force="true"/>
         <env name="AUTH_EMAIL_OTP_ENABLED" value="false" force="true"/>
         <env name="AUTH_REQUIRE_TOTP_PRIVILEGED" value="false" force="true"/>
     </php>

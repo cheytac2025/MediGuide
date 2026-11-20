@@ -21,6 +21,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Enforce Laravel verified middleware
+    |--------------------------------------------------------------------------
+    |
+    | Controls the framework "verified" alias used by settings/security,
+    | password update, appearance, and the generic dashboard route.
+    | Keep false until outbound mail delivery is proven so migrated
+    | unverified accounts are not locked out of MFA/password settings.
+    | Patient booking/appointment gates use require_verified_patient instead.
+    |
+    */
+
+    'enforce_email_verification' => filter_var(
+        env('AUTH_ENFORCE_EMAIL_VERIFICATION', false),
+        FILTER_VALIDATE_BOOLEAN,
+    ),
+
+    /*
+    |--------------------------------------------------------------------------
     | Grandfather strategy B
     |--------------------------------------------------------------------------
     |

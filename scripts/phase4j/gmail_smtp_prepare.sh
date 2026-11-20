@@ -93,6 +93,7 @@ $env = $set($env, 'MAIL_PASSWORD', $pass);
 $env = $set($env, 'MAIL_FROM_ADDRESS', $email);
 $env = $set($env, 'MAIL_FROM_NAME', 'MediGuide');
 $env = $set($env, 'AUTH_REQUIRE_VERIFIED_PATIENT', 'false');
+$env = $set($env, 'AUTH_ENFORCE_EMAIL_VERIFICATION', 'false');
 $env = $set($env, 'AUTH_EMAIL_OTP_ENABLED', 'false');
 $env = $set($env, 'AUTH_REQUIRE_TOTP_PRIVILEGED', 'false');
 
@@ -133,7 +134,7 @@ echo 'MAIL_PASSWORD='.($get('MAIL_PASSWORD') ? 'set' : 'missing').PHP_EOL;
 foreach (['APP_KEY', 'ANTHROPIC_API_KEY', 'MEDIGUIDE_INTEGRITY_KEY', 'MEDIGUIDE_AUDIT_KEY'] as $k) {
     echo $k.'='.($get($k) ? 'present' : 'MISSING').PHP_EOL;
 }
-foreach (['AUTH_REQUIRE_VERIFIED_PATIENT', 'AUTH_EMAIL_OTP_ENABLED', 'AUTH_REQUIRE_TOTP_PRIVILEGED'] as $k) {
+foreach (['AUTH_REQUIRE_VERIFIED_PATIENT', 'AUTH_ENFORCE_EMAIL_VERIFICATION', 'AUTH_EMAIL_OTP_ENABLED', 'AUTH_REQUIRE_TOTP_PRIVILEGED'] as $k) {
     echo $k.'='.($get($k) ?? 'missing').PHP_EOL;
 }
 PHP
