@@ -258,6 +258,54 @@ class ClaudeGuidanceTest extends TestCase
         $this->assertSame(0, Appointment::query()->count());
     }
 
+    public function test_filipino_chest_pain_with_breathing_difficulty_escalates_before_claude_and_when_claude_fails(): void
+    {
+        $this->eligibleClinic();
+        $concern = 'Bigla akong nahihirapang huminga at may pananakit ng dibdib ngayon.';
+
+        $this->fakeClaude([
+            'type' => 'recommendation',
+            'service_id' => 1,
+            'specialization' => 'Internal Medicine',
+            'reason' => 'Should never be used for this emergency concern.',
+            'confidence' => 0.9,
+        ]);
+
+        $withProvider = $this->service()->guide($concern);
+        $this->assertSame(AiGuidanceType::Safety, $withProvider->type);
+        $this->assertSame(ClaudeGuidanceService::URGENT_SAFETY_MESSAGE_FILIPINO, $withProvider->message);
+        $this->assertNull($withProvider->clinicId);
+        Http::assertNothingSent();
+
+        Http::fake(function (): void {
+            throw new ConnectionException('cURL error 28: Operation timed out');
+        });
+        $timeout = $this->service()->guide($concern);
+        $this->assertSame(AiGuidanceType::Safety, $timeout->type);
+        $this->assertSame(ClaudeGuidanceService::URGENT_SAFETY_MESSAGE_FILIPINO, $timeout->message);
+
+        Http::fake([
+            'https://api.anthropic.com/v1/messages' => Http::response('{"broken"', 200, [
+                'Content-Type' => 'application/json',
+            ]),
+        ]);
+        $malformed = $this->service()->guide($concern);
+        $this->assertSame(AiGuidanceType::Safety, $malformed->type);
+
+        Http::fake([
+            'https://api.anthropic.com/v1/messages' => Http::response(['error' => ['type' => 'api_error']], 500),
+        ]);
+        $httpError = $this->service()->guide($concern);
+        $this->assertSame(AiGuidanceType::Safety, $httpError->type);
+
+        config(['services.anthropic.key' => null]);
+        Http::fake();
+        $unavailable = $this->service()->guide($concern);
+        $this->assertSame(AiGuidanceType::Safety, $unavailable->type);
+        Http::assertNothingSent();
+        $this->assertSame(0, Appointment::query()->count());
+    }
+
     public function test_unknown_result_type_becomes_safe_fallback(): void
     {
         $this->eligibleClinic();

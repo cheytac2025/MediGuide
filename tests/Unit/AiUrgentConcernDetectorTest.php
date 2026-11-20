@@ -54,6 +54,27 @@ class AiUrgentConcernDetectorTest extends TestCase
         $this->assertFalse($detector->isUrgent('The bright light hurts my eyes.'));
     }
 
+    public function test_filipino_and_english_breathing_and_chest_pain_variants_escalate(): void
+    {
+        $detector = new AiUrgentConcernDetector;
+
+        $this->assertTrue($detector->isUrgent('hirap huminga at pananakit ng dibdib'));
+        $this->assertTrue($detector->isUrgent('nahihirapang huminga'));
+        $this->assertTrue($detector->isUrgent('nahihirapan akong huminga'));
+        $this->assertTrue($detector->isUrgent('sumasakit dibdib at hirap huminga'));
+        $this->assertTrue($detector->isUrgent('pananakit ng dibdib at nahihirapang huminga'));
+        $this->assertTrue($detector->isUrgent('Bigla akong nahihirapang huminga at may pananakit ng dibdib ngayon.'));
+        $this->assertTrue($detector->isUrgent('Sudden chest pain with difficulty breathing'));
+        $this->assertTrue($detector->isUrgent('I have sudden shortness of breath'));
+        $this->assertTrue($detector->isUrgent('Bigla akong hirap huminga'));
+        $this->assertTrue($detector->isUrgent('Nahihirapan po akong huminga ngayon'));
+
+        // Isolated chest discomfort without breathing difficulty stays non-urgent.
+        $this->assertFalse($detector->isUrgent('Sumasakit dibdib ko'));
+        $this->assertFalse($detector->isUrgent('Pananakit ng dibdib kapag pagod'));
+        $this->assertFalse($detector->isUrgent('Mild chest tightness after exercise, no breathing problem'));
+    }
+
     public function test_negated_warning_signs_are_not_treated_as_reported(): void
     {
         $detector = new AiUrgentConcernDetector;
@@ -62,6 +83,9 @@ class AiUrgentConcernDetectorTest extends TestCase
         $this->assertFalse($detector->isUrgent('Hindi ako may panghihina.'));
         $this->assertFalse($detector->isUrgent('Masakit ulo ko. Wala akong panghihina.'));
         $this->assertFalse($detector->isUrgent('Hindi ako atake sa puso.'));
+        $this->assertFalse($detector->isUrgent('Hindi ako nahihirapang huminga.'));
+        $this->assertFalse($detector->isUrgent('Wala akong pananakit ng dibdib o hirap huminga.'));
+        $this->assertFalse($detector->isUrgent('I do not have chest pain or difficulty breathing.'));
         $this->assertTrue($detector->attributesUnreportedSymptoms(
             'Dahil mayroon kang nararamdamang panghihina kasabay ng matinding sakit ng ulo.',
             'Masaket ulo ko',
@@ -70,6 +94,16 @@ class AiUrgentConcernDetectorTest extends TestCase
             'If you reported one sided weakness, seek emergency help now.',
             'I have weakness on one side.',
         ));
+    }
+
+    public function test_historical_breathing_or_chest_pain_mentions_are_not_treated_as_current_emergencies(): void
+    {
+        $detector = new AiUrgentConcernDetector;
+
+        $this->assertFalse($detector->isUrgent('Dati akong nahihirapang huminga.'));
+        $this->assertFalse($detector->isUrgent('Previously I had chest pain and difficulty breathing.'));
+        $this->assertFalse($detector->isUrgent('In the past I had shortness of breath.'));
+        $this->assertFalse($detector->isUrgent('Masakit ulo ko. Dati may pananakit ng dibdib.'));
     }
 
     public function test_declined_and_unknown_replies_are_recognized(): void

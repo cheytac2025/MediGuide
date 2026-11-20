@@ -68,6 +68,12 @@ final class AiUrgentConcernDetector
         'di ako makahinga',
         'hindi makahinga',
         'hirap na hirap huminga',
+        'nahihirapang huminga',
+        'nahihirapan akong huminga',
+        'nahihirapan huminga',
+        'difficulty breathing',
+        'shortness of breath',
+        'short of breath',
         'nawalan ng malay',
         'hindi mapigilang pagdurugo',
         'hindi tumitigil ang pagdurugo',
@@ -138,13 +144,25 @@ final class AiUrgentConcernDetector
         ['chest pain', 'cannot breathe'],
         ['chest pain', "can't breathe"],
         ['chest pain', 'shortness of breath'],
+        ['chest pain', 'short of breath'],
         ['chest pain', 'difficulty breathing'],
+        ['chest pain', 'hirap huminga'],
+        ['chest pain', 'nahihirapang huminga'],
         ['chest pain', 'passed out'],
         ['chest pain', 'sweating'],
+        ['sudden chest pain', 'difficulty breathing'],
+        ['sudden chest pain', 'shortness of breath'],
         ['sumasakit dibdib', 'hindi makahinga'],
         ['sumasakit ang dibdib', 'hirap huminga'],
+        ['sumasakit dibdib', 'hirap huminga'],
+        ['sumasakit dibdib', 'nahihirapang huminga'],
         ['sumasakit dibdib ko', 'nahihilo'],
-        ['chest pain', 'hirap huminga'],
+        ['pananakit ng dibdib', 'hirap huminga'],
+        ['pananakit ng dibdib', 'nahihirapang huminga'],
+        ['pananakit ng dibdib', 'nahihirapan akong huminga'],
+        ['pananakit dibdib', 'hirap huminga'],
+        ['masakit ang dibdib', 'hirap huminga'],
+        ['masakit dibdib', 'nahihirapang huminga'],
         ['sobrang sakit ng ulo', 'bigla'],
         ['matinding sakit ng ulo', 'bigla'],
         ['severe headache', 'sudden'],
@@ -182,7 +200,7 @@ final class AiUrgentConcernDetector
                 $windowStart = max(0, $position - 48);
                 $prefix = trim(mb_substr($visitor, $windowStart, $position - $windowStart));
 
-                if (! $this->prefixNegates($prefix)) {
+                if (! $this->prefixNegates($prefix) && ! $this->prefixMakesHistorical($prefix)) {
                     return 'affirmed';
                 }
             }
@@ -207,6 +225,12 @@ final class AiUrgentConcernDetector
             }
         }
 
+        // Progressive Filipino breathing-difficulty stems with short filler words
+        // (e.g. "nahihirapan po akong huminga") are high-signal on their own.
+        if ($this->hasAffirmedBreathingDifficultyPattern($normalized)) {
+            return true;
+        }
+
         $suddenText = $this->withoutIntermittentMarkers($normalized);
 
         foreach (self::COMBINATIONS as [$first, $second]) {
@@ -218,6 +242,16 @@ final class AiUrgentConcernDetector
                 && $this->hasAffirmedOccurrence($haystack, $this->normalize($second))) {
                 return true;
             }
+        }
+
+        // Grammatical Filipino/English variants: chest pain + breathing difficulty,
+        // or sudden-onset breathing difficulty alone (high-signal cardiopulmonary cues).
+        if ($this->reportsChestPain($normalized) && $this->reportsBreathingDifficulty($normalized)) {
+            return true;
+        }
+
+        if ($this->hasSuddenMarker($suddenText) && $this->reportsBreathingDifficulty($suddenText)) {
+            return true;
         }
 
         return $this->looksLikeSuddenSevereHeadache($suddenText);
@@ -291,6 +325,80 @@ final class AiUrgentConcernDetector
         return str_contains($phrase, 'bigla') || str_contains($phrase, 'sudden');
     }
 
+    private function reportsChestPain(string $normalized): bool
+    {
+        foreach ([
+            'chest pain',
+            'sudden chest pain',
+            'sumasakit dibdib',
+            'sumasakit ang dibdib',
+            'sumasakit dibdib ko',
+            'pananakit ng dibdib',
+            'pananakit dibdib',
+            'masakit ang dibdib',
+            'masakit dibdib',
+            'sakit sa dibdib',
+            'sakit ng dibdib',
+        ] as $phrase) {
+            if ($this->hasAffirmedOccurrence($normalized, $this->normalize($phrase))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function reportsBreathingDifficulty(string $normalized): bool
+    {
+        foreach ([
+            'cannot breathe',
+            "can't breathe",
+            'can not breathe',
+            'unable to breathe',
+            'severe difficulty breathing',
+            'difficulty breathing',
+            'shortness of breath',
+            'short of breath',
+            'gasping for air',
+            'not breathing',
+            'hindi ako makahinga',
+            'di ako makahinga',
+            'hindi makahinga',
+            'hirap na hirap huminga',
+            'hirap huminga',
+            'nahihirapang huminga',
+            'nahihirapan akong huminga',
+            'nahihirapan huminga',
+        ] as $phrase) {
+            if ($this->hasAffirmedOccurrence($normalized, $this->normalize($phrase))) {
+                return true;
+            }
+        }
+
+        // Allow short function words between the progressive stem and "huminga".
+        return $this->hasAffirmedBreathingDifficultyPattern($normalized);
+    }
+
+    private function hasAffirmedBreathingDifficultyPattern(string $normalized): bool
+    {
+        if (! preg_match_all('/\bnahihirapan(?:g)?(?:\s+\w+){0,3}\s+huminga\b/u', $normalized, $matches, PREG_OFFSET_CAPTURE)) {
+            return false;
+        }
+
+        foreach ($matches[0] as [, $byteOffset]) {
+            $prefixBytes = substr($normalized, 0, $byteOffset);
+            $position = mb_strlen($prefixBytes);
+            $windowStart = max(0, $position - 48);
+            $prefix = trim(mb_substr($normalized, $windowStart, $position - $windowStart));
+
+            if (! $this->prefixNegates($prefix) && ! $this->prefixMakesHistorical($prefix)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function hasAffirmedOccurrence(string $normalized, string $phrase): bool
     {
         $offset = 0;
@@ -305,7 +413,7 @@ final class AiUrgentConcernDetector
                 $windowStart = max(0, $position - 48);
                 $prefix = trim(mb_substr($normalized, $windowStart, $position - $windowStart));
 
-                if (! $this->prefixNegates($prefix)) {
+                if (! $this->prefixNegates($prefix) && ! $this->prefixMakesHistorical($prefix)) {
                     return true;
                 }
             }
@@ -314,6 +422,18 @@ final class AiUrgentConcernDetector
         }
 
         return false;
+    }
+
+    private function prefixMakesHistorical(string $prefix): bool
+    {
+        if ($prefix === '') {
+            return false;
+        }
+
+        return (bool) preg_match(
+            '/\b(dati|noon|noong|nakaraan|previously|in the past|used to|before this|history of)\b/u',
+            $prefix,
+        );
     }
 
     private function isWholePhrase(string $normalized, int $position, int $length): bool

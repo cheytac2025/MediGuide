@@ -576,6 +576,26 @@ class AiFrontDeskGuidanceTest extends TestCase
         $this->assertStringContainsString('appendSafety(payload);', $js);
     }
 
+    public function test_filipino_sudden_breathing_and_chest_pain_returns_safety_without_booking_handoff(): void
+    {
+        $clinic = $this->eligibleClinic('Placeholder clinic for local development. Not hospital data.');
+        $this->fakeClaude([
+            'type' => 'recommendation',
+            'clinic_id' => $clinic->id,
+            'reason' => 'The stored clinic description supports this service.',
+            'confidence' => 0.9,
+        ]);
+
+        $this->postGuidance('Bigla akong nahihirapang huminga at may pananakit ng dibdib ngayon.')
+            ->assertOk()
+            ->assertJsonPath('type', AiGuidanceType::Safety->value)
+            ->assertJsonPath('message', ClaudeGuidanceService::URGENT_SAFETY_MESSAGE_FILIPINO)
+            ->assertJsonPath('safety_kind', 'emergency')
+            ->assertJsonMissingPath('clinic')
+            ->assertJsonMissingPath('doctors')
+            ->assertJsonMissingPath('doctors_url');
+    }
+
     public function test_vague_headache_does_not_return_unsupported_safety_attribution(): void
     {
         $this->eligibleClinic('Placeholder clinic for local development. Not hospital data.');
