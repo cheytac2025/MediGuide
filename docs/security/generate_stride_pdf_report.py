@@ -48,7 +48,7 @@ def footer(canvas, doc):
     canvas.line(1.8 * cm, 1.4 * cm, PAGE_W - 1.8 * cm, 1.4 * cm)
     canvas.setFont("Helvetica", 8)
     canvas.setFillColor(colors.HexColor("#333333"))
-    canvas.drawString(1.8 * cm, 0.9 * cm, "MediGuide STRIDE / Controlled PT Report v1.1 — Confidential Capstone")
+    canvas.drawString(1.8 * cm, 0.9 * cm, "MediGuide STRIDE / Controlled PT Report v1.2 — Confidential Capstone")
     canvas.drawRightString(PAGE_W - 1.8 * cm, 0.9 * cm, f"Page {doc.page}")
     canvas.restoreState()
 
@@ -138,12 +138,12 @@ def build():
     story.append(Spacer(1, 1.2 * cm))
     meta = [
         ["Field", "Value"],
-        ["Document version", "1.1 (post-hardening) · baseline 1.0 preserved"],
+        ["Document version", "1.2 (prod dep + clinic UI) · baselines 1.0/1.1 preserved"],
         ["Report date", "21 November 2026"],
         ["Target URL", "https://qmhchospital.com"],
         ["Host / DB", "srv2179431 / mediguide_demo"],
-        ["Production Git", "e2f3a364d9b421c9e1c04bf7a453fa985a3071cc (not yet upgraded)"],
-        ["Local packages", "Laravel 13.40.0 · commonmark 2.10.2 · Symfony 7.4.23"],
+        ["Production Git", "3df7c9efc30d770cf3a9806ed0e96fd65d537a16"],
+        ["Deployed packages", "Laravel 13.40.0 · commonmark 2.10.2 · Symfony HF/serializer 7.4.23"],
         ["Classification", "Capstone / Internal Security Assessment"],
     ]
     story.append(table([[Paragraph(c, st["TableCell"]) for c in row] for row in meta], [4.5 * cm, 11.5 * cm]))
@@ -293,27 +293,28 @@ def build():
     ]
     story.append(table([[Paragraph(c, st["TableCell"]) for c in r] for r in pt], [1.6*cm, 3.6*cm, 1.4*cm, 2.2*cm, 6.2*cm]))
     story.append(Spacer(1, 0.2 * cm))
-    story.append(p("Security-focused execution this assessment: <b>293 passed</b>. Full regression: <b>1,143 passed</b>.", st["Body"]))
+    story.append(p("Baseline assessment suites: <b>293 passed</b> security-focused · <b>1,143 passed</b> full. Pre-deploy hardening suites: <b>395 passed</b> focused · <b>1,145 passed</b> full.", st["Body"]))
     story.append(PageBreak())
 
     # Live snapshot
     story.append(p("11. Live Verification Snapshot", st["H1"]))
     live = [
         ["Check", "Value"],
-        ["Git", "e2f3a364d9b421c9e1c04bf7a453fa985a3071cc"],
+        ["Git (post-deploy)", "3df7c9efc30d770cf3a9806ed0e96fd65d537a16"],
         ["HOME / LOGIN", "HTTP 200 / 200"],
         ["APP_DEBUG", "false"],
         ["Session", "database; Secure; HttpOnly; SameSite=lax"],
         ["Present headers", "X-Frame-Options, X-Content-Type-Options, Referrer-Policy"],
         ["Missing headers", "Strict-Transport-Security, Content-Security-Policy"],
-        ["Server banner", "nginx/1.24.0 (Ubuntu)"],
+        ["Server banner", "nginx/1.24.0 (Ubuntu) — FIND-003 still open"],
         ["OTP flags", "EMAIL_OTP=true; ALL_ROLES=false"],
-        ["OTP opt-ins", "33,35,36,37 only; reusable=0"],
+        ["OTP opt-ins", "33,35,36,37 only"],
         ["Integrity", "11 appt / 5 patient valid"],
-        ["Audit", "105/105; checkpoint 54; lag 51"],
-        ["Active inbox heuristic", "35 active; 8 Gmail; 26 unverified; 4 OTP-ready"],
+        ["Audit", "111/111; checkpoint 54; lag 57"],
+        ["composer audit (VPS)", "0 advisories"],
         ["Services", "php-fpm, queue, nginx active"],
-        ["File modes", "config.php/.env 640"],
+        ["File modes", "config.php 640 mediguide:www-data"],
+        ["Clinic UI filter", "4 exclusion phrases: 0 public hits; DB preserved"],
     ]
     story.append(table([[Paragraph(c, st["TableCell"]) for c in r] for r in live], [5*cm, 11*cm]))
     story.append(p("Cookie material observed during header inspection was discarded and is not reproduced.", st["Small"]))
@@ -367,16 +368,16 @@ def build():
 
     story.append(p("15. Remediation Priorities", st["H1"]))
     story.append(p("<b>P0:</b> None confirmed.", st["Body"]))
-    story.append(p("<b>P1:</b> Patch commonmark/Symfony; complete inbox remediation before mandatory OTP.", st["Body"]))
-    story.append(p("<b>P2:</b> HSTS, CSP, checkpoint refresh, Laravel upgrade.", st["Body"]))
-    story.append(p("<b>P3:</b> Hide Nginx version; pilot cleanup; fresh encrypted DB backup.", st["Body"]))
-    story.append(p("No production fixes were deployed during this assessment.", st["Body"]))
+    story.append(p("<b>P1:</b> Complete inbox remediation before mandatory OTP (FIND-008).", st["Body"]))
+    story.append(p("<b>P2:</b> HSTS, CSP Report-Only, checkpoint refresh (FIND-001/002/007).", st["Body"]))
+    story.append(p("<b>P3:</b> Hide Nginx version; pilot cleanup; keep encrypted backups current.", st["Body"]))
+    story.append(p("Dependency findings FIND-004/005/006 were deployed to production at 3df7c9e. Nginx and checkpoint fixes remain undeployed.", st["Body"]))
 
     story.append(p("16. Retest Results", st["H1"]))
-    story.append(p("Header/dependency/checkpoint remediations were not applied (require separate approval). Auth, OTP, RBAC, integrity, and audit controls were revalidated PASS via suites and live checks.", st["Body"]))
+    story.append(p("Production dependency deploy verified: Laravel 13.40.0, commonmark 2.10.2, Symfony http-foundation/serializer 7.4.23; composer audit clean; clinic exclusion phrases filtered from public display; integrity/audit PASS. Nginx headers and checkpoint refresh still require separate approval.", st["Body"]))
 
     story.append(p("17. Residual Risks", st["H1"]))
-    story.append(p("Unpatched advisories, incomplete header hardening, checkpoint lag, incomplete fleet MFA readiness, and untested SSRF/injection/stress surfaces remain.", st["Body"]))
+    story.append(p("Incomplete header hardening, checkpoint lag (57 events), incomplete fleet MFA readiness, pending interactive PHP-FPM reload confirmation, and untested SSRF/injection/stress surfaces remain.", st["Body"]))
 
     story.append(p("18. Security Readiness Conclusion", st["H1"]))
     conclusion = [
@@ -401,28 +402,29 @@ def build():
         story.append(p(f"• {ref}", st["Body"]))
 
     story.append(p("20. Appendices", st["H1"]))
-    story.append(p("<b>Appendix A — Evidence index:</b> E-PHPUNIT-SEC (293), E-PHPUNIT-FULL (1143), E-LIVE-HEADERS, E-LIVE-INTEGRITY, E-LIVE-AUDIT, E-COMPOSER, E-ACCEPT-RO, E-OTP-PILOTS.", st["Body"]))
-    story.append(p("<b>Appendix B — Locked packages:</b> laravel/framework v13.32.0; league/commonmark 2.10.1; symfony/http-foundation v8.0.15; symfony/yaml v8.0.15.", st["Body"]))
-    story.append(p("<b>Appendix C — Change log:</b> v1.0 initial STRIDE/PT; v1.1 post-hardening local dependency remediation and deployment preparation.", st["Body"]))
+    story.append(p("<b>Appendix A — Evidence index:</b> E-PHPUNIT-SEC (293/395), E-PHPUNIT-FULL (1143/1145), E-LIVE-HEADERS, E-LIVE-INTEGRITY, E-LIVE-AUDIT, E-COMPOSER, E-PROD-DEPLOY-3df7c9e, E-OTP-PILOTS.", st["Body"]))
+    story.append(p("<b>Appendix B — Locked packages (deployed):</b> laravel/framework v13.40.0; league/commonmark 2.10.2; symfony/http-foundation v7.4.23; symfony/serializer v7.4.23; symfony/yaml v7.4.23 (require-dev only).", st["Body"]))
+    story.append(p("<b>Appendix C — Change log:</b> v1.0 initial STRIDE/PT; v1.1 local dependency remediation; v1.2 production deploy of deps + clinic UI cleanup.", st["Body"]))
     story.append(PageBreak())
-    story.append(p("21. Post-STRIDE Hardening Update (v1.1)", st["H1"]))
-    story.append(p("Baseline v1.0 findings are preserved. This section records local remediation and what remains blocked pending production approval.", st["Body"]))
+    story.append(p("21. Post-STRIDE Hardening Update (v1.2)", st["H1"]))
+    story.append(p("Baseline v1.0 findings are preserved. v1.2 records production deployment of dependency hardening and clinic description display cleanup.", st["Body"]))
     rem = [
-        ["Finding", "Local action", "Prod status"],
-        ["FIND-004 commonmark", "2.10.1 → 2.10.2", "Pending deploy"],
-        ["FIND-005 Laravel", "13.32.0 → 13.40.0 (path unused)", "Pending deploy"],
-        ["FIND-006 Symfony", "→ http-foundation/yaml/serializer 7.4.23", "Pending deploy"],
-        ["composer audit", "Clean (0 advisories)", "Pending deploy"],
+        ["Finding", "Action", "Prod status"],
+        ["FIND-004 commonmark", "2.10.1 → 2.10.2", "Resolved at 3df7c9e"],
+        ["FIND-005 Laravel", "13.32.0 → 13.40.0 (path unused)", "Resolved at 3df7c9e"],
+        ["FIND-006 Symfony", "HF/serializer 7.4.23; yaml 7.4.23 locked", "Resolved at 3df7c9e"],
+        ["composer audit", "Clean (0 advisories)", "Verified on VPS"],
+        ["Clinic UI phrases", "Display filter for 4 exclusion phrases", "Verified 0 public hits"],
         ["FIND-001 HSTS", "Nginx snippet prepared", "Not applied"],
         ["FIND-002 CSP-RO", "Report-Only CSP prepared", "Not applied"],
         ["FIND-003 server_tokens", "Prep documented", "Not applied"],
-        ["FIND-007 checkpoint", "Refresh script prepared; chain 109/109, lag 55", "Not refreshed"],
+        ["FIND-007 checkpoint", "Backup taken; refresh script ready; lag 57", "Not refreshed"],
         ["FIND-008 inbox", "Remediation plan only", "Open"],
     ]
     story.append(table([[Paragraph(c, st["TableCell"]) for c in r] for r in rem], [4.2*cm, 7.3*cm, 4.5*cm]))
     story.append(Spacer(1, 0.25 * cm))
-    story.append(p("Security regression after local updates: <b>293 passed</b> focused · <b>1,143 passed</b> full PHPUnit.", st["Body"]))
-    story.append(p("<b>Updated verdict:</b> Capstone demo still ACCEPTABLE with reduced local dependency risk. Production is not fully patched until approved deploy. Mandatory fleet OTP remains NOT READY. Do not mark header/checkpoint/account findings resolved until verified in production.", st["Body"]))
+    story.append(p("Pre-deploy suites: <b>395 passed</b> focused · <b>1,145 passed</b> full PHPUnit. VPS composer audit: clean. Integrity/audit: PASS. PHP-FPM reload still needs interactive sudo.", st["Body"]))
+    story.append(p("<b>Updated verdict:</b> Capstone demo ACCEPTABLE with dependency advisories cleared in production. Nginx/checkpoint/account findings remain open until separately approved and verified. Mandatory fleet OTP remains NOT READY.", st["Body"]))
     story.append(Spacer(1, 0.6 * cm))
     story.append(p("End of report.", st["CoverSub"]))
 

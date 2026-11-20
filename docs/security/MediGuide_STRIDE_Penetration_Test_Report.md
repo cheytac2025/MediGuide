@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document | MediGuide Capstone Security Assessment |
-| Version | 1.1 (post-hardening update) |
+| Version | 1.2 (production dependency + clinic UI deploy) |
 | Baseline version | 1.0 (21 November 2026 initial STRIDE/PT) |
 | Report date | 21 November 2026 |
 | Classification | Capstone / Internal Security Assessment |
@@ -11,8 +11,9 @@
 | Application path | /var/www/mediguide |
 | Host | srv2179431 |
 | Database | mediguide_demo |
-| Production Git (still) | e2f3a364d9b421c9e1c04bf7a453fa985a3071cc |
-| Local hardening packages | Laravel 13.40.0 · commonmark 2.10.2 · Symfony 7.4.23 |
+| Production Git | 3df7c9efc30d770cf3a9806ed0e96fd65d537a16 |
+| Previous production Git | e2f3a364d9b421c9e1c04bf7a453fa985a3071cc |
+| Deployed packages | Laravel 13.40.0 · commonmark 2.10.2 · Symfony http-foundation/serializer 7.4.23 |
 | Assessor role | Senior penetration tester / Laravel security engineer (AI-assisted) |
 
 **Disclaimer:** This report documents a controlled, evidence-based security assessment. It is **not** a certification of absolute security and does **not** authorize production exploitation. Live verification and isolated testing are distinguished throughout.
@@ -504,24 +505,37 @@ Cookie values collected during header inspection were **discarded** and are **no
 |---|---|---|
 | 1.0 | 2026-11-21 | Initial STRIDE / controlled PT report |
 | 1.1 | 2026-11-21 | Post-STRIDE local dependency remediation; header/checkpoint/account plans; retest evidence; production still on e2f3a36 |
+| 1.2 | 2026-11-21 | Production deploy of dependency hardening + clinic description display cleanup at 3df7c9e; FIND-004/005/006 closed in production; Nginx/checkpoint still open |
 
 ---
 
-## Appendix D — Post-STRIDE Hardening Update (v1.1)
+## Appendix D — Post-STRIDE Hardening Update (v1.1 → v1.2)
 
 ### D.1 Dependency applicability and remediation
 
-| Finding | Installed (baseline) | Affects MediGuide? | Local remediation | Retest |
+| Finding | Installed (baseline) | Affects MediGuide? | Remediation | Retest |
 |---|---|---|---|---|
-| FIND-004 commonmark | 2.10.1 | **Yes** (transitive via Laravel; GFM table DoS / raw HTML bypass if markdown rendered) | Updated to **2.10.2** | `composer audit` clean |
-| FIND-005 Laravel concurrency | 13.32.0 | **Version affected; exploit path NOT present** (no `Concurrency::run` in app code) | Updated to **13.40.0** (^13.40.0) | Suites PASS |
-| FIND-006 Symfony http-foundation/yaml | 8.0.15 | **Yes** (locked in tree; yaml via Sail/dev + http-foundation runtime) | http-foundation/yaml/serializer → **7.4.23** | `composer audit` clean |
-| New residual during patch | serializer advisories | Yes until upgraded | Patched with 7.4.23 | Clear |
+| FIND-004 commonmark | 2.10.1 | **Yes** (transitive via Laravel; GFM table DoS / raw HTML bypass if markdown rendered) | **2.10.2** deployed | `composer audit` clean (local + VPS) |
+| FIND-005 Laravel concurrency | 13.32.0 | **Version affected; exploit path NOT present** (no `Concurrency::run` in app code) | **13.40.0** deployed | Suites PASS; VPS shows v13.40.0 |
+| FIND-006 Symfony http-foundation/yaml | 8.0.15 | **Yes** (http-foundation runtime; yaml locked for require-dev) | http-foundation/serializer **7.4.23** production; yaml **7.4.23** locked (dev-only, not installed with `--no-dev`) | `composer audit` clean |
+| Serializer residual | advisories on older line | Yes until upgraded | **7.4.23** deployed | Clear |
 
-**Before:** `composer audit` reported multiple advisories.  
-**After (local):** `composer audit` → **No security vulnerability advisories found.**
+**Production deploy commit:** `3df7c9efc30d770cf3a9806ed0e96fd65d537a16`  
+**Method:** `git merge --ff-only` + `composer install --no-dev --optimize-autoloader` (not `composer update`)  
+**Before:** `composer audit` reported advisories on baseline packages.  
+**After (local + VPS):** `composer audit` → **No security vulnerability advisories found.**
 
-Focused security PHPUnit after update: **293 passed**. Full regression: **1,143 passed**.
+Focused clinic/AI/booking/security PHPUnit before commit: **395 passed**. Full regression: **1,145 passed**.
+
+### D.1b Clinic description UI cleanup (same deploy)
+
+| Check | Result |
+|---|---|
+| Four exclusion phrases in public display | **0 hits** (`AiClinicDescriptionKind::forPublicDisplay`) |
+| Stored DB descriptions | Preserved (15 clinics still contain exclusion phrases in storage) |
+| `updated_at` present | 16/16 clinics |
+| Provenance / verification fields | Unchanged (display-only filter) |
+| Admin edit fields / schedules / names | Unchanged |
 
 ### D.2 HTTP headers (FIND-001/002/003)
 
@@ -533,38 +547,60 @@ Prepared under `docs/security/nginx/` — **not deployed**.
 | FIND-002 CSP | CSP-Report-Only (no unsafe-inline/eval); enforce later after nonces | **Open** |
 | FIND-003 Server banner | `server_tokens off` | **Open** |
 
+CSP compatibility note: Blade/Inertia/Vite/`'self'` Bootstrap OK; Google Fonts domains included; `app.blade.php` inline appearance bootstrap will report under Report-Only — do not enforce until nonce/hash refactor.
+
 ### D.3 Audit checkpoint (FIND-007)
 
 | Item | Value |
 |---|---|
-| Chain | **109/109 valid** (rechecked) |
+| Chain (post-deploy) | **111/111 valid** |
 | Checkpoint | seq **54** |
-| Lag | **55** events |
+| Lag | **57** events after checkpoint |
+| Pre-deploy encrypted checkpoint backup | `/home/mediguide/secure-backups/phase4j/checkpoint_pre_hardening_20261120205646.jsonl.enc` |
 | Refresh | Script prepared: `docs/security/ops/audit_checkpoint_refresh_prep.sh` |
-| Executed? | **No** (awaiting approval) |
+| Executed? | **No** (awaiting separate approval) |
 
 ### D.4 Account remediation (FIND-008)
 
-Plan only: `docs/security/ops/account_email_remediation_plan.md`. Global OTP remains disabled. Pilots unchanged.
+Plan only: `docs/security/ops/account_email_remediation_plan.md`. Global OTP remains disabled. OTP pilots **33,35,36,37** unchanged. User 5 untouched.
 
 ### D.5 Retest status board
 
 | Finding | Status |
 |---|---|
-| FIND-004 | **Remediated locally** — pending production dependency deploy |
-| FIND-005 | **Remediated locally** (defense-in-depth; path not used) — pending deploy |
-| FIND-006 | **Remediated locally** — pending deploy |
+| FIND-004 | **Resolved in production** at 3df7c9e (commonmark 2.10.2; audit clean) |
+| FIND-005 | **Resolved in production** at 3df7c9e (Laravel 13.40.0; defense-in-depth) |
+| FIND-006 | **Resolved in production** at 3df7c9e (http-foundation/serializer 7.4.23; yaml 7.4.23 locked for dev) |
 | FIND-001 | Prepared — **not verified fixed in production** |
 | FIND-002 | Prepared — **not verified fixed in production** |
 | FIND-003 | Prepared — **not verified fixed in production** |
-| FIND-007 | Prepared — **not refreshed** |
+| FIND-007 | Backup prepared — **checkpoint not refreshed** |
 | FIND-008 | Plan only — **open** |
 
-### D.6 Updated readiness conclusion
+### D.6 Production verification snapshot (v1.2)
 
-| Question | Verdict (v1.1) |
+| Check | Result |
 |---|---|
-| Capstone demo security | **ACCEPTABLE**; local dep risk reduced |
-| Production fully patched | **NO** until approved deploy |
+| Host / DB | srv2179431 / mediguide_demo |
+| HOME / LOGIN | HTTP 200 |
+| Role gates (unauth) | patient/staff/doctor/admin → 302 |
+| Integrity strict | 11 appointments / 5 patients valid |
+| Audit verify | valid; checkpoint protection verified |
+| Auth flags | OTP enabled=true; OTP all roles=false; TOTP privileged=false; enforce email verification=false; require verified patient=true |
+| Mail / AI | smtp.gmail.com password set; Anthropic configured (no live calls made) |
+| config.php | 640 mediguide:www-data |
+| Encrypted DB backup | `mediguide_demo_20261120205648.sql.enc` (decrypt header OK) |
+| PHP-FPM reload | **Pending interactive sudo** (`sudo systemctl reload php8.4-fpm`) |
+| Queue restart | **Pending interactive sudo** (optional; `sudo systemctl restart mediguide-queue`) |
+| Nginx change | **None** |
+
+### D.7 Updated readiness conclusion
+
+| Question | Verdict (v1.2) |
+|---|---|
+| Capstone demo security | **ACCEPTABLE**; dependency advisories cleared in production |
+| Production dependency patch | **YES** at 3df7c9e (FPM reload still recommended via sudo) |
+| Nginx header hardening | **NOT APPLIED** |
+| Audit checkpoint refresh | **NOT EXECUTED** |
 | Mandatory fleet OTP | **NOT READY** |
-| Next approval | Deploy deps / Nginx headers / checkpoint refresh (separate phrases) |
+| Next approvals | (1) `sudo systemctl reload php8.4-fpm` (2) Nginx FIND-001/002/003 (3) checkpoint FIND-007 |

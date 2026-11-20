@@ -1,6 +1,6 @@
 # MediGuide Post-STRIDE Hardening — Production Deployment Plan
 
-**Status:** Prepared — **DO NOT EXECUTE** without separate approval.
+**Status:** Dependency + clinic UI deploy **EXECUTED** at `3df7c9efc30d770cf3a9806ed0e96fd65d537a16` (2026-11-20 UTC). Nginx headers and audit checkpoint refresh remain **NOT EXECUTED** — require separate approval. PHP-FPM reload still needs interactive sudo.
 
 ## Exact local commit contents (to be committed/pushed before deploy)
 
