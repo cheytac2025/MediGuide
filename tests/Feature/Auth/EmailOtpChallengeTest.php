@@ -185,7 +185,7 @@ class EmailOtpChallengeTest extends TestCase
         Notification::assertSentTimes(EmailLoginOtpNotification::class, 2);
     }
 
-    public function test_non_patient_roles_skip_email_otp_even_when_flag_and_column_enabled(): void
+    public function test_account_scoped_opt_in_applies_to_non_patient_roles_when_enabled(): void
     {
         config([
             'auth_security.email_otp_enabled' => true,
@@ -201,10 +201,30 @@ class EmailOtpChallengeTest extends TestCase
         $this->post(route('login.store'), [
             'email' => $doctor->email,
             'password' => 'password',
+        ])->assertRedirect(route('auth.email-otp.challenge'));
+
+        Notification::assertSentTo($doctor, EmailLoginOtpNotification::class);
+    }
+
+    public function test_account_scoped_opt_in_skips_roles_not_flagged(): void
+    {
+        config([
+            'auth_security.email_otp_enabled' => true,
+            'auth_security.require_email_otp_all_roles' => false,
+        ]);
+        Notification::fake();
+
+        $doctor = User::factory()->role(RoleName::Doctor)->create([
+            'email_otp_enabled' => false,
+            'password' => Hash::make('password'),
+        ]);
+
+        $this->post(route('login.store'), [
+            'email' => $doctor->email,
+            'password' => 'password',
         ])->assertRedirect(route('doctor.dashboard'));
 
         Notification::assertNothingSent();
-        $this->assertSame(0, EmailOtpChallenge::query()->where('user_id', $doctor->id)->count());
     }
 
     public function test_mandatory_all_roles_email_otp_applies_to_each_role(): void
@@ -242,6 +262,42 @@ class EmailOtpChallengeTest extends TestCase
             $this->post(route('auth.email-otp.verify'), ['code' => $plain])
                 ->assertRedirect(route($home));
 
+            $this->post(route('logout'));
+            Notification::fake();
+        }
+    }
+
+    public function test_account_scoped_opt_in_covers_all_four_roles(): void
+    {
+        config([
+            'auth_security.email_otp_enabled' => true,
+            'auth_security.require_email_otp_all_roles' => false,
+        ]);
+        Notification::fake();
+
+        $homes = [
+            RoleName::Patient->value => 'patient.dashboard',
+            RoleName::Doctor->value => 'doctor.dashboard',
+            RoleName::HospitalStaff->value => 'staff.dashboard',
+            RoleName::ItAdministrator->value => 'admin.dashboard',
+        ];
+
+        foreach ($homes as $role => $home) {
+            $user = User::factory()->role(RoleName::from($role))->create([
+                'email_otp_enabled' => true,
+                'password' => Hash::make('password'),
+            ]);
+
+            $this->post(route('login.store'), [
+                'email' => $user->email,
+                'password' => 'password',
+            ])->assertRedirect(route('auth.email-otp.challenge'));
+
+            $challenge = EmailOtpChallenge::query()->where('user_id', $user->id)->latest('id')->firstOrFail();
+            $plain = '777777';
+            $challenge->forceFill(['code_hash' => Hash::make($plain)])->save();
+            $this->post(route('auth.email-otp.verify'), ['code' => $plain])
+                ->assertRedirect(route($home));
             $this->post(route('logout'));
             Notification::fake();
         }

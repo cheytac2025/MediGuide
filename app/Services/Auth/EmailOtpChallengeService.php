@@ -4,7 +4,6 @@ namespace App\Services\Auth;
 
 use App\Enums\AuditAction;
 use App\Enums\AuditOutcome;
-use App\Enums\RoleName;
 use App\Models\EmailOtpChallenge;
 use App\Models\User;
 use App\Notifications\Auth\EmailLoginOtpNotification;
@@ -18,7 +17,10 @@ use Throwable;
 /**
  * Email OTP for password-based logins. Codes are hashed at rest and never logged.
  *
- * Optional patient opt-in uses AUTH_EMAIL_OTP_ENABLED + users.email_otp_enabled.
+ * Account-scoped pilot/opt-in: AUTH_EMAIL_OTP_ENABLED + users.email_otp_enabled
+ * (any role with a verified email). Use this for controlled per-account pilots
+ * without enabling AUTH_REQUIRE_EMAIL_OTP_ALL_ROLES.
+ *
  * Mandatory all-role mode uses AUTH_REQUIRE_EMAIL_OTP_ALL_ROLES (password logins only;
  * passkey/WebAuthn authentications do not enter LoginResponse and are not gated here).
  */
@@ -45,7 +47,6 @@ class EmailOtpChallengeService
         }
 
         return (bool) config('auth_security.email_otp_enabled')
-            && $user->hasRole(RoleName::Patient)
             && $user->email_otp_enabled
             && $user->hasVerifiedEmail();
     }

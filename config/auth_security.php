@@ -63,9 +63,10 @@ return [
     | Optional patient email OTP
     |--------------------------------------------------------------------------
     |
-    | When enabled, patients who opted in (users.email_otp_enabled) complete an
-    | email OTP challenge after password/TOTP login. Privileged MFA remains TOTP.
-    | Keep false until mail delivery is proven.
+    | When enabled, any role with users.email_otp_enabled=true and a verified
+    | email completes an email OTP challenge after password/TOTP login. Use for
+    | account-scoped pilots without AUTH_REQUIRE_EMAIL_OTP_ALL_ROLES. Keep false
+    | until mail delivery is proven.
     |
     */
 
