@@ -55,7 +55,8 @@ fi
 
 echo "=== REFRESH_CHECKPOINT ==="
 # Does not regenerate audit keys or rewrite history — appends new checkpoint head.
-php artisan mediguide:audit-checkpoint
+# --execute is required; without it the command is a dry run.
+php artisan mediguide:audit-checkpoint --execute
 php artisan mediguide:audit-verify
 
 POST_BAK="$BACKUP_DIR/checkpoint_post_refresh_${STAMP}.jsonl"

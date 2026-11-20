@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document | MediGuide Capstone Security Assessment |
-| Version | 1.2 (production dependency + clinic UI deploy) |
+| Version | 1.3 (checkpoint refresh; Nginx pending interactive sudo) |
 | Baseline version | 1.0 (21 November 2026 initial STRIDE/PT) |
 | Report date | 21 November 2026 |
 | Classification | Capstone / Internal Security Assessment |
@@ -11,8 +11,8 @@
 | Application path | /var/www/mediguide |
 | Host | srv2179431 |
 | Database | mediguide_demo |
-| Production Git | 3df7c9efc30d770cf3a9806ed0e96fd65d537a16 |
-| Previous production Git | e2f3a364d9b421c9e1c04bf7a453fa985a3071cc |
+| Production Git | 726d516cefc98e9c3595ef6c906f982545b0a8c2 |
+| Hardening runtime commit | 3df7c9efc30d770cf3a9806ed0e96fd65d537a16 |
 | Deployed packages | Laravel 13.40.0 · commonmark 2.10.2 · Symfony http-foundation/serializer 7.4.23 |
 | Assessor role | Senior penetration tester / Laravel security engineer (AI-assisted) |
 
@@ -506,10 +506,11 @@ Cookie values collected during header inspection were **discarded** and are **no
 | 1.0 | 2026-11-21 | Initial STRIDE / controlled PT report |
 | 1.1 | 2026-11-21 | Post-STRIDE local dependency remediation; header/checkpoint/account plans; retest evidence; production still on e2f3a36 |
 | 1.2 | 2026-11-21 | Production deploy of dependency hardening + clinic description display cleanup at 3df7c9e; FIND-004/005/006 closed in production; Nginx/checkpoint still open |
+| 1.3 | 2026-11-21 | FIND-007 checkpoint refreshed to seq 111 (lag 0); FIND-001/002/003 approved but blocked on interactive sudo |
 
 ---
 
-## Appendix D — Post-STRIDE Hardening Update (v1.1 → v1.2)
+## Appendix D — Post-STRIDE Hardening Update (v1.1 → v1.3)
 
 ### D.1 Dependency applicability and remediation
 
@@ -539,30 +540,38 @@ Focused clinic/AI/booking/security PHPUnit before commit: **395 passed**. Full r
 
 ### D.2 HTTP headers (FIND-001/002/003)
 
-Prepared under `docs/security/nginx/` — **not deployed**.
+Prepared under `docs/security/nginx/` — **approved but not applied** (interactive sudo required).
 
 | Finding | Prepared fix | Production status |
 |---|---|---|
-| FIND-001 HSTS | `max-age=15552000` (no includeSubDomains/preload) | **Open** until Nginx approval |
-| FIND-002 CSP | CSP-Report-Only (no unsafe-inline/eval); enforce later after nonces | **Open** |
-| FIND-003 Server banner | `server_tokens off` | **Open** |
+| FIND-001 HSTS | `max-age=15552000` (no includeSubDomains/preload) | **Open** — awaiting operator sudo apply |
+| FIND-002 CSP | CSP-Report-Only (no unsafe-inline/eval); enforce later after nonces | **Open** — Report-Only only; **not** enforcement |
+| FIND-003 Server banner | `server_tokens off` | **Open** — awaiting operator sudo apply |
+
+Live pre-apply evidence: `Server: nginx/1.24.0 (Ubuntu)`; no HSTS; no CSP-Report-Only.
 
 CSP compatibility note: Blade/Inertia/Vite/`'self'` Bootstrap OK; Google Fonts domains included; `app.blade.php` inline appearance bootstrap will report under Report-Only — do not enforce until nonce/hash refactor.
+
+Operator apply script (staged on VPS): `/tmp/_phase4j_nginx_headers_apply.sh`
 
 ### D.3 Audit checkpoint (FIND-007)
 
 | Item | Value |
 |---|---|
-| Chain (post-deploy) | **111/111 valid** |
-| Checkpoint | seq **54** |
-| Lag | **57** events after checkpoint |
-| Pre-deploy encrypted checkpoint backup | `/home/mediguide/secure-backups/phase4j/checkpoint_pre_hardening_20261120205646.jsonl.enc` |
-| Refresh | Script prepared: `docs/security/ops/audit_checkpoint_refresh_prep.sh` |
-| Executed? | **No** (awaiting separate approval) |
+| Chain | **111/111 valid** |
+| Previous checkpoint | seq **54** (lag 57) |
+| Refreshed checkpoint | seq **111** (matches chain head) |
+| Lag after refresh | **0** |
+| Checkpoint protection | **verified** |
+| Command | `php artisan mediguide:audit-checkpoint --execute` |
+| Pre-refresh enc backup | `checkpoint_pre_refresh_20261120210542.jsonl.enc` |
+| Post-refresh enc backup | `checkpoint_post_refresh_20261120210542.jsonl.enc` |
+| Pass files | `.checkpoint_pass_pre_refresh_*` / `.checkpoint_pass_post_refresh_*` (store separately) |
+| Historical events | Preserved (no key regeneration) |
 
 ### D.4 Account remediation (FIND-008)
 
-Plan only: `docs/security/ops/account_email_remediation_plan.md`. Global OTP remains disabled. OTP pilots **33,35,36,37** unchanged. User 5 untouched.
+Plan only: `docs/security/ops/account_email_remediation_plan.md`. Global OTP remains disabled. OTP pilots **33,35,36,37** unchanged. User 5 untouched. Residual operational risk: inaccessible / unverified account email addresses blocking fleet MFA.
 
 ### D.5 Retest status board
 
@@ -571,36 +580,37 @@ Plan only: `docs/security/ops/account_email_remediation_plan.md`. Global OTP rem
 | FIND-004 | **Resolved in production** at 3df7c9e (commonmark 2.10.2; audit clean) |
 | FIND-005 | **Resolved in production** at 3df7c9e (Laravel 13.40.0; defense-in-depth) |
 | FIND-006 | **Resolved in production** at 3df7c9e (http-foundation/serializer 7.4.23; yaml 7.4.23 locked for dev) |
-| FIND-001 | Prepared — **not verified fixed in production** |
-| FIND-002 | Prepared — **not verified fixed in production** |
-| FIND-003 | Prepared — **not verified fixed in production** |
-| FIND-007 | Backup prepared — **checkpoint not refreshed** |
-| FIND-008 | Plan only — **open** |
+| FIND-007 | **Resolved in production** — checkpoint seq 111 / lag 0 / protection verified |
+| FIND-001 | Approved — **blocked on interactive sudo** |
+| FIND-002 | Approved Report-Only — **blocked on interactive sudo** (enforcement still deferred) |
+| FIND-003 | Approved — **blocked on interactive sudo** |
+| FIND-008 | Plan only — **open** (inaccessible account emails) |
 
-### D.6 Production verification snapshot (v1.2)
+### D.6 Production verification snapshot (v1.3)
 
 | Check | Result |
 |---|---|
 | Host / DB | srv2179431 / mediguide_demo |
+| Git | 726d516cefc98e9c3595ef6c906f982545b0a8c2 |
 | HOME / LOGIN | HTTP 200 |
 | Role gates (unauth) | patient/staff/doctor/admin → 302 |
 | Integrity strict | 11 appointments / 5 patients valid |
-| Audit verify | valid; checkpoint protection verified |
+| Audit verify | valid; checkpoint protection verified; seq **111**; lag **0** |
 | Auth flags | OTP enabled=true; OTP all roles=false; TOTP privileged=false; enforce email verification=false; require verified patient=true |
 | Mail / AI | smtp.gmail.com password set; Anthropic configured (no live calls made) |
 | config.php | 640 mediguide:www-data |
-| Encrypted DB backup | `mediguide_demo_20261120205648.sql.enc` (decrypt header OK) |
-| PHP-FPM reload | **Pending interactive sudo** (`sudo systemctl reload php8.4-fpm`) |
-| Queue restart | **Pending interactive sudo** (optional; `sudo systemctl restart mediguide-queue`) |
-| Nginx change | **None** |
+| Appointments / patients | unchanged (11 / 5) |
+| PHP-FPM reload | **Pending interactive sudo** |
+| Nginx change | **Pending interactive sudo** |
 
 ### D.7 Updated readiness conclusion
 
-| Question | Verdict (v1.2) |
+| Question | Verdict (v1.3) |
 |---|---|
-| Capstone demo security | **ACCEPTABLE**; dependency advisories cleared in production |
-| Production dependency patch | **YES** at 3df7c9e (FPM reload still recommended via sudo) |
-| Nginx header hardening | **NOT APPLIED** |
-| Audit checkpoint refresh | **NOT EXECUTED** |
-| Mandatory fleet OTP | **NOT READY** |
-| Next approvals | (1) `sudo systemctl reload php8.4-fpm` (2) Nginx FIND-001/002/003 (3) checkpoint FIND-007 |
+| Capstone demo security | **ACCEPTABLE**; deps + checkpoint closed |
+| Production dependency patch | **YES** |
+| Audit checkpoint refresh | **YES** (seq 111) |
+| Nginx header hardening | **NOT APPLIED** (sudo required) |
+| CSP enforcement | **NOT COMPLETE** (Report-Only pending apply) |
+| Mandatory fleet OTP | **NOT READY** (FIND-008) |
+| Exact remaining operator action | Interactive sudo for FPM reload + Nginx header apply script |

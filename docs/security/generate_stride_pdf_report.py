@@ -48,7 +48,7 @@ def footer(canvas, doc):
     canvas.line(1.8 * cm, 1.4 * cm, PAGE_W - 1.8 * cm, 1.4 * cm)
     canvas.setFont("Helvetica", 8)
     canvas.setFillColor(colors.HexColor("#333333"))
-    canvas.drawString(1.8 * cm, 0.9 * cm, "MediGuide STRIDE / Controlled PT Report v1.2 — Confidential Capstone")
+    canvas.drawString(1.8 * cm, 0.9 * cm, "MediGuide STRIDE / Controlled PT Report v1.3 — Confidential Capstone")
     canvas.drawRightString(PAGE_W - 1.8 * cm, 0.9 * cm, f"Page {doc.page}")
     canvas.restoreState()
 
@@ -138,11 +138,11 @@ def build():
     story.append(Spacer(1, 1.2 * cm))
     meta = [
         ["Field", "Value"],
-        ["Document version", "1.2 (prod dep + clinic UI) · baselines 1.0/1.1 preserved"],
+        ["Document version", "1.3 (checkpoint done; Nginx pending sudo) · baselines preserved"],
         ["Report date", "21 November 2026"],
         ["Target URL", "https://qmhchospital.com"],
         ["Host / DB", "srv2179431 / mediguide_demo"],
-        ["Production Git", "3df7c9efc30d770cf3a9806ed0e96fd65d537a16"],
+        ["Production Git", "726d516cefc98e9c3595ef6c906f982545b0a8c2"],
         ["Deployed packages", "Laravel 13.40.0 · commonmark 2.10.2 · Symfony HF/serializer 7.4.23"],
         ["Classification", "Capstone / Internal Security Assessment"],
     ]
@@ -300,17 +300,17 @@ def build():
     story.append(p("11. Live Verification Snapshot", st["H1"]))
     live = [
         ["Check", "Value"],
-        ["Git (post-deploy)", "3df7c9efc30d770cf3a9806ed0e96fd65d537a16"],
+        ["Git", "726d516cefc98e9c3595ef6c906f982545b0a8c2"],
         ["HOME / LOGIN", "HTTP 200 / 200"],
         ["APP_DEBUG", "false"],
         ["Session", "database; Secure; HttpOnly; SameSite=lax"],
         ["Present headers", "X-Frame-Options, X-Content-Type-Options, Referrer-Policy"],
-        ["Missing headers", "Strict-Transport-Security, Content-Security-Policy"],
-        ["Server banner", "nginx/1.24.0 (Ubuntu) — FIND-003 still open"],
+        ["Missing headers", "HSTS + CSP-RO (approved; sudo blocked)"],
+        ["Server banner", "nginx/1.24.0 (Ubuntu) — FIND-003 pending sudo"],
         ["OTP flags", "EMAIL_OTP=true; ALL_ROLES=false"],
         ["OTP opt-ins", "33,35,36,37 only"],
         ["Integrity", "11 appt / 5 patient valid"],
-        ["Audit", "111/111; checkpoint 54; lag 57"],
+        ["Audit", "111/111; checkpoint 111; lag 0"],
         ["composer audit (VPS)", "0 advisories"],
         ["Services", "php-fpm, queue, nginx active"],
         ["File modes", "config.php 640 mediguide:www-data"],
@@ -406,8 +406,8 @@ def build():
     story.append(p("<b>Appendix B — Locked packages (deployed):</b> laravel/framework v13.40.0; league/commonmark 2.10.2; symfony/http-foundation v7.4.23; symfony/serializer v7.4.23; symfony/yaml v7.4.23 (require-dev only).", st["Body"]))
     story.append(p("<b>Appendix C — Change log:</b> v1.0 initial STRIDE/PT; v1.1 local dependency remediation; v1.2 production deploy of deps + clinic UI cleanup.", st["Body"]))
     story.append(PageBreak())
-    story.append(p("21. Post-STRIDE Hardening Update (v1.2)", st["H1"]))
-    story.append(p("Baseline v1.0 findings are preserved. v1.2 records production deployment of dependency hardening and clinic description display cleanup.", st["Body"]))
+    story.append(p("21. Post-STRIDE Hardening Update (v1.3)", st["H1"]))
+    story.append(p("Baseline v1.0 findings are preserved. v1.3 records checkpoint refresh completion and Nginx apply blocked on interactive sudo.", st["Body"]))
     rem = [
         ["Finding", "Action", "Prod status"],
         ["FIND-004 commonmark", "2.10.1 → 2.10.2", "Resolved at 3df7c9e"],
@@ -415,16 +415,16 @@ def build():
         ["FIND-006 Symfony", "HF/serializer 7.4.23; yaml 7.4.23 locked", "Resolved at 3df7c9e"],
         ["composer audit", "Clean (0 advisories)", "Verified on VPS"],
         ["Clinic UI phrases", "Display filter for 4 exclusion phrases", "Verified 0 public hits"],
-        ["FIND-001 HSTS", "Nginx snippet prepared", "Not applied"],
-        ["FIND-002 CSP-RO", "Report-Only CSP prepared", "Not applied"],
-        ["FIND-003 server_tokens", "Prep documented", "Not applied"],
-        ["FIND-007 checkpoint", "Backup taken; refresh script ready; lag 57", "Not refreshed"],
+        ["FIND-007 checkpoint", "audit-checkpoint --execute → seq 111", "Resolved (lag 0)"],
+        ["FIND-001 HSTS", "Snippet + apply script ready", "Pending interactive sudo"],
+        ["FIND-002 CSP-RO", "Report-Only only (not enforce)", "Pending interactive sudo"],
+        ["FIND-003 server_tokens", "http { server_tokens off; }", "Pending interactive sudo"],
         ["FIND-008 inbox", "Remediation plan only", "Open"],
     ]
     story.append(table([[Paragraph(c, st["TableCell"]) for c in r] for r in rem], [4.2*cm, 7.3*cm, 4.5*cm]))
     story.append(Spacer(1, 0.25 * cm))
-    story.append(p("Pre-deploy suites: <b>395 passed</b> focused · <b>1,145 passed</b> full PHPUnit. VPS composer audit: clean. Integrity/audit: PASS. PHP-FPM reload still needs interactive sudo.", st["Body"]))
-    story.append(p("<b>Updated verdict:</b> Capstone demo ACCEPTABLE with dependency advisories cleared in production. Nginx/checkpoint/account findings remain open until separately approved and verified. Mandatory fleet OTP remains NOT READY.", st["Body"]))
+    story.append(p("Audit chain 111/111 valid; checkpoint protection verified; encrypted pre/post checkpoint backups stored under /home/mediguide/secure-backups/phase4j/. CSP enforcement is <b>not</b> complete merely because Report-Only is prepared.", st["Body"]))
+    story.append(p("<b>Updated verdict:</b> Capstone demo ACCEPTABLE. Dependencies and checkpoint closed. Nginx FIND-001/002/003 require operator sudo. FIND-008 inaccessible emails remain the primary operational MFA blocker. Mandatory fleet OTP remains NOT READY.", st["Body"]))
     story.append(Spacer(1, 0.6 * cm))
     story.append(p("End of report.", st["CoverSub"]))
 

@@ -1,6 +1,6 @@
 # MediGuide Nginx Security Header Deployment (Prepared)
 
-**Status:** Prepared only — **not applied** to production.
+**Status:** Approved for production — **blocked on interactive sudo**. Apply with `/tmp/_phase4j_nginx_headers_apply.sh` (or the commands in the final hardening report).
 
 ## Findings addressed
 
