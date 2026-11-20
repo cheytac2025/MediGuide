@@ -19,7 +19,7 @@ class UpdateManagedUserStatusRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'status' => ['required', Rule::enum(UserStatus::class)],
+            'status' => ['required', Rule::in([UserStatus::Active->value, UserStatus::Inactive->value])],
         ];
     }
 

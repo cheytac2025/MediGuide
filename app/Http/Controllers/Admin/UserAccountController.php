@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\AccountInvitationPurpose;
 use App\Enums\AuditAction;
 use App\Enums\AuditOutcome;
 use App\Enums\RoleName;
@@ -10,18 +11,23 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreHospitalStaffRequest;
 use App\Http\Requests\Admin\UpdateManagedUserRequest;
 use App\Http\Requests\Admin\UpdateManagedUserStatusRequest;
+use App\Models\AccountInvitation;
 use App\Models\Department;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\Auth\AccountInvitationService;
 use App\Support\Audit\AuditTrailService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Throwable;
 
 class UserAccountController extends Controller
 {
+    public function __construct(private readonly AccountInvitationService $invitations) {}
+
     public function index(Request $request): View
     {
         /** @var User $user */
@@ -40,8 +46,11 @@ class UserAccountController extends Controller
                 $query->whereIn('slug', $slugs);
             })
             ->when(
-                in_array($filter, ['active', 'inactive'], true),
-                fn ($query) => $query->where('status', $filter),
+                in_array($filter, ['active', 'inactive', 'pending'], true),
+                fn ($query) => $query->where(
+                    'status',
+                    $filter === 'pending' ? UserStatus::PendingActivation->value : $filter,
+                ),
             )
             ->orderBy('name')
             ->get();
@@ -80,7 +89,6 @@ class UserAccountController extends Controller
         return view('admin.users.create-staff', [
             'admin' => $this->adminHeader($user),
             'active' => 'accounts',
-            'statuses' => UserStatus::cases(),
             'departments' => Department::query()->orderBy('name')->get(),
         ]);
     }
@@ -89,37 +97,51 @@ class UserAccountController extends Controller
     {
         $attributes = $request->accountAttributes();
         $role = Role::query()->where('slug', RoleName::HospitalStaff->value)->firstOrFail();
+        /** @var User $admin */
+        $admin = $request->user();
 
-        DB::transaction(function () use ($attributes, $request, $role): void {
-            $user = User::query()->create([
-                'role_id' => $role->id,
-                'first_name' => $attributes['first_name'],
-                'middle_name' => $attributes['middle_name'],
-                'last_name' => $attributes['last_name'],
-                'name' => $this->fullName($attributes['first_name'], $attributes['middle_name'], $attributes['last_name']),
-                'email' => $attributes['email'],
-                'password' => $attributes['password'],
-                'status' => $attributes['status'],
-                'email_verified_at' => now(),
-            ]);
-            $departmentIds = $request->departmentIds();
-            $this->syncStaffDepartments($user, $departmentIds);
+        try {
+            $user = DB::transaction(function () use ($attributes, $request, $role): User {
+                $user = User::query()->create([
+                    'role_id' => $role->id,
+                    'first_name' => $attributes['first_name'],
+                    'middle_name' => $attributes['middle_name'],
+                    'last_name' => $attributes['last_name'],
+                    'name' => $this->fullName($attributes['first_name'], $attributes['middle_name'], $attributes['last_name']),
+                    'email' => $attributes['email'],
+                    'password' => Str::password(32),
+                    'status' => UserStatus::PendingActivation,
+                    'email_verified_at' => null,
+                ]);
+                $departmentIds = $request->departmentIds();
+                $this->syncStaffDepartments($user, $departmentIds);
 
-            app(AuditTrailService::class)->recordFor(
-                AuditAction::StaffAccountCreated,
-                AuditOutcome::Success,
-                $user,
-                [
-                    'department_ids' => $departmentIds,
-                    'role' => RoleName::HospitalStaff->value,
-                    'status' => (string) $attributes['status'],
-                ],
-            );
-        });
+                app(AuditTrailService::class)->recordFor(
+                    AuditAction::StaffAccountCreated,
+                    AuditOutcome::Success,
+                    $user,
+                    [
+                        'department_ids' => $departmentIds,
+                        'role' => RoleName::HospitalStaff->value,
+                        'status' => UserStatus::PendingActivation->value,
+                    ],
+                );
+
+                return $user;
+            });
+
+            $this->invitations->issue($user, AccountInvitationPurpose::Activation, $admin);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return back()
+                ->withInput($request->except([]))
+                ->withErrors(['email' => 'The account could not be created or the invitation email failed. Try again or resend from the account page.']);
+        }
 
         return redirect()
             ->route('admin.users')
-            ->with('account_status', 'Hospital Staff account created successfully.');
+            ->with('account_status', 'Hospital Staff account created. An activation invitation was sent.');
     }
 
     public function edit(Request $request, User $user): View
@@ -130,16 +152,24 @@ class UserAccountController extends Controller
         $admin = $request->user();
         $user->load(['role', 'doctor', 'hospitalStaff.departments']);
         $isStaff = $user->hasRole(RoleName::HospitalStaff);
+        $openInvitation = AccountInvitation::query()
+            ->where('user_id', $user->id)
+            ->whereNull('consumed_at')
+            ->whereNull('revoked_at')
+            ->where('expires_at', '>', now())
+            ->orderByDesc('id')
+            ->first();
 
         return view('admin.users.edit', [
             'admin' => $this->adminHeader($admin),
             'active' => 'accounts',
             'account' => $user,
-            'statuses' => UserStatus::cases(),
+            'statuses' => $this->editableStatusesFor($user),
             'departments' => $isStaff ? Department::query()->orderBy('name')->get() : collect(),
             'assignedDepartmentIds' => $isStaff
                 ? ($user->hospitalStaff?->departments->pluck('id')->map(fn (mixed $id): int => (int) $id)->all() ?? [])
                 : [],
+            'openInvitation' => $openInvitation,
         ]);
     }
 
@@ -151,6 +181,7 @@ class UserAccountController extends Controller
 
         DB::transaction(function () use ($attributes, $request, $user): void {
             $previousStatus = $user->status instanceof UserStatus ? $user->status->value : (string) $user->status;
+            $previousEmail = (string) $user->email;
             $user->loadMissing('hospitalStaff.departments');
             $previousDepartments = $user->hospitalStaff?->departments->pluck('id')->map(fn (mixed $id): int => (int) $id)->all() ?? [];
             sort($previousDepartments);
@@ -162,6 +193,10 @@ class UserAccountController extends Controller
                 'email' => $attributes['email'],
                 'status' => $attributes['status'],
             ]);
+
+            if ($previousEmail !== (string) $attributes['email'] && $user->status !== UserStatus::PendingActivation) {
+                $user->forceFill(['email_verified_at' => null])->save();
+            }
 
             if ($user->hasRole(RoleName::HospitalStaff)) {
                 $departmentIds = array_map(intval(...), $request->departmentIds());
@@ -203,6 +238,12 @@ class UserAccountController extends Controller
         $status = UserStatus::from((string) $request->validated('status'));
         $previousStatus = $user->status instanceof UserStatus ? $user->status->value : (string) $user->status;
 
+        if ($user->status === UserStatus::PendingActivation && $status === UserStatus::Active) {
+            return back()->withErrors([
+                'status' => 'Pending accounts become active only through the invitation activation flow.',
+            ]);
+        }
+
         DB::transaction(function () use ($user, $status, $previousStatus): void {
             $user->update(['status' => $status]);
 
@@ -225,6 +266,88 @@ class UserAccountController extends Controller
                     ? 'Account activated successfully.'
                     : 'Account deactivated successfully.',
             );
+    }
+
+    public function resendInvitation(Request $request, User $user): RedirectResponse
+    {
+        $this->ensureManagedAccount($request, $user);
+
+        $invitation = AccountInvitation::query()
+            ->where('user_id', $user->id)
+            ->whereNull('consumed_at')
+            ->whereNull('revoked_at')
+            ->orderByDesc('id')
+            ->first();
+
+        if ($invitation === null || ! $invitation->isOpen()) {
+            return back()->withErrors(['email' => 'No open invitation exists for this account.']);
+        }
+
+        /** @var User $admin */
+        $admin = $request->user();
+
+        try {
+            if (! $this->invitations->resend($invitation, $admin)) {
+                return back()->withErrors(['email' => 'Please wait before resending the invitation.']);
+            }
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return back()->withErrors(['email' => 'The invitation email could not be sent. Try again later.']);
+        }
+
+        return back()->with('account_status', 'Invitation resent.');
+    }
+
+    public function revokeInvitation(Request $request, User $user): RedirectResponse
+    {
+        $this->ensureManagedAccount($request, $user);
+
+        $invitation = AccountInvitation::query()
+            ->where('user_id', $user->id)
+            ->whereNull('consumed_at')
+            ->whereNull('revoked_at')
+            ->orderByDesc('id')
+            ->first();
+
+        if ($invitation === null) {
+            return back()->withErrors(['email' => 'No open invitation exists for this account.']);
+        }
+
+        /** @var User $admin */
+        $admin = $request->user();
+        $this->invitations->revoke($invitation, $admin);
+
+        return back()->with('account_status', 'Invitation revoked.');
+    }
+
+    /**
+     * Existing-account remediation: correct email first, then send a claim invitation
+     * so the recipient proves inbox ownership and sets a password without converting
+     * legacy Active accounts to Pending Activation automatically.
+     */
+    public function sendClaimInvitation(Request $request, User $user): RedirectResponse
+    {
+        $this->ensureManagedAccount($request, $user);
+
+        if ($user->status === UserStatus::PendingActivation) {
+            return back()->withErrors([
+                'email' => 'Pending accounts use activation invitations, not claim invitations.',
+            ]);
+        }
+
+        /** @var User $admin */
+        $admin = $request->user();
+
+        try {
+            $this->invitations->issue($user, AccountInvitationPurpose::Claim, $admin);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return back()->withErrors(['email' => 'The claim invitation could not be sent. Check the email address and try again.']);
+        }
+
+        return back()->with('account_status', 'Account claim invitation sent.');
     }
 
     /**
@@ -258,9 +381,21 @@ class UserAccountController extends Controller
         }
     }
 
+    /**
+     * @return list<UserStatus>
+     */
+    private function editableStatusesFor(User $user): array
+    {
+        if ($user->status === UserStatus::PendingActivation) {
+            return [UserStatus::PendingActivation, UserStatus::Inactive];
+        }
+
+        return [UserStatus::Active, UserStatus::Inactive];
+    }
+
     private function resolvedFilter(mixed $value): string
     {
-        $allowed = ['all', 'staff', 'doctors', 'active', 'inactive'];
+        $allowed = ['all', 'staff', 'doctors', 'active', 'inactive', 'pending'];
 
         return is_string($value) && in_array($value, $allowed, true) ? $value : 'all';
     }

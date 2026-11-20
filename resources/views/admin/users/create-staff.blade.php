@@ -37,25 +37,12 @@
                         Email
                         <input type="email" name="email" value="{{ old('email') }}" maxlength="255" required>
                     </label>
-                    <label class="mg-book-label">
-                        Initial Password
-                        <input type="password" name="password" autocomplete="new-password" required>
-                    </label>
-                    <label class="mg-book-label">
-                        Confirm Password
-                        <input type="password" name="password_confirmation" autocomplete="new-password" required>
-                    </label>
-                    <label class="mg-book-label">
-                        Account Status
-                        <select name="status" required>
-                            @foreach ($statuses as $status)
-                                <option value="{{ $status->value }}" @selected(old('status', \App\Enums\UserStatus::Active->value) === $status->value)>
-                                    {{ strtoupper($status->value) }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </label>
                 </div>
+
+                <p class="mg-appt-subtitle">
+                    The account starts as Pending Activation. MediGuide emails a single-use invitation (48 hours)
+                    so the staff member verifies their inbox and chooses their own password.
+                </p>
 
                 <div class="mg-book-label">
                     <span>Assigned Departments</span>

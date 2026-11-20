@@ -45,6 +45,7 @@ class AdminHospitalClassificationTest extends TestCase
         parent::setUp();
 
         Carbon::setTestNow('2026-10-05 08:00:00');
+        \Illuminate\Support\Facades\Notification::fake();
         $this->seed(RoleSeeder::class);
         $this->seed(DevelopmentDepartmentSeeder::class);
         $this->seed(DevelopmentClinicSeeder::class);
@@ -98,8 +99,6 @@ class AdminHospitalClassificationTest extends TestCase
                 'first_name' => 'Ana',
                 'last_name' => 'Reyes',
                 'email' => 'ana.reyes@mediguide.test',
-                'password' => 'MediGuide@Doc1',
-                'password_confirmation' => 'MediGuide@Doc1',
             ])
             ->assertRedirect(route('admin.doctors'));
 

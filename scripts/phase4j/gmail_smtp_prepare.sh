@@ -8,6 +8,9 @@ APP="${APP_ROOT:-/var/www/mediguide}"
 ENV_FILE="$APP/.env"
 BACKUP_DIR="${BACKUP_DIR:-/home/mediguide/secure-backups}"
 APPROVAL_REQUIRED='APPROVED configure MediGuide Gmail SMTP'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/secure_config_cache.sh
+source "$SCRIPT_DIR/lib/secure_config_cache.sh"
 
 cd "$APP"
 
@@ -25,9 +28,8 @@ mkdir -p "$BACKUP_DIR"
 chmod 700 "$BACKUP_DIR"
 STAMP=$(date -u +%Y%m%d%H%M%S)
 BACKUP="$BACKUP_DIR/dotenv_pre_gmail_smtp_${STAMP}.env"
-umask 077
-cp -a "$ENV_FILE" "$BACKUP"
-chmod 600 "$BACKUP"
+# Isolate umask 077 to the backup copy only. A leaked 077 makes config:cache create mode 600.
+( umask 077; cp -a "$ENV_FILE" "$BACKUP"; chmod 600 "$BACKUP" )
 echo "BACKUP=$BACKUP"
 
 php -r '
@@ -139,8 +141,9 @@ foreach (['AUTH_REQUIRE_VERIFIED_PATIENT', 'AUTH_ENFORCE_EMAIL_VERIFICATION', 'A
 }
 PHP
 
-php artisan config:clear
-php artisan config:cache
+if ! mediguide_secure_config_cache "$APP"; then
+  echo "WARN: secure config cache failed; site remains on .env until config_cache_rebuild.sh succeeds"
+fi
 
 echo "GMAIL_SMTP_CONFIGURED=yes"
 echo "ROLLBACK_BACKUP=$BACKUP"

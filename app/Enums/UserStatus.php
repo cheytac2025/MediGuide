@@ -6,4 +6,5 @@ enum UserStatus: string
 {
     case Active = 'active';
     case Inactive = 'inactive';
+    case PendingActivation = 'pending_activation';
 }

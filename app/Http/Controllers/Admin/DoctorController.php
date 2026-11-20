@@ -63,18 +63,22 @@ class DoctorController extends Controller
     public function store(StoreDoctorRequest $request): RedirectResponse
     {
         try {
-            $this->doctors->create($request->doctorAttributes(), $request->accountAttributes());
+            $this->doctors->create(
+                $request->doctorAttributes(),
+                $request->accountAttributes(),
+                $request->user(),
+            );
         } catch (ValidationException $exception) {
-            return back()->withInput($request->except(['password', 'password_confirmation']))->withErrors($exception->errors());
+            return back()->withInput($request->except([]))->withErrors($exception->errors());
         } catch (Throwable) {
             return back()
-                ->withInput($request->except(['password', 'password_confirmation']))
-                ->withErrors(['email' => 'The doctor account could not be created. Please try again.']);
+                ->withInput($request->except([]))
+                ->withErrors(['email' => 'The doctor account could not be created or the invitation email failed. Please try again.']);
         }
 
         return redirect()
             ->route('admin.doctors')
-            ->with('doctor_status', 'Doctor added successfully.');
+            ->with('doctor_status', 'Doctor added. An activation invitation was sent.');
     }
 
     public function edit(Request $request, Doctor $doctor): View

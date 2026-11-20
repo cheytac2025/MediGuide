@@ -73,17 +73,12 @@
                         Email
                         <input type="email" name="email" value="{{ old('email') }}" maxlength="255" required>
                     </label>
-
-                    <label class="mg-book-label">
-                        Initial Password
-                        <input type="password" name="password" autocomplete="new-password" required>
-                    </label>
-
-                    <label class="mg-book-label">
-                        Confirm Password
-                        <input type="password" name="password_confirmation" autocomplete="new-password" required>
-                    </label>
                 </div>
+
+                <p class="mg-appt-subtitle">
+                    The linked Doctor account starts as Pending Activation. MediGuide emails a single-use
+                    invitation (48 hours) so the doctor verifies their inbox and chooses their own password.
+                </p>
 
                 <div class="mg-staff-actions">
                     <button type="submit" class="mg-appt-details">+ Add Doctor</button>

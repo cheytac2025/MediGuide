@@ -9,7 +9,6 @@ use App\Models\Clinic;
 use App\Rules\ValidPersonName;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\Validator;
 
 class StoreDoctorRequest extends FormRequest
@@ -48,12 +47,6 @@ class StoreDoctorRequest extends FormRequest
             'middle_name' => ['nullable', 'string', 'max:100', new ValidPersonName],
             'last_name' => ['required', 'string', 'max:100', new ValidPersonName],
             'email' => ['required', 'string', 'email:filter', 'max:255', 'unique:users,email'],
-            'password' => [
-                'required',
-                'string',
-                'confirmed',
-                Password::min(8)->mixedCase()->letters()->numbers()->symbols(),
-            ],
         ];
     }
 
@@ -103,7 +96,7 @@ class StoreDoctorRequest extends FormRequest
     }
 
     /**
-     * @return array{first_name: string, middle_name: ?string, last_name: string, email: string, password: string}
+     * @return array{first_name: string, middle_name: ?string, last_name: string, email: string}
      */
     public function accountAttributes(): array
     {
@@ -112,7 +105,6 @@ class StoreDoctorRequest extends FormRequest
             'middle_name' => $this->validated('middle_name'),
             'last_name' => (string) $this->validated('last_name'),
             'email' => (string) $this->validated('email'),
-            'password' => (string) $this->validated('password'),
         ];
     }
 

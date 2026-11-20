@@ -8,12 +8,14 @@ use App\Enums\DoctorStatus;
 use App\Enums\RoleName;
 use App\Enums\Sex;
 use App\Enums\UserStatus;
+use App\Models\AccountInvitation;
 use App\Models\Appointment;
 use App\Models\Department;
 use App\Models\Doctor;
 use App\Models\DoctorSchedule;
 use App\Models\Role;
 use App\Models\User;
+use App\Notifications\Auth\AccountActivationInvitation;
 use Database\Seeders\DevelopmentClinicSeeder;
 use Database\Seeders\DevelopmentDepartmentSeeder;
 use Database\Seeders\DevelopmentDoctorScheduleSeeder;
@@ -21,6 +23,9 @@ use Database\Seeders\DevelopmentDoctorSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\URL;
+use ReflectionClass;
 use Tests\TestCase;
 
 class AdminUserAccountTest extends TestCase
@@ -66,11 +71,14 @@ class AdminUserAccountTest extends TestCase
         $this->actingAs($this->admin())
             ->get(route('admin.users.staff.create'))
             ->assertOk()
-            ->assertSee('Add Hospital Staff');
+            ->assertSee('Add Hospital Staff')
+            ->assertSee('Pending Activation')
+            ->assertDontSee('name="password"', false);
     }
 
     public function test_it_admin_creates_hospital_staff_and_cannot_override_the_role(): void
     {
+        Notification::fake();
         $doctorRole = Role::query()->where('slug', RoleName::Doctor->value)->firstOrFail();
 
         $this->actingAs($this->admin())
@@ -78,26 +86,153 @@ class AdminUserAccountTest extends TestCase
                 'role' => RoleName::Doctor->value,
                 'role_id' => $doctorRole->id,
                 'role_slug' => RoleName::ItAdministrator->value,
+                'password' => 'MediGuide@Staff1',
+                'password_confirmation' => 'MediGuide@Staff1',
+                'status' => UserStatus::Active->value,
             ]))
             ->assertRedirect(route('admin.users'))
-            ->assertSessionHas('account_status', 'Hospital Staff account created successfully.');
+            ->assertSessionHas('account_status', 'Hospital Staff account created. An activation invitation was sent.');
 
         $user = User::query()->where('email', 'mira.santos@mediguide.test')->firstOrFail();
 
         $this->assertTrue($user->hasRole(RoleName::HospitalStaff));
         $this->assertFalse($user->hasRole(RoleName::Doctor));
-        $this->assertTrue(Hash::check('MediGuide@Staff1', $user->password));
-        $this->assertNotSame('MediGuide@Staff1', $user->getRawOriginal('password'));
+        $this->assertSame(UserStatus::PendingActivation, $user->status);
+        $this->assertNull($user->email_verified_at);
+        $this->assertFalse(Hash::check('MediGuide@Staff1', $user->password));
         $this->assertNull($user->doctor);
+        $this->assertSame(1, AccountInvitation::query()->where('user_id', $user->id)->count());
+        Notification::assertSentTo($user, AccountActivationInvitation::class);
     }
 
     public function test_duplicate_staff_email_is_rejected(): void
     {
+        Notification::fake();
         User::factory()->create(['email' => 'mira.santos@mediguide.test']);
 
         $this->actingAs($this->admin())
             ->post(route('admin.users.staff.store'), $this->staffPayload())
             ->assertSessionHasErrors('email');
+    }
+
+    public function test_staff_activation_invitation_sets_password_and_activates(): void
+    {
+        Notification::fake();
+
+        $this->actingAs($this->admin())
+            ->post(route('admin.users.staff.store'), $this->staffPayload())
+            ->assertRedirect(route('admin.users'));
+
+        $user = User::query()->where('email', 'mira.santos@mediguide.test')->firstOrFail();
+        $token = $this->plainInvitationToken($user);
+
+        $this->post(route('logout'));
+
+        $this->post($this->signedActivateUrl($token), [
+            'password' => 'MediGuide@Activate1',
+            'password_confirmation' => 'MediGuide@Activate1',
+        ])->assertRedirect(route('login'));
+
+        $user->refresh();
+        $this->assertSame(UserStatus::Active, $user->status);
+        $this->assertNotNull($user->email_verified_at);
+        $this->assertTrue(Hash::check('MediGuide@Activate1', $user->password));
+        $this->assertNotNull(AccountInvitation::query()->where('user_id', $user->id)->whereNotNull('consumed_at')->first());
+
+        $this->post(route('login.store'), [
+            'email' => $user->email,
+            'password' => 'MediGuide@Activate1',
+        ])->assertRedirect(route('staff.dashboard'));
+    }
+
+    public function test_expired_revoked_and_reused_invitations_are_rejected(): void
+    {
+        Notification::fake();
+
+        $this->actingAs($this->admin())
+            ->post(route('admin.users.staff.store'), $this->staffPayload())
+            ->assertRedirect(route('admin.users'));
+
+        $user = User::query()->where('email', 'mira.santos@mediguide.test')->firstOrFail();
+        $token = $this->plainInvitationToken($user);
+        $invitation = AccountInvitation::query()->where('user_id', $user->id)->latest('id')->firstOrFail();
+
+        $this->post(route('logout'));
+
+        $invitation->forceFill(['expires_at' => now()->subHour()])->save();
+        $this->post($this->signedActivateUrl($token), [
+            'password' => 'MediGuide@Activate1',
+            'password_confirmation' => 'MediGuide@Activate1',
+        ])->assertRedirect(route('login'))->assertSessionHasErrors('email');
+
+        $invitation->forceFill([
+            'expires_at' => now()->addHours(48),
+            'revoked_at' => now(),
+            'consumed_at' => null,
+        ])->save();
+        $this->post($this->signedActivateUrl($token), [
+            'password' => 'MediGuide@Activate1',
+            'password_confirmation' => 'MediGuide@Activate1',
+        ])->assertSessionHasErrors('email');
+
+        $invitation->forceFill(['revoked_at' => null, 'consumed_at' => null])->save();
+        $this->post($this->signedActivateUrl($token), [
+            'password' => 'MediGuide@Activate1',
+            'password_confirmation' => 'MediGuide@Activate1',
+        ])->assertRedirect(route('login'));
+
+        $this->post($this->signedActivateUrl($token), [
+            'password' => 'MediGuide@Activate2',
+            'password_confirmation' => 'MediGuide@Activate2',
+        ])->assertSessionHasErrors('email');
+    }
+
+    public function test_unsigned_activation_link_is_rejected(): void
+    {
+        Notification::fake();
+
+        $this->actingAs($this->admin())
+            ->post(route('admin.users.staff.store'), $this->staffPayload())
+            ->assertRedirect(route('admin.users'));
+
+        $user = User::query()->where('email', 'mira.santos@mediguide.test')->firstOrFail();
+        $token = $this->plainInvitationToken($user);
+        $this->post(route('logout'));
+
+        $this->post(route('account.activate.store', ['token' => $token]), [
+            'password' => 'MediGuide@Activate1',
+            'password_confirmation' => 'MediGuide@Activate1',
+        ])->assertForbidden();
+    }
+
+    public function test_claim_invitation_preserves_active_status_and_roles(): void
+    {
+        Notification::fake();
+        $staff = $this->staffAccount();
+        $roleBefore = $staff->role_id;
+
+        $this->actingAs($this->admin())
+            ->from(route('admin.users.edit', $staff))
+            ->post(route('admin.users.invitation.claim', $staff))
+            ->assertRedirect(route('admin.users.edit', $staff));
+
+        $staff->refresh();
+        $this->assertSame(UserStatus::Active, $staff->status);
+        $this->assertSame($roleBefore, $staff->role_id);
+        Notification::assertSentTo($staff, AccountActivationInvitation::class);
+
+        $token = $this->plainInvitationToken($staff);
+        $this->post(route('logout'));
+
+        $this->post($this->signedActivateUrl($token), [
+            'password' => 'MediGuide@Claim99',
+            'password_confirmation' => 'MediGuide@Claim99',
+        ])->assertRedirect(route('login'));
+
+        $staff->refresh();
+        $this->assertSame(UserStatus::Active, $staff->status);
+        $this->assertTrue($staff->hasRole(RoleName::HospitalStaff));
+        $this->assertTrue(Hash::check('MediGuide@Claim99', $staff->password));
     }
 
     public function test_it_admin_can_edit_staff_name_and_email(): void
@@ -318,11 +453,34 @@ class AdminUserAccountTest extends TestCase
             'middle_name' => null,
             'last_name' => 'Santos',
             'email' => 'mira.santos@mediguide.test',
-            'password' => 'MediGuide@Staff1',
-            'password_confirmation' => 'MediGuide@Staff1',
-            'status' => UserStatus::Active->value,
             'departments' => [$this->departmentId('Development Department A')],
         ], $overrides);
+    }
+
+    private function plainInvitationToken(User $user): string
+    {
+        $token = null;
+
+        Notification::assertSentTo($user, AccountActivationInvitation::class, function (AccountActivationInvitation $notification) use (&$token): bool {
+            $property = (new ReflectionClass($notification))->getProperty('plainToken');
+            $property->setAccessible(true);
+            $token = (string) $property->getValue($notification);
+
+            return true;
+        });
+
+        $this->assertNotEmpty($token);
+
+        return $token;
+    }
+
+    private function signedActivateUrl(string $token): string
+    {
+        return URL::temporarySignedRoute(
+            'account.activate.store',
+            now()->addHours(48),
+            ['token' => $token],
+        );
     }
 
     private function departmentId(string $name): int

@@ -13,6 +13,10 @@
                 <a class="mg-appt-back" href="{{ route('admin.users') }}">Back to User Accounts</a>
             </div>
 
+            @if (session('account_status'))
+                <div class="mg-book-alert" role="status">{{ session('account_status') }}</div>
+            @endif
+
             @if ($errors->any())
                 <div class="mg-book-alert" role="alert">{{ $errors->first() }}</div>
             @endif
@@ -71,6 +75,52 @@
                     <button type="submit" class="mg-appt-details">Save Changes</button>
                 </div>
             </form>
+
+            <section class="mg-panel" style="margin-top: 1.5rem;">
+                <h2 class="mg-panel-title">Account invitation</h2>
+                @if ($account->status === \App\Enums\UserStatus::PendingActivation)
+                    <p class="mg-appt-subtitle">
+                        This account is pending activation.
+                        @if ($openInvitation)
+                            An open invitation expires {{ $openInvitation->expires_at->timezone(config('app.timezone'))->format('M j, Y g:i A T') }}.
+                        @else
+                            No open invitation is available — resend after creating a new one is not automatic; use Resend if one exists, or create a claim path after correcting email.
+                        @endif
+                    </p>
+                    <div class="mg-staff-actions">
+                        <form method="POST" action="{{ route('admin.users.invitation.resend', $account) }}">
+                            @csrf
+                            <button type="submit" class="mg-appt-details">Resend activation invitation</button>
+                        </form>
+                        <form method="POST" action="{{ route('admin.users.invitation.revoke', $account) }}">
+                            @csrf
+                            <button type="submit" class="mg-appt-details">Revoke invitation</button>
+                        </form>
+                    </div>
+                @else
+                    <p class="mg-appt-subtitle">
+                        For existing Active/Inactive accounts with an inaccessible or corrected email: update the email above,
+                        save, then send a claim invitation. The recipient verifies inbox ownership and sets a password.
+                        This does not convert the account to Pending Activation automatically.
+                    </p>
+                    <div class="mg-staff-actions">
+                        <form method="POST" action="{{ route('admin.users.invitation.claim', $account) }}">
+                            @csrf
+                            <button type="submit" class="mg-appt-details">Send claim invitation</button>
+                        </form>
+                        @if ($openInvitation)
+                            <form method="POST" action="{{ route('admin.users.invitation.resend', $account) }}">
+                                @csrf
+                                <button type="submit" class="mg-appt-details">Resend open invitation</button>
+                            </form>
+                            <form method="POST" action="{{ route('admin.users.invitation.revoke', $account) }}">
+                                @csrf
+                                <button type="submit" class="mg-appt-details">Revoke open invitation</button>
+                            </form>
+                        @endif
+                    </div>
+                @endif
+            </section>
         </section>
     </div>
 @endsection

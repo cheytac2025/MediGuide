@@ -23,6 +23,12 @@ enum AuditAction: string
     case EmailOtpFailed = 'auth.email_otp.failed';
     case EmailOtpResent = 'auth.email_otp.resent';
     case StaffAccountCreated = 'admin.staff.created';
+    case AccountInvitationSent = 'admin.account.invitation_sent';
+    case AccountInvitationResent = 'admin.account.invitation_resent';
+    case AccountInvitationRevoked = 'admin.account.invitation_revoked';
+    case AccountInvitationAccepted = 'admin.account.invitation_accepted';
+    case AccountInvitationExpired = 'admin.account.invitation_expired';
+    case AccountClaimInvitationSent = 'admin.account.claim_invitation_sent';
     case AccountStatusChanged = 'admin.account.status_changed';
     case DepartmentAssignmentChanged = 'admin.staff.departments_changed';
     case DepartmentCreated = 'admin.department.created';

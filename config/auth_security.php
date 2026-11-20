@@ -82,6 +82,33 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Mandatory email OTP for all roles (password-based logins)
+    |--------------------------------------------------------------------------
+    |
+    | When true, every password-based login for any role must complete email OTP
+    | after credentials succeed (and after Fortify TOTP when that challenge runs).
+    | Passkey (WebAuthn) logins are not password-based and do not use this gate.
+    | Keep false until production inboxes are remediated.
+    |
+    */
+
+    'require_email_otp_all_roles' => filter_var(
+        env('AUTH_REQUIRE_EMAIL_OTP_ALL_ROLES', false),
+        FILTER_VALIDATE_BOOLEAN,
+    ),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Account invitation TTL
+    |--------------------------------------------------------------------------
+    */
+
+    'account_invitation_ttl_hours' => (int) env('AUTH_ACCOUNT_INVITATION_TTL_HOURS', 48),
+
+    'account_invitation_resend_cooldown_seconds' => (int) env('AUTH_ACCOUNT_INVITATION_RESEND_COOLDOWN_SECONDS', 60),
+
+    /*
+    |--------------------------------------------------------------------------
     | Privileged TOTP enforcement
     |--------------------------------------------------------------------------
     |

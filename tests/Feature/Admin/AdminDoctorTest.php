@@ -10,12 +10,14 @@ use App\Enums\DoctorStatus;
 use App\Enums\HospitalDataSource;
 use App\Enums\RoleName;
 use App\Enums\Sex;
+use App\Enums\UserStatus;
 use App\Models\Appointment;
 use App\Models\Clinic;
 use App\Models\Department;
 use App\Models\Doctor;
 use App\Models\DoctorSchedule;
 use App\Models\User;
+use App\Notifications\Auth\AccountActivationInvitation;
 use App\Support\AiDisclaimer;
 use Database\Seeders\DevelopmentClinicSeeder;
 use Database\Seeders\DevelopmentDepartmentSeeder;
@@ -25,6 +27,8 @@ use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 
 class AdminDoctorTest extends TestCase
@@ -35,6 +39,7 @@ class AdminDoctorTest extends TestCase
     {
         parent::setUp();
 
+        Notification::fake();
         $this->seed(RoleSeeder::class);
         $this->seed(DevelopmentDepartmentSeeder::class);
         $this->seed(DevelopmentClinicSeeder::class);
@@ -86,11 +91,14 @@ class AdminDoctorTest extends TestCase
             ->get(route('admin.doctors.create'))
             ->assertOk()
             ->assertSee('Add Doctor')
-            ->assertSee('Development Clinic A');
+            ->assertSee('Development Clinic A')
+            ->assertSee('Pending Activation')
+            ->assertDontSee('name="password"', false);
     }
 
     public function test_it_admin_can_create_a_linked_doctor_account(): void
     {
+        Notification::fake();
         $clinic = $this->hospitalClinic();
 
         $this->actingAs($this->admin())
@@ -98,9 +106,11 @@ class AdminDoctorTest extends TestCase
                 'role' => RoleName::Patient->value,
                 'role_id' => 1,
                 'user_id' => 99,
+                'password' => 'MediGuide@Doc1',
+                'password_confirmation' => 'MediGuide@Doc1',
             ]))
             ->assertRedirect(route('admin.doctors'))
-            ->assertSessionHas('doctor_status', 'Doctor added successfully.');
+            ->assertSessionHas('doctor_status', 'Doctor added. An activation invitation was sent.');
 
         $doctor = Doctor::query()->where('display_name', 'Dr. Ana Cruz')->firstOrFail();
         $user = User::query()->where('email', 'ana.cruz@mediguide.test')->firstOrFail();
@@ -109,16 +119,35 @@ class AdminDoctorTest extends TestCase
         $this->assertSame($user->id, $doctor->user_id);
         $this->assertTrue($user->hasRole(RoleName::Doctor));
         $this->assertFalse($user->hasRole(RoleName::Patient));
-        $this->assertTrue(Hash::check('MediGuide@Doc1', $user->password));
-        $this->assertNotSame('MediGuide@Doc1', $user->getRawOriginal('password'));
+        $this->assertSame(UserStatus::PendingActivation, $user->status);
+        $this->assertNull($user->email_verified_at);
+        $this->assertFalse(Hash::check('MediGuide@Doc1', $user->password));
+        Notification::assertSentTo($user, AccountActivationInvitation::class);
     }
 
     public function test_new_doctor_can_authenticate_and_reaches_the_doctor_dashboard(): void
     {
+        Notification::fake();
+
         $this->actingAs($this->admin())
             ->post(route('admin.doctors.store'), $this->payload($this->hospitalClinic()));
 
+        $user = User::query()->where('email', 'ana.cruz@mediguide.test')->firstOrFail();
+        $token = null;
+        Notification::assertSentTo($user, AccountActivationInvitation::class, function (AccountActivationInvitation $notification) use (&$token): bool {
+            $property = (new \ReflectionClass($notification))->getProperty('plainToken');
+            $property->setAccessible(true);
+            $token = (string) $property->getValue($notification);
+
+            return true;
+        });
+
         $this->post(route('logout'));
+
+        $this->post(URL::temporarySignedRoute('account.activate.store', now()->addHours(48), ['token' => $token]), [
+            'password' => 'MediGuide@Doc1',
+            'password_confirmation' => 'MediGuide@Doc1',
+        ])->assertRedirect(route('login'));
 
         $this->post(route('login.store'), [
             'email' => 'ana.cruz@mediguide.test',
@@ -437,8 +466,6 @@ class AdminDoctorTest extends TestCase
             'middle_name' => null,
             'last_name' => 'Cruz',
             'email' => 'ana.cruz@mediguide.test',
-            'password' => 'MediGuide@Doc1',
-            'password_confirmation' => 'MediGuide@Doc1',
         ], $overrides);
     }
 

@@ -35,6 +35,7 @@ class HospitalStaffDepartmentScopeTest extends TestCase
         parent::setUp();
 
         Carbon::setTestNow('2026-10-05 08:00:00');
+        \Illuminate\Support\Facades\Notification::fake();
 
         $this->seed(RoleSeeder::class);
         $this->seed(DevelopmentDepartmentSeeder::class);
@@ -643,9 +644,6 @@ class HospitalStaffDepartmentScopeTest extends TestCase
             'middle_name' => null,
             'last_name' => 'Santos',
             'email' => 'mira.scope@mediguide.test',
-            'password' => 'MediGuide@Staff1',
-            'password_confirmation' => 'MediGuide@Staff1',
-            'status' => UserStatus::Active->value,
             'departments' => [$this->departmentId('Development Department A')],
         ], $overrides);
     }

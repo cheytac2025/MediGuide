@@ -388,9 +388,6 @@ class SecurityHardeningTest extends TestCase
             'first_name' => 'Taken',
             'last_name' => 'Over',
             'email' => $patient->email,
-            'password' => 'MediGuide@Staff1',
-            'password_confirmation' => 'MediGuide@Staff1',
-            'status' => UserStatus::Active->value,
             'departments' => [Department::query()->where('name', 'Development Department A')->value('id')],
         ])->assertSessionHasErrors('email');
 

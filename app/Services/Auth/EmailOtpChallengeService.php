@@ -16,7 +16,11 @@ use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * Optional patient email OTP. Codes are hashed at rest and never logged.
+ * Email OTP for password-based logins. Codes are hashed at rest and never logged.
+ *
+ * Optional patient opt-in uses AUTH_EMAIL_OTP_ENABLED + users.email_otp_enabled.
+ * Mandatory all-role mode uses AUTH_REQUIRE_EMAIL_OTP_ALL_ROLES (password logins only;
+ * passkey/WebAuthn authentications do not enter LoginResponse and are not gated here).
  */
 class EmailOtpChallengeService
 {
@@ -30,12 +34,17 @@ class EmailOtpChallengeService
 
     public function featureEnabled(): bool
     {
-        return (bool) config('auth_security.email_otp_enabled');
+        return (bool) config('auth_security.email_otp_enabled')
+            || (bool) config('auth_security.require_email_otp_all_roles');
     }
 
     public function userRequiresChallenge(User $user): bool
     {
-        return $this->featureEnabled()
+        if ((bool) config('auth_security.require_email_otp_all_roles')) {
+            return filled($user->email);
+        }
+
+        return (bool) config('auth_security.email_otp_enabled')
             && $user->hasRole(RoleName::Patient)
             && $user->email_otp_enabled
             && $user->hasVerifiedEmail();

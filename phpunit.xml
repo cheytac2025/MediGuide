@@ -51,6 +51,7 @@
         <env name="AUTH_REQUIRE_VERIFIED_PATIENT" value="false" force="true"/>
         <env name="AUTH_ENFORCE_EMAIL_VERIFICATION" value="false" force="true"/>
         <env name="AUTH_EMAIL_OTP_ENABLED" value="false" force="true"/>
+        <env name="AUTH_REQUIRE_EMAIL_OTP_ALL_ROLES" value="false" force="true"/>
         <env name="AUTH_REQUIRE_TOTP_PRIVILEGED" value="false" force="true"/>
     </php>
 </phpunit>

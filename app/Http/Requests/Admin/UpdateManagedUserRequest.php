@@ -34,12 +34,17 @@ class UpdateManagedUserRequest extends FormRequest
         $user = $this->route('user');
         $userId = $user instanceof User ? $user->id : null;
 
+        $allowedStatuses = [UserStatus::Active->value, UserStatus::Inactive->value];
+        if ($user instanceof User && $user->status === UserStatus::PendingActivation) {
+            $allowedStatuses = [UserStatus::PendingActivation->value, UserStatus::Inactive->value];
+        }
+
         $rules = [
             'first_name' => ['required', 'string', 'max:100', new ValidPersonName],
             'middle_name' => ['nullable', 'string', 'max:100', new ValidPersonName],
             'last_name' => ['required', 'string', 'max:100', new ValidPersonName],
             'email' => ['required', 'string', 'email:filter', 'max:255', Rule::unique('users', 'email')->ignore($userId)],
-            'status' => ['required', Rule::enum(UserStatus::class)],
+            'status' => ['required', Rule::in($allowedStatuses)],
         ];
 
         if ($user instanceof User && $user->loadMissing('role')->hasRole(RoleName::HospitalStaff)) {

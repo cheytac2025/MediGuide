@@ -6,6 +6,9 @@ APP="${APP_ROOT:-/var/www/mediguide}"
 ENV_FILE="$APP/.env"
 BACKUP_DIR="${BACKUP_DIR:-/home/mediguide/secure-backups}"
 APPROVAL_REQUIRED='APPROVED rollback MediGuide Gmail SMTP'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/secure_config_cache.sh
+source "$SCRIPT_DIR/lib/secure_config_cache.sh"
 
 cd "$APP"
 
@@ -23,9 +26,8 @@ STAMP=$(date -u +%Y%m%d%H%M%S)
 SAFE_COPY="$BACKUP_DIR/dotenv_pre_gmail_rollback_${STAMP}.env"
 mkdir -p "$BACKUP_DIR"
 chmod 700 "$BACKUP_DIR"
-umask 077
-cp -a "$ENV_FILE" "$SAFE_COPY"
-chmod 600 "$SAFE_COPY"
+# Isolate umask 077 to the safety copy only (prevents config:cache mode-600 outage).
+( umask 077; cp -a "$ENV_FILE" "$SAFE_COPY"; chmod 600 "$SAFE_COPY" )
 echo "SAFETY_COPY=$SAFE_COPY"
 
 if [[ -n "${RESTORE_BACKUP:-}" ]]; then
@@ -77,6 +79,8 @@ echo "APP_KEY=".(preg_match("/^APP_KEY=.+/m",$env)?"present":"MISSING").PHP_EOL;
 echo "ANTHROPIC_API_KEY=".(preg_match("/^ANTHROPIC_API_KEY=.+/m",$env)?"present":"MISSING").PHP_EOL;
 '
 
-php artisan config:clear
-php artisan config:cache
+if ! mediguide_secure_config_cache "$APP"; then
+  echo "WARN: secure config cache failed; site remains on .env until config_cache_rebuild.sh succeeds"
+fi
+
 echo "GMAIL_SMTP_ROLLBACK_DONE=yes"

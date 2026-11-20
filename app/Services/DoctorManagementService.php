@@ -2,35 +2,38 @@
 
 namespace App\Services;
 
+use App\Enums\AccountInvitationPurpose;
 use App\Enums\AppointmentStatus;
 use App\Enums\AuditAction;
 use App\Enums\AuditOutcome;
 use App\Enums\ClinicStatus;
 use App\Enums\DepartmentStatus;
 use App\Enums\DoctorStatus;
-use App\Enums\RoleName;
 use App\Enums\HospitalDataSource;
+use App\Enums\RoleName;
 use App\Enums\UserStatus;
 use App\Models\Appointment;
 use App\Models\Clinic;
 use App\Models\Doctor;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\Auth\AccountInvitationService;
 use App\Services\HospitalImport\RecordProvenanceService;
 use App\Support\Audit\AuditTrailService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class DoctorManagementService
 {
     /**
      * @param  array{display_name: string, clinic_id: int, specialization: ?string, status: string}  $doctorAttributes
-     * @param  array{first_name: string, middle_name: ?string, last_name: string, email: string, password: string}  $accountAttributes
+     * @param  array{first_name: string, middle_name: ?string, last_name: string, email: string}  $accountAttributes
      */
-    public function create(array $doctorAttributes, array $accountAttributes): Doctor
+    public function create(array $doctorAttributes, array $accountAttributes, ?User $invitedBy = null): Doctor
     {
-        return DB::transaction(function () use ($doctorAttributes, $accountAttributes): Doctor {
+        $doctor = DB::transaction(function () use ($doctorAttributes, $accountAttributes): Doctor {
             $clinic = $this->clinicForAssignment((int) $doctorAttributes['clinic_id']);
             $this->assertActiveDoctorPlacement($clinic, DoctorStatus::from($doctorAttributes['status']));
             $dataSource = HospitalDataSource::Imported;
@@ -53,9 +56,9 @@ class DoctorManagementService
                     $accountAttributes['last_name'],
                 ),
                 'email' => $accountAttributes['email'],
-                'password' => $accountAttributes['password'],
-                'status' => UserStatus::Active,
-                'email_verified_at' => now(),
+                'password' => Str::password(32),
+                'status' => UserStatus::PendingActivation,
+                'email_verified_at' => null,
             ]);
 
             $doctor = Doctor::query()->create([
@@ -75,12 +78,21 @@ class DoctorManagementService
                     'account_user_id' => (int) $user->id,
                     'clinic_id' => (int) $clinic->id,
                     'status' => (string) $doctorAttributes['status'],
+                    'account_status' => UserStatus::PendingActivation->value,
                     'data_source' => $dataSource->value,
                 ],
             );
 
             return $doctor;
         });
+
+        app(AccountInvitationService::class)->issue(
+            $doctor->user()->firstOrFail(),
+            AccountInvitationPurpose::Activation,
+            $invitedBy,
+        );
+
+        return $doctor->load('user');
     }
 
     /**

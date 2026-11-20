@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\DepartmentController;
 use App\Http\Controllers\Admin\DoctorController as AdminDoctorController;
 use App\Http\Controllers\Admin\UserAccountController;
 use App\Http\Controllers\AiDisclaimerController;
+use App\Http\Controllers\Auth\AccountActivationController;
 use App\Http\Controllers\Auth\EmailOtpChallengeController;
 use App\Http\Controllers\Auth\RegisteredPatientController;
 use App\Http\Controllers\DashboardUnavailableController;
@@ -247,15 +248,34 @@ Route::middleware('auth')->group(function () {
         Route::patch('/admin/users/{user}/status', [UserAccountController::class, 'updateStatus'])
             ->whereNumber('user')
             ->name('admin.users.status');
+        Route::post('/admin/users/{user}/invitation/resend', [UserAccountController::class, 'resendInvitation'])
+            ->whereNumber('user')
+            ->name('admin.users.invitation.resend');
+        Route::post('/admin/users/{user}/invitation/revoke', [UserAccountController::class, 'revokeInvitation'])
+            ->whereNumber('user')
+            ->name('admin.users.invitation.revoke');
+        Route::post('/admin/users/{user}/invitation/claim', [UserAccountController::class, 'sendClaimInvitation'])
+            ->whereNumber('user')
+            ->name('admin.users.invitation.claim');
     });
 });
 
 Route::middleware('guest')->group(function () {
+    Route::get('/account/activate/{token}', [AccountActivationController::class, 'show'])
+        ->where('token', '[A-Za-z0-9]{64}')
+        ->middleware('signed')
+        ->name('account.activate.show');
+    Route::post('/account/activate/{token}', [AccountActivationController::class, 'store'])
+        ->where('token', '[A-Za-z0-9]{64}')
+        ->middleware(['signed', 'throttle:6,1'])
+        ->name('account.activate.store');
+
     Route::get('/register', [RegisteredPatientController::class, 'create'])->name('register');
     Route::post('/register', [RegisteredPatientController::class, 'store'])
         ->middleware('throttle:register')
         ->name('register.store');
 });
+
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
