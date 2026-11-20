@@ -52,6 +52,26 @@ class AiClinicDescriptionKindTest extends TestCase
         $this->assertNotSame('approved_service_description', $kind->value);
     }
 
+    public function test_public_display_hides_exact_development_and_import_phrases(): void
+    {
+        $this->assertNull(AiClinicDescriptionKind::forPublicDisplay(
+            'Placeholder clinic for local development. Not hospital data.',
+        ));
+        $this->assertNull(AiClinicDescriptionKind::forPublicDisplay(
+            'Imported from the supplied clinic-schedule poster for this specialization. Mapping to an official hospital clinic requires confirmation. Not hospital-verified.',
+        ));
+        $this->assertSame(
+            'Outpatient consultation for adult internal medicine concerns.',
+            AiClinicDescriptionKind::forPublicDisplay('Outpatient consultation for adult internal medicine concerns.'),
+        );
+        $this->assertSame(
+            'Walk-in hours available on weekdays.',
+            AiClinicDescriptionKind::forPublicDisplay(
+                'Walk-in hours available on weekdays. Not hospital-verified.',
+            ),
+        );
+    }
+
     public function test_generic_follow_up_questions_are_detected(): void
     {
         $this->assertTrue(AiVisitorReply::isGenericFollowUp('Pwede po bang dagdagan ang detalye ng nararamdaman ninyo?'));

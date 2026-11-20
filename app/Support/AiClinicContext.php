@@ -8,10 +8,10 @@ use App\Models\Clinic;
 /**
  * One eligible clinic, using stored hospital fields only.
  *
- * A missing description stays null. Administrative mapping notes are copied
- * as stored text and marked so a model cannot treat them as clinical
- * capability. This object does not invent services, symptoms, specialties,
- * or description text.
+ * A missing description stays null. Administrative mapping / development
+ * phrases are classified from the stored text but omitted from the exposed
+ * clinic_description so they are not shown or cited as service copy. This
+ * object does not invent services, symptoms, specialties, or description text.
  */
 final readonly class AiClinicContext
 {
@@ -27,13 +27,13 @@ final readonly class AiClinicContext
     public static function fromClinic(Clinic $clinic): self
     {
         $department = $clinic->department;
-        $description = self::storedDescription($clinic->description);
+        $stored = self::storedDescription($clinic->description);
 
         return new self(
             clinicId: $clinic->id,
             clinicName: $clinic->name,
-            clinicDescription: $description,
-            descriptionKind: AiClinicDescriptionKind::fromStored($description),
+            clinicDescription: AiClinicDescriptionKind::forPublicDisplay($stored),
+            descriptionKind: AiClinicDescriptionKind::fromStored($stored),
             departmentId: $department->id,
             departmentName: $department->name,
         );

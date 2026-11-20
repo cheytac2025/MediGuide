@@ -91,8 +91,11 @@
                         @foreach ($clinics as $choice)
                             <a class="mg-choice" href="{{ route('patient.book-appointment', ['clinic_id' => $choice->id]) }}">
                                 <strong>{{ $choice->name }}</strong>
-                                @if ($choice->description)
-                                    <span>{{ $choice->description }}</span>
+                                @php
+                                    $publicClinicDescription = \App\Enums\AiClinicDescriptionKind::forPublicDisplay($choice->description);
+                                @endphp
+                                @if ($publicClinicDescription)
+                                    <span>{{ $publicClinicDescription }}</span>
                                 @endif
                             </a>
                         @endforeach

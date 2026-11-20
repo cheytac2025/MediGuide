@@ -83,13 +83,14 @@ class AiHospitalContextTest extends TestCase
 
         $this->assertInstanceOf(AiClinicContext::class, $match);
         $this->assertSame($clinic->name, $match->clinicName);
-        $this->assertSame($clinic->description, $match->clinicDescription);
+        $this->assertNull($match->clinicDescription);
+        $this->assertSame($description, $clinic->fresh()->description);
         $this->assertSame($department->id, $match->departmentId);
         $this->assertSame($department->name, $match->departmentName);
         $this->assertSame([
             'clinic_id' => $clinic->id,
             'clinic_name' => 'Development Clinic A',
-            'clinic_description' => $description,
+            'clinic_description' => null,
             'description_kind' => 'administrative_mapping',
             'department_id' => $department->id,
             'department_name' => 'Development Department A',
@@ -409,7 +410,11 @@ class AiHospitalContextTest extends TestCase
         $this->assertSame(HospitalDataSource::Development, $development->dataSource);
         $this->assertSame('development', $development->toArray()['data_source']);
         $this->assertSame('Development Clinic A', $development->clinics[0]->clinicName);
-        $this->assertSame($clinic->description, $development->clinics[0]->clinicDescription);
+        $this->assertNull($development->clinics[0]->clinicDescription);
+        $this->assertSame(
+            'Placeholder clinic for local development. Not hospital data.',
+            $clinic->fresh()->description,
+        );
 
         config(['hospital.data_source' => 'not-a-real-source']);
         $this->assertSame(HospitalDataSource::Development, $this->service()->availableContext()->dataSource);
@@ -536,7 +541,7 @@ class AiHospitalContextTest extends TestCase
         $mappedContext = $this->clinicInContext($context, $mapped->id);
         $describedContext = $this->clinicInContext($context, $described->id);
 
-        $this->assertSame($mapping, $mappedContext?->clinicDescription);
+        $this->assertNull($mappedContext?->clinicDescription);
         $this->assertSame('administrative_mapping', $mappedContext?->descriptionKind->value);
         $this->assertSame($approved, $describedContext?->clinicDescription);
         $this->assertSame('approved_service_description', $describedContext?->descriptionKind->value);

@@ -79,6 +79,34 @@ class AdminClinicTest extends TestCase
             ->assertSee('Deactivate');
     }
 
+    public function test_clinic_cards_hide_exact_development_and_import_phrases_but_keep_updated_dates(): void
+    {
+        $department = $this->hospitalDepartment();
+        $clinic = Clinic::query()->create([
+            'department_id' => $department->id,
+            'name' => 'Import Mapping Clinic',
+            'description' => 'Imported from the supplied clinic-schedule poster for this specialization. Mapping to an official hospital clinic requires confirmation. Not hospital-verified.',
+            'status' => ClinicStatus::Active,
+            'data_source' => HospitalDataSource::Imported,
+        ]);
+        $clinic->forceFill(['updated_at' => now()->setDate(2026, 11, 4)->setTime(12, 0)])->saveQuietly();
+
+        $this->actingAs($this->admin())
+            ->get(route('admin.clinics'))
+            ->assertOk()
+            ->assertSee('Import Mapping Clinic')
+            ->assertSee('Updated November 4, 2026')
+            ->assertDontSee('Placeholder clinic for local development. Not hospital data.')
+            ->assertDontSee('Imported from the supplied clinic-schedule poster for this specialization.')
+            ->assertDontSee('Mapping to an official hospital clinic requires confirmation.')
+            ->assertDontSee('Not hospital-verified.');
+
+        $this->assertSame(
+            'Imported from the supplied clinic-schedule poster for this specialization. Mapping to an official hospital clinic requires confirmation. Not hospital-verified.',
+            $clinic->fresh()->description,
+        );
+    }
+
     public function test_it_admin_can_access_add_clinic(): void
     {
         $this->actingAs($this->admin())

@@ -51,7 +51,14 @@
                                 <div>
                                     <h3>{{ $clinic->name }}</h3>
                                     <p>{{ $clinic->department?->name ?? 'Unknown department' }}</p>
-                                    <p class="mg-appt-muted">{{ $clinic->description ?: 'No description' }}</p>
+                                    @php
+                                        $publicClinicDescription = \App\Enums\AiClinicDescriptionKind::forPublicDisplay($clinic->description);
+                                    @endphp
+                                    @if ($publicClinicDescription)
+                                        <p class="mg-appt-muted">{{ $publicClinicDescription }}</p>
+                                    @elseif (! filled($clinic->description))
+                                        <p class="mg-appt-muted">No description</p>
+                                    @endif
                                     <p class="mg-appt-muted">Updated {{ $clinic->updated_at?->format('F j, Y') }}</p>
                                 </div>
                                 <span class="mg-status is-{{ $clinic->status->value === 'active' ? 'confirmed' : 'cancelled' }}">
