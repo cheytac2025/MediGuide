@@ -81,16 +81,32 @@ class FileAuditCheckpointStore implements AuditCheckpointStore
 
     public static function pathIsOutsideWebRoot(string $path): bool
     {
-        $full = str_replace('/', '\\', $path);
-        $project = str_replace('/', '\\', base_path());
-        $webParent = str_replace('/', '\\', dirname(base_path()));
-        $absolute = preg_match('/^[A-Za-z]:\\\\/', $full) === 1 || str_starts_with($full, '\\\\');
-
-        if (! $absolute || str_contains($full, '..')) {
+        if (str_contains($path, '..')) {
             return false;
         }
 
-        return ! str_starts_with(strtolower($full), strtolower(rtrim($project, '\\').'\\'))
-            && ! str_starts_with(strtolower($full), strtolower(rtrim($webParent, '\\').'\\'));
+        // Normalize separators so Linux (/var/...) and Windows (C:\... or C:/...)
+        // absolute paths are both recognized. The previous backslash-only absolute
+        // check rejected valid Linux production paths such as /var/lib/mediguide/...
+        $normalized = str_replace('\\', '/', $path);
+        $project = rtrim(str_replace('\\', '/', base_path()), '/');
+        $webParent = rtrim(str_replace('\\', '/', dirname(base_path())), '/');
+
+        $absolute = str_starts_with($normalized, '/')
+            || preg_match('/^[A-Za-z]:\//', $normalized) === 1
+            || str_starts_with($normalized, '//');
+
+        if (! $absolute) {
+            return false;
+        }
+
+        $full = strtolower($normalized);
+        $projectPrefix = strtolower($project).'/';
+        $webParentPrefix = strtolower($webParent).'/';
+
+        return ! str_starts_with($full, $projectPrefix)
+            && ! str_starts_with($full, $webParentPrefix)
+            && $full !== strtolower($project)
+            && $full !== strtolower($webParent);
     }
 }
