@@ -7,7 +7,9 @@ use App\Enums\UserStatus;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Responses\LoginResponse;
 use App\Http\Responses\LogoutResponse;
+use App\Http\Responses\VerifyEmailResponse;
 use App\Models\User;
+use App\Services\Auth\EmailOtpChallengeService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -18,6 +20,7 @@ use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 use Laravel\Fortify\Contracts\LogoutResponse as LogoutResponseContract;
+use Laravel\Fortify\Contracts\VerifyEmailResponse as VerifyEmailResponseContract;
 use Laravel\Fortify\Fortify;
 use Laravel\Fortify\Http\Requests\LoginRequest as FortifyLoginRequest;
 
@@ -30,6 +33,7 @@ class FortifyServiceProvider extends ServiceProvider
     {
         $this->app->singleton(LoginResponseContract::class, LoginResponse::class);
         $this->app->singleton(LogoutResponseContract::class, LogoutResponse::class);
+        $this->app->singleton(VerifyEmailResponseContract::class, VerifyEmailResponse::class);
         $this->app->bind(FortifyLoginRequest::class, LoginRequest::class);
     }
 
@@ -113,6 +117,16 @@ class FortifyServiceProvider extends ServiceProvider
         RateLimiter::for('passkeys', function (Request $request) {
             return Limit::perMinute(10)->by(
                 ($request->input('credential.id') ?: $request->session()->getId()).'|'.$request->ip(),
+            );
+        });
+
+        RateLimiter::for('verification-send', function (Request $request) {
+            return Limit::perMinute(3)->by(($request->user()?->getAuthIdentifier() ?: $request->ip()).'|verify-send');
+        });
+
+        RateLimiter::for('email-otp', function (Request $request) {
+            return Limit::perMinute(5)->by(
+                ($request->session()->get(EmailOtpChallengeService::SESSION_USER) ?: $request->ip()).'|email-otp',
             );
         });
     }

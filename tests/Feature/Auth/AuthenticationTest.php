@@ -330,11 +330,11 @@ class AuthenticationTest extends TestCase
         $response->assertRedirect(route('login'));
         $response->assertSessionHas(
             'status',
-            'Account created successfully. Please sign in using your registered email and password.',
+            'Account created successfully. Please sign in, then verify your email address using the link we sent.',
         );
 
         $this->followRedirects($response)
-            ->assertSee('Account created successfully. Please sign in using your registered email and password.');
+            ->assertSee('Account created successfully. Please sign in, then verify your email address using the link we sent.');
     }
 
     public function test_inactive_accounts_cannot_log_in(): void

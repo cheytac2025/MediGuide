@@ -7,6 +7,9 @@ use App\Exceptions\RecordIntegrityException;
 use App\Http\Middleware\AssignAuditCorrelation;
 use App\Http\Middleware\EnsureAccountIsActive;
 use App\Http\Middleware\EnsureAiDisclaimerAcknowledged;
+use App\Http\Middleware\EnsureEmailOtpSatisfied;
+use App\Http\Middleware\EnsurePatientEmailVerified;
+use App\Http\Middleware\EnsurePrivilegedTotpEnabled;
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -33,6 +36,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             AssignAuditCorrelation::class,
             EnsureAccountIsActive::class,
+            EnsureEmailOtpSatisfied::class,
+            EnsurePrivilegedTotpEnabled::class,
             HandleAppearance::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
@@ -41,6 +46,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => EnsureUserHasRole::class,
             'ai.disclaimer' => EnsureAiDisclaimerAcknowledged::class,
+            'patient.verified' => EnsurePatientEmailVerified::class,
         ]);
 
         $middleware->redirectUsersTo(fn (Request $request) => AuthenticatedHome::route($request->user()));

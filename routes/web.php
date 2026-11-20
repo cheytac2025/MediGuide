@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\DepartmentController;
 use App\Http\Controllers\Admin\DoctorController as AdminDoctorController;
 use App\Http\Controllers\Admin\UserAccountController;
 use App\Http\Controllers\AiDisclaimerController;
+use App\Http\Controllers\Auth\EmailOtpChallengeController;
 use App\Http\Controllers\Auth\RegisteredPatientController;
 use App\Http\Controllers\DashboardUnavailableController;
 use App\Http\Controllers\Doctor\DashboardController as DoctorDashboardController;
@@ -58,6 +59,15 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard/unavailable', DashboardUnavailableController::class)
         ->name('dashboard.unavailable');
 
+    Route::get('/auth/email-otp', [EmailOtpChallengeController::class, 'show'])
+        ->name('auth.email-otp.challenge');
+    Route::post('/auth/email-otp', [EmailOtpChallengeController::class, 'verify'])
+        ->middleware('throttle:email-otp')
+        ->name('auth.email-otp.verify');
+    Route::post('/auth/email-otp/resend', [EmailOtpChallengeController::class, 'resend'])
+        ->middleware('throttle:email-otp')
+        ->name('auth.email-otp.resend');
+
     Route::middleware('role:'.RoleName::Patient->value)->group(function () {
         Route::get('/patient/dashboard', DashboardController::class)
             ->name('patient.dashboard');
@@ -65,34 +75,36 @@ Route::middleware('auth')->group(function () {
         Route::get('/patient/profile', ProfileController::class)
             ->name('patient.profile');
 
-        Route::get('/patient/notifications', [NotificationController::class, 'index'])
-            ->name('patient.notifications');
-        Route::patch('/patient/notifications/read-all', [NotificationController::class, 'markAllRead'])
-            ->name('patient.notifications.read-all');
-        Route::delete('/patient/notifications', [NotificationController::class, 'clear'])
-            ->name('patient.notifications.clear');
-        Route::patch('/patient/notifications/{notification}/read', [NotificationController::class, 'markRead'])
-            ->name('patient.notifications.read');
-        Route::delete('/patient/notifications/{notification}', [NotificationController::class, 'destroy'])
-            ->name('patient.notifications.destroy');
-        Route::get('/patient/notifications/{notification}/open', [NotificationController::class, 'open'])
-            ->name('patient.notifications.open');
+        Route::middleware('patient.verified')->group(function () {
+            Route::get('/patient/notifications', [NotificationController::class, 'index'])
+                ->name('patient.notifications');
+            Route::patch('/patient/notifications/read-all', [NotificationController::class, 'markAllRead'])
+                ->name('patient.notifications.read-all');
+            Route::delete('/patient/notifications', [NotificationController::class, 'clear'])
+                ->name('patient.notifications.clear');
+            Route::patch('/patient/notifications/{notification}/read', [NotificationController::class, 'markRead'])
+                ->name('patient.notifications.read');
+            Route::delete('/patient/notifications/{notification}', [NotificationController::class, 'destroy'])
+                ->name('patient.notifications.destroy');
+            Route::get('/patient/notifications/{notification}/open', [NotificationController::class, 'open'])
+                ->name('patient.notifications.open');
 
-        Route::get('/patient/book-appointment', [BookAppointmentController::class, 'create'])
-            ->name('patient.book-appointment');
-        Route::post('/patient/book-appointment/review', [BookAppointmentController::class, 'review'])
-            ->name('patient.book-appointment.review');
-        Route::post('/patient/book-appointment', [BookAppointmentController::class, 'store'])
-            ->name('patient.book-appointment.store');
+            Route::get('/patient/book-appointment', [BookAppointmentController::class, 'create'])
+                ->name('patient.book-appointment');
+            Route::post('/patient/book-appointment/review', [BookAppointmentController::class, 'review'])
+                ->name('patient.book-appointment.review');
+            Route::post('/patient/book-appointment', [BookAppointmentController::class, 'store'])
+                ->name('patient.book-appointment.store');
 
-        Route::get('/patient/appointments', [PatientAppointmentController::class, 'index'])
-            ->name('patient.appointments');
-        Route::get('/patient/appointments/{appointment}', [PatientAppointmentController::class, 'show'])
-            ->whereNumber('appointment')
-            ->name('patient.appointments.show');
-        Route::patch('/patient/appointments/{appointment}/cancel', [PatientAppointmentController::class, 'cancel'])
-            ->whereNumber('appointment')
-            ->name('patient.appointments.cancel');
+            Route::get('/patient/appointments', [PatientAppointmentController::class, 'index'])
+                ->name('patient.appointments');
+            Route::get('/patient/appointments/{appointment}', [PatientAppointmentController::class, 'show'])
+                ->whereNumber('appointment')
+                ->name('patient.appointments.show');
+            Route::patch('/patient/appointments/{appointment}/cancel', [PatientAppointmentController::class, 'cancel'])
+                ->whereNumber('appointment')
+                ->name('patient.appointments.cancel');
+        });
     });
 
     Route::middleware('role:'.RoleName::Doctor->value)->group(function () {

@@ -93,7 +93,7 @@
                             Remember Me
                         </label>
 
-                        <a href="#" class="mg-auth-forgot">Forgot Password?</a>
+                        <a href="{{ route('password.request') }}" class="mg-auth-forgot">Forgot Password?</a>
                     </div>
 
                     <button type="submit" class="mg-login-submit">

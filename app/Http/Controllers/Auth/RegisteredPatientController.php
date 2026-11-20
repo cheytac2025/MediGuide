@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditOutcome;
 use App\Enums\RoleName;
 use App\Enums\Sex;
 use App\Enums\UserStatus;
@@ -9,6 +11,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\RegisterPatientRequest;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\Audit\AuditTrailService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -16,6 +19,8 @@ use Throwable;
 
 class RegisteredPatientController extends Controller
 {
+    public function __construct(private readonly AuditTrailService $audit) {}
+
     public function create(): View
     {
         return view('auth.register', [
@@ -36,13 +41,15 @@ class RegisteredPatientController extends Controller
             'contact_number',
         ]);
 
+        $user = null;
+
         try {
-            DB::transaction(function () use ($validated): void {
+            $user = DB::transaction(function () use ($validated): User {
                 $patientRole = Role::query()
                     ->where('slug', RoleName::Patient->value)
                     ->firstOrFail();
 
-                $user = User::query()->create([
+                $created = User::query()->create([
                     'role_id' => $patientRole->id,
                     'first_name' => $validated['first_name'],
                     'middle_name' => $validated['middle_name'] ?? null,
@@ -57,11 +64,13 @@ class RegisteredPatientController extends Controller
                     'status' => UserStatus::Active,
                 ]);
 
-                $user->patient()->create([
+                $created->patient()->create([
                     'date_of_birth' => $validated['date_of_birth'],
                     'sex' => $validated['sex'],
                     'contact_number' => $this->storeContactNumber($validated['contact_number']),
                 ]);
+
+                return $created;
             });
         } catch (Throwable $exception) {
             report($exception);
@@ -73,9 +82,22 @@ class RegisteredPatientController extends Controller
                 ]);
         }
 
+        try {
+            $user->sendEmailVerificationNotification();
+            $this->audit->recordSafely(
+                AuditAction::EmailVerificationSent,
+                AuditOutcome::Success,
+                actor: $user,
+                context: ['reason' => 'registration'],
+            );
+        } catch (Throwable $exception) {
+            report($exception);
+            // Account exists; user can resend after sign-in. Do not expose delivery details.
+        }
+
         return redirect()
             ->route('login')
-            ->with('status', 'Account created successfully. Please sign in using your registered email and password.');
+            ->with('status', 'Account created successfully. Please sign in, then verify your email address using the link we sent.');
     }
 
     private function fullName(string $firstName, ?string $middleName, string $lastName): string

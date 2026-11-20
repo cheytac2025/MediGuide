@@ -15,6 +15,13 @@ enum AuditAction: string
     case InactiveSessionDenied = 'auth.inactive_session.denied';
     case PasskeySucceeded = 'auth.passkey.succeeded';
     case PasskeyFailed = 'auth.passkey.failed';
+    case EmailVerificationSent = 'auth.email_verification.sent';
+    case EmailVerificationSucceeded = 'auth.email_verification.succeeded';
+    case EmailVerificationFailed = 'auth.email_verification.failed';
+    case EmailOtpSent = 'auth.email_otp.sent';
+    case EmailOtpSucceeded = 'auth.email_otp.succeeded';
+    case EmailOtpFailed = 'auth.email_otp.failed';
+    case EmailOtpResent = 'auth.email_otp.resent';
     case StaffAccountCreated = 'admin.staff.created';
     case AccountStatusChanged = 'admin.account.status_changed';
     case DepartmentAssignmentChanged = 'admin.staff.departments_changed';

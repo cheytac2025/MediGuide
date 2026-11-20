@@ -7,8 +7,10 @@ use App\Enums\Sex;
 use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -54,10 +56,12 @@ class RegistrationTest extends TestCase
 
     public function test_a_patient_can_register_with_valid_information(): void
     {
+        Notification::fake();
+
         $response = $this->post(route('register.store'), $this->validPayload());
 
         $response->assertRedirect(route('login'));
-        $response->assertSessionHas('status', 'Account created successfully. Please sign in using your registered email and password.');
+        $response->assertSessionHas('status', 'Account created successfully. Please sign in, then verify your email address using the link we sent.');
         $this->assertGuest();
 
         $user = User::query()->where('email', 'juan.delacruz@example.com')->first();
@@ -70,10 +74,12 @@ class RegistrationTest extends TestCase
         $this->assertSame(RoleName::Patient->value, $user->role->slug);
         $this->assertTrue(Hash::check('MediGuide@2026', $user->password));
         $this->assertNotSame('MediGuide@2026', $user->getRawOriginal('password'));
+        $this->assertNull($user->email_verified_at);
         $this->assertNotNull($user->patient);
         $this->assertSame('09171234567', $user->patient->contact_number);
         $this->assertSame(Sex::Male, $user->patient->sex);
         $this->assertTrue($user->patient->date_of_birth->equalTo('2015-07-24'));
+        Notification::assertSentTo($user, VerifyEmail::class);
     }
 
     public function test_valid_name_formats_are_accepted(): void
