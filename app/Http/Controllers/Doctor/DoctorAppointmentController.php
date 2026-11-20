@@ -61,7 +61,14 @@ class DoctorAppointmentController extends Controller
 
         $record = Appointment::query()
             ->where('doctor_id', $doctor->id)
-            ->with(['patient.user', 'doctor.clinic.department', 'messages.actor'])
+            ->with([
+                'patient.user',
+                'doctor.clinic.department',
+                'messages.actor',
+                'aiSummary',
+                'doctorNote',
+                'patientInstructions.revisions',
+            ])
             ->whereKey($appointment)
             ->firstOrFail();
 
@@ -69,6 +76,8 @@ class DoctorAppointmentController extends Controller
             'doctor' => DoctorHeader::from($user, $doctor),
             'active' => 'appointments',
             'appointment' => $record,
+            'doctorNote' => $record->doctorNote,
+            'patientInstructions' => $record->patientInstructions,
         ]);
     }
 

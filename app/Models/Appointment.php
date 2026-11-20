@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -31,6 +32,9 @@ use Illuminate\Support\Carbon;
  * @property-read Doctor $doctor
  * @property-read DoctorSchedule $doctorSchedule
  * @property-read Collection<int, AppointmentMessage> $messages
+ * @property-read AppointmentAiSummary|null $aiSummary
+ * @property-read AppointmentDoctorNote|null $doctorNote
+ * @property-read AppointmentPatientInstruction|null $patientInstructions
  */
 #[Fillable([
     'patient_id',
@@ -86,6 +90,30 @@ class Appointment extends Model
     public function messages(): HasMany
     {
         return $this->hasMany(AppointmentMessage::class)->orderBy('id');
+    }
+
+    /**
+     * @return HasOne<AppointmentAiSummary, $this>
+     */
+    public function aiSummary(): HasOne
+    {
+        return $this->hasOne(AppointmentAiSummary::class);
+    }
+
+    /**
+     * @return HasOne<AppointmentDoctorNote, $this>
+     */
+    public function doctorNote(): HasOne
+    {
+        return $this->hasOne(AppointmentDoctorNote::class);
+    }
+
+    /**
+     * @return HasOne<AppointmentPatientInstruction, $this>
+     */
+    public function patientInstructions(): HasOne
+    {
+        return $this->hasOne(AppointmentPatientInstruction::class);
     }
 
     public function latestMessage(AppointmentMessageKind $kind): ?AppointmentMessage

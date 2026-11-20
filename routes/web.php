@@ -11,6 +11,7 @@ use App\Http\Controllers\Auth\RegisteredPatientController;
 use App\Http\Controllers\DashboardUnavailableController;
 use App\Http\Controllers\Doctor\DashboardController as DoctorDashboardController;
 use App\Http\Controllers\Doctor\DoctorAppointmentController;
+use App\Http\Controllers\Doctor\DoctorConsultationDocumentationController;
 use App\Http\Controllers\Doctor\DoctorScheduleController;
 use App\Http\Controllers\Patient\AiBookingIntentController;
 use App\Http\Controllers\Patient\AiClinicDoctorsController;
@@ -103,6 +104,18 @@ Route::middleware('auth')->group(function () {
         Route::get('/doctor/appointments/{appointment}', [DoctorAppointmentController::class, 'show'])
             ->whereNumber('appointment')
             ->name('doctor.appointments.show');
+        Route::patch('/doctor/appointments/{appointment}/complete', [DoctorConsultationDocumentationController::class, 'complete'])
+            ->whereNumber('appointment')
+            ->name('doctor.appointments.complete');
+        Route::post('/doctor/appointments/{appointment}/consultation-notes', [DoctorConsultationDocumentationController::class, 'saveDraft'])
+            ->whereNumber('appointment')
+            ->name('doctor.appointments.consultation.save');
+        Route::post('/doctor/appointments/{appointment}/consultation-preview', [DoctorConsultationDocumentationController::class, 'preview'])
+            ->whereNumber('appointment')
+            ->name('doctor.appointments.consultation.preview');
+        Route::post('/doctor/appointments/{appointment}/consultation-publish', [DoctorConsultationDocumentationController::class, 'publish'])
+            ->whereNumber('appointment')
+            ->name('doctor.appointments.consultation.publish');
 
         Route::get('/doctor/schedule', DoctorScheduleController::class)
             ->name('doctor.schedule');

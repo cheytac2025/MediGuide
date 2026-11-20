@@ -75,7 +75,7 @@ class StaffAppointmentController extends Controller
         $user = $request->user();
 
         $record = $this->scope->appointment($user, $appointment);
-        $record->load(['patient.user', 'doctor.clinic.department', 'messages.actor']);
+        $record->load(['patient.user', 'doctor.clinic.department', 'messages.actor', 'aiSummary', 'patientInstructions']);
 
         return view('staff.appointment-show', [
             'staff' => $this->staffHeader($user),

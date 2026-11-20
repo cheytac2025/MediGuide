@@ -70,6 +70,16 @@
                 </div>
             </dl>
 
+            @include('partials.appointment-ai-summary', ['appointment' => $appointment, 'recordTrusted' => $recordTrusted])
+
+            @if ($recordTrusted)
+                @include('partials.doctor-consultation-documentation', [
+                    'appointment' => $appointment,
+                    'doctorNote' => $doctorNote ?? $appointment->doctorNote,
+                    'patientInstructions' => $patientInstructions ?? $appointment->patientInstructions,
+                ])
+            @endif
+
             @include('partials.appointment-messages', ['recordTrusted' => $recordTrusted])
         </section>
     </div>

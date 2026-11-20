@@ -13,6 +13,7 @@ use App\Models\DoctorSchedule;
 use App\Models\Patient;
 use App\Models\User;
 use App\Notifications\AppointmentSubmittedNotification;
+use App\Services\Ai\AppointmentAiSummaryService;
 use App\Services\AppointmentBookingService;
 use App\Support\PatientHeader;
 use Carbon\CarbonImmutable;
@@ -26,7 +27,10 @@ use Illuminate\View\View;
 
 class BookAppointmentController extends Controller
 {
-    public function __construct(private AppointmentBookingService $booking) {}
+    public function __construct(
+        private AppointmentBookingService $booking,
+        private AppointmentAiSummaryService $aiSummaries,
+    ) {}
 
     /**
      * Clinic and doctor ids in the query string can later be prefilled from
@@ -196,6 +200,13 @@ class BookAppointmentController extends Controller
         } catch (ValidationException $exception) {
             return $this->bookingFailed($input, $this->friendlyBookingError($exception));
         }
+
+        $this->aiSummaries->attachFromSessionIfEligible(
+            $appointment,
+            $request->session(),
+            (int) $resolved['clinic']->id,
+            $resolved['concern'],
+        );
 
         $user->notify(new AppointmentSubmittedNotification($appointment->loadMissing('doctor')));
 

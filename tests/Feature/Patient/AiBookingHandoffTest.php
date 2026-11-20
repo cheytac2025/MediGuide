@@ -11,6 +11,7 @@ use App\Enums\DoctorStatus;
 use App\Enums\HospitalDataSource;
 use App\Enums\RoleName;
 use App\Enums\Sex;
+use App\Http\Controllers\Patient\AiBookingIntentController;
 use App\Models\Appointment;
 use App\Models\Clinic;
 use App\Models\Department;
@@ -561,6 +562,7 @@ class AiBookingHandoffTest extends TestCase
         $doctor = $this->doctor1();
 
         $this->withSession([
+            AiDisclaimer::SESSION_KEY => true,
             BookingIntent::SESSION_KEY => [
                 'clinic_id' => $clinic->id,
                 'doctor_id' => $doctor->id,
@@ -569,8 +571,35 @@ class AiBookingHandoffTest extends TestCase
             'email' => $staff->email,
             'password' => 'password',
         ])
-            ->assertRedirect(route('staff.dashboard'))
-            ->assertSessionMissing(BookingIntent::SESSION_KEY);
+            ->assertRedirect(route('ai-front-desk'))
+            ->assertSessionMissing(BookingIntent::SESSION_KEY)
+            ->assertSessionHas('status', AiBookingIntentController::PATIENT_ACCOUNT_REQUIRED_MESSAGE);
+    }
+
+    public function test_authenticated_staff_booking_intent_stays_on_front_desk_with_message(): void
+    {
+        $staff = User::factory()->role(RoleName::HospitalStaff)->create();
+        $clinic = $this->clinicA();
+        $doctor = $this->doctor1();
+
+        $this->actingAs($staff)
+            ->withSession([AiDisclaimer::SESSION_KEY => true])
+            ->post(route('ai-front-desk.booking-intent'), [
+                'clinic_id' => $clinic->id,
+                'doctor_id' => $doctor->id,
+            ])
+            ->assertRedirect(route('ai-front-desk'))
+            ->assertSessionMissing(BookingIntent::SESSION_KEY)
+            ->assertSessionHas('status', AiBookingIntentController::PATIENT_ACCOUNT_REQUIRED_MESSAGE);
+
+        $this->actingAs($staff)
+            ->withSession([
+                AiDisclaimer::SESSION_KEY => true,
+                'status' => AiBookingIntentController::PATIENT_ACCOUNT_REQUIRED_MESSAGE,
+            ])
+            ->get(route('ai-front-desk'))
+            ->assertOk()
+            ->assertSee(AiBookingIntentController::PATIENT_ACCOUNT_REQUIRED_MESSAGE, false);
     }
 
     public function test_booking_intent_survives_registration_then_login(): void

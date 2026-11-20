@@ -55,6 +55,9 @@ class AiClinicDoctorsController extends Controller
             $message = 'Doctors are listed, but none currently have an available schedule.';
         }
 
+        $user = $request->user();
+        $isPatient = $user?->hasRole(RoleName::Patient) === true;
+
         return response()->json([
             'clinic' => [
                 'id' => $clinic->id,
@@ -64,7 +67,9 @@ class AiClinicDoctorsController extends Controller
             'doctors' => $doctors,
             'message' => $message,
             'book_appointment_url' => route('patient.book-appointment'),
-            'is_authenticated_patient' => $request->user()?->hasRole(RoleName::Patient) === true,
+            'is_authenticated' => $user !== null,
+            'is_authenticated_patient' => $isPatient,
+            'patient_booking_only_message' => AiBookingIntentController::PATIENT_ACCOUNT_REQUIRED_MESSAGE,
             'booking_intent_url' => route('ai-front-desk.booking-intent'),
         ]);
     }

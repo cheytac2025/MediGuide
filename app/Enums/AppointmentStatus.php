@@ -67,4 +67,20 @@ enum AppointmentStatus: string
     {
         return $this->isUpcoming();
     }
+
+    /**
+     * Assigned doctors may mark a confirmed consultation complete.
+     */
+    public function canDoctorComplete(): bool
+    {
+        return $this === self::Confirmed;
+    }
+
+    /**
+     * Patient instructions may publish only after a completed consultation.
+     */
+    public function allowsPostConsultationInstructions(): bool
+    {
+        return $this === self::Completed;
+    }
 }

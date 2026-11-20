@@ -94,6 +94,7 @@ final class PatientNotifications
             'appointment_rejected' => 'exclamation-triangle',
             'appointment_cancelled' => 'close',
             'appointment_submitted' => 'clipboard',
+            'patient_instructions_published', 'patient_instructions_revised' => 'clipboard',
             default => 'bell',
         };
     }

@@ -86,6 +86,14 @@
                 </section>
             @endif
 
+            @include('partials.appointment-ai-summary', ['appointment' => $appointment, 'recordTrusted' => $recordTrusted])
+
+            @include('partials.appointment-patient-instructions', [
+                'appointment' => $appointment,
+                'recordTrusted' => $recordTrusted,
+                'showDoctorMeta' => true,
+            ])
+
             @if ($recordTrusted && $appointment->status->canBeCancelledByPatient())
                 <div class="mg-appt-cancel-block">
                     <button type="button" class="mg-appt-cancel" data-mg-cancel-open>Cancel Appointment</button>

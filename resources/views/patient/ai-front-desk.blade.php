@@ -4,6 +4,12 @@
 
 @section('content')
     <section class="mg-front-desk" data-mg-front-desk>
+        @if (session('status'))
+            <div class="mg-front-desk-status" role="status">
+                {{ session('status') }}
+            </div>
+        @endif
+
         <header class="mg-front-desk-head">
             <div>
                 <h1 class="mg-greeting">AI Virtual Front Desk</h1>

@@ -40,6 +40,10 @@ enum AuditAction: string
     case DateOverrideRemoved = 'staff.schedule.date_override_removed';
     case AppointmentCreated = 'patient.appointment.created';
     case AppointmentCancelled = 'patient.appointment.cancelled';
+    case AppointmentCompleted = 'doctor.appointment.completed';
+    case ConsultationNotesSaved = 'doctor.consultation.notes_saved';
+    case PatientInstructionsDraftSaved = 'doctor.instructions.draft_saved';
+    case PatientInstructionsPublished = 'doctor.instructions.published';
     case IntegrityFailed = 'security.integrity.failed';
     case AuthorizationDenied = 'security.authorization.denied';
 }

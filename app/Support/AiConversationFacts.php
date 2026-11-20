@@ -27,6 +27,7 @@ final readonly class AiConversationFacts
         public ?string $onset,
         public ?string $severity,
         public ?string $frequency,
+        public ?string $functionalImpact,
         public array $associated,
         public array $denied,
         public array $unknown,
@@ -47,6 +48,7 @@ final readonly class AiConversationFacts
             onset: null,
             severity: null,
             frequency: null,
+            functionalImpact: null,
             associated: [],
             denied: [],
             unknown: [],
@@ -55,6 +57,13 @@ final readonly class AiConversationFacts
             replyLanguage: 'english',
             missingPriority: null,
         );
+    }
+
+    public function hasUsableFunctionalImpact(): bool
+    {
+        return $this->functionalImpact !== null
+            && $this->functionalImpact !== ''
+            && ! $this->isUnknown('functional_impact');
     }
 
     public function prefersFilipino(): bool
@@ -131,6 +140,7 @@ final readonly class AiConversationFacts
             'onset' => $this->onset,
             'severity' => $this->severity,
             'frequency' => $this->frequency,
+            'functional_impact' => $this->functionalImpact,
             'associated_symptoms' => $this->associated,
             'denied' => $this->denied,
             'unknown' => $this->unknown,

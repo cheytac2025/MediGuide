@@ -3,6 +3,7 @@
 namespace App\Services\Ai;
 
 use App\Enums\RoleName;
+use App\Http\Controllers\Patient\AiBookingIntentController;
 use App\Models\Doctor;
 use App\Services\AiHospitalContextService;
 use App\Services\AppointmentBookingService;
@@ -91,10 +92,15 @@ class AiSuggestedDoctorService
      */
     public function bookingContext(Request $request): array
     {
+        $user = $request->user();
+        $isPatient = $user?->hasRole(RoleName::Patient) === true;
+
         return [
             'book_appointment_url' => route('patient.book-appointment'),
             'booking_intent_url' => route('ai-front-desk.booking-intent'),
-            'is_authenticated_patient' => $request->user()?->hasRole(RoleName::Patient) === true,
+            'is_authenticated' => $user !== null,
+            'is_authenticated_patient' => $isPatient,
+            'patient_booking_only_message' => AiBookingIntentController::PATIENT_ACCOUNT_REQUIRED_MESSAGE,
             'preview_limit' => self::PREVIEW_LIMIT,
         ];
     }

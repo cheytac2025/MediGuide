@@ -98,6 +98,14 @@
                 </div>
             </dl>
 
+            @include('partials.appointment-ai-summary', ['appointment' => $appointment, 'recordTrusted' => $recordTrusted])
+
+            @include('partials.appointment-patient-instructions', [
+                'appointment' => $appointment,
+                'recordTrusted' => $recordTrusted,
+                'showDoctorMeta' => true,
+            ])
+
             @include('partials.appointment-messages', ['recordTrusted' => $recordTrusted])
 
             @if ($recordTrusted && ($appointment->status->canStaffConfirm() || $appointment->status->canStaffReject() || $appointment->status->canStaffReschedule()))

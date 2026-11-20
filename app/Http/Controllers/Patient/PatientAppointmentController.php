@@ -130,7 +130,7 @@ class PatientAppointmentController extends Controller
         }
 
         return Appointment::query()
-            ->with(['doctor.clinic.department', 'messages.actor'])
+            ->with(['doctor.clinic.department', 'messages.actor', 'aiSummary', 'patientInstructions'])
             ->where('patient_id', $patient->id)
             ->whereKey($appointmentId)
             ->firstOrFail();

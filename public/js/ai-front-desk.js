@@ -405,7 +405,11 @@
                     bookBtn.dataset.doctorId = String(doctorId);
                     bookBtn.dataset.bookUrl = payload.book_appointment_url || '';
                     bookBtn.dataset.intentUrl = payload.booking_intent_url || '';
+                    bookBtn.dataset.authenticated = payload.is_authenticated ? '1' : '0';
                     bookBtn.dataset.authenticatedPatient = payload.is_authenticated_patient ? '1' : '0';
+                    bookBtn.dataset.patientBookingOnlyMessage = typeof payload.patient_booking_only_message === 'string'
+                        ? payload.patient_booking_only_message
+                        : '';
                 } else {
                     bookBtn.hidden = true;
                     bookBtn.disabled = true;
@@ -498,6 +502,7 @@
     const startBooking = (button) => {
         const clinicId = button.dataset.clinicId;
         const doctorId = button.dataset.doctorId;
+        const isAuthenticated = button.dataset.authenticated === '1';
         const isPatient = button.dataset.authenticatedPatient === '1';
         const bookUrl = button.dataset.bookUrl;
         const intentUrl = button.dataset.intentUrl;
@@ -506,7 +511,15 @@
             return;
         }
 
-        if (isPatient && bookUrl) {
+        if (isAuthenticated && !isPatient) {
+            const message = button.dataset.patientBookingOnlyMessage
+                || 'Appointment booking is only available for patient accounts. Please sign in with a patient account to continue.';
+            appendAssistantMessage(message);
+            return;
+        }
+
+        // Prefer booking-intent so AI conversation context is marked for summary.
+        if (!intentUrl && isPatient && bookUrl) {
             const url = new URL(bookUrl, window.location.origin);
             url.searchParams.set('clinic_id', clinicId);
             url.searchParams.set('doctor_id', doctorId);

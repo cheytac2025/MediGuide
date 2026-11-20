@@ -23,6 +23,8 @@ final class AiConversationInterpreter
 
     public const string TOPIC_ASSOCIATED = 'associated';
 
+    public const string TOPIC_FUNCTIONAL_IMPACT = 'functional_impact';
+
     public const string TOPIC_QUADRANT = 'quadrant';
 
     public const string TOPIC_APPEARANCE = 'appearance';
@@ -42,11 +44,19 @@ final class AiConversationInterpreter
             'onset' => null,
             'severity' => null,
             'frequency' => null,
+            'functional_impact' => null,
             'associated' => [],
             'denied' => [],
             'unknown' => [],
             'answered' => [],
         ];
+
+        // Opening concern is pinned even after the rolling turn window drops it.
+        // Seed extractable facts from that pinned text so location/kind details
+        // are not lost on longer clarification threads.
+        if ($opening !== '') {
+            $facts = self::applyMessage($facts, $opening, null, $kind, $anchor);
+        }
 
         foreach ($state->turns as $turn) {
             if ($turn['role'] === 'assistant') {
@@ -81,6 +91,7 @@ final class AiConversationInterpreter
             onset: $facts['onset'],
             severity: $facts['severity'],
             frequency: $facts['frequency'],
+            functionalImpact: $facts['functional_impact'],
             associated: array_values(array_unique($facts['associated'])),
             denied: array_values(array_unique($facts['denied'])),
             unknown: array_values(array_unique($facts['unknown'])),
@@ -119,7 +130,7 @@ final class AiConversationInterpreter
             return self::TOPIC_DURATION;
         }
 
-        if (preg_match('/\b(biglaan|unti[-\s]?unti|sudden or|start suddenly|did this start|did the pain start)\b/u', $normalized)) {
+        if (preg_match('/\b(biglaan|unti[-\s]?unti|sudden or|start suddenly|did this start|did the pain start|paano(?: po)? nagsimula|how did (?:it|this|the pain) start)\b/u', $normalized)) {
             return self::TOPIC_ONSET;
         }
 
@@ -136,8 +147,12 @@ final class AiConversationInterpreter
             return self::TOPIC_LOCATION;
         }
 
-        if (preg_match('/\b(iba pa|kasabay|along with|anything else|other symptoms)\b/u', $normalized)) {
+        if (preg_match('/\b(iba pa|iba pang|kasabay|along with|anything else|other symptoms|lagnat|fever|kasama)\b/u', $normalized)) {
             return self::TOPIC_ASSOCIATED;
+        }
+
+        if (preg_match('/\b(nakakaapekto|affect(?:s|ing)?|interfere|walking|movement|daily activities|pang-araw)\b/u', $normalized)) {
+            return self::TOPIC_FUNCTIONAL_IMPACT;
         }
 
         return null;
@@ -294,6 +309,7 @@ final class AiConversationInterpreter
      *     onset: ?string,
      *     severity: ?string,
      *     frequency: ?string,
+     *     functional_impact: ?string,
      *     associated: list<string>,
      *     denied: list<string>,
      *     unknown: list<string>,
@@ -305,6 +321,7 @@ final class AiConversationInterpreter
      *     onset: ?string,
      *     severity: ?string,
      *     frequency: ?string,
+     *     functional_impact: ?string,
      *     associated: list<string>,
      *     denied: list<string>,
      *     unknown: list<string>,
@@ -329,7 +346,13 @@ final class AiConversationInterpreter
 
         if (AiVisitorReply::negativeConfirmation($message)) {
             $topic = $lastTopic ?? 'asked_detail';
-            $facts['denied'][] = $topic;
+
+            if ($topic === self::TOPIC_FUNCTIONAL_IMPACT) {
+                $facts['functional_impact'] = 'Patient reports no meaningful effect on movement';
+            } else {
+                $facts['denied'][] = $topic;
+            }
+
             $facts['answered'] = self::rememberTopic($facts['answered'], $topic);
 
             return $facts;
@@ -337,6 +360,11 @@ final class AiConversationInterpreter
 
         if (AiVisitorReply::positiveConfirmation($message)) {
             $topic = $lastTopic ?? 'asked_detail';
+
+            if ($topic === self::TOPIC_FUNCTIONAL_IMPACT) {
+                $facts['functional_impact'] = 'Patient reports effect on movement or daily activity';
+            }
+
             $facts['answered'] = self::rememberTopic($facts['answered'], $topic);
 
             return $facts;
@@ -404,6 +432,16 @@ final class AiConversationInterpreter
             $facts['answered'] = self::rememberTopic($facts['answered'], self::TOPIC_SEVERITY);
         }
 
+        $impact = self::extractFunctionalImpact($message);
+
+        if ($impact !== null) {
+            $facts['functional_impact'] = $impact;
+            $facts['answered'] = self::rememberTopic($facts['answered'], self::TOPIC_FUNCTIONAL_IMPACT);
+        } elseif ($lastTopic === self::TOPIC_FUNCTIONAL_IMPACT) {
+            $facts['functional_impact'] = self::bounded($message);
+            $facts['answered'] = self::rememberTopic($facts['answered'], self::TOPIC_FUNCTIONAL_IMPACT);
+        }
+
         return $facts;
     }
 
@@ -441,7 +479,7 @@ final class AiConversationInterpreter
             $kinds[] = 'fever';
         }
 
-        if (preg_match('/\b(tuhod|joint|kasukasuan|siko|wrist|ankle)\b/u', $normalized)) {
+        if (preg_match('/\b(tuhod|knee|joint|kasukasuan|siko|wrist|ankle)\b/u', $normalized)) {
             $kinds[] = 'joint';
         }
 
@@ -676,6 +714,10 @@ final class AiConversationInterpreter
             return 'intermittent';
         }
 
+        if (preg_match('/\b(pag gising|upon waking|when i woke|woke up|after waking|gising ko)\b/u', $normalized)) {
+            return 'noticed upon waking';
+        }
+
         if (preg_match('/\b(unti[-\s]?unti|gradually|gradual)\b/u', $normalized)) {
             return 'gradual';
         }
@@ -686,6 +728,27 @@ final class AiConversationInterpreter
 
         if (preg_match('/\bsudden\b/u', $normalized) && ! self::isIntermittent($text)) {
             return 'sudden';
+        }
+
+        return null;
+    }
+
+    private static function extractFunctionalImpact(string $text): ?string
+    {
+        $normalized = AiVisitorReply::normalize($text);
+
+        if ($normalized === '') {
+            return null;
+        }
+
+        if (preg_match('/\b(di naman|hindi naman|does not|doesn\'t|not really).{0,40}\b(nakakaapekto|affect|interfere)\b/u', $normalized)
+            || preg_match('/\b(no effect|does not affect|doesn\'t affect|not affecting)\b/u', $normalized)
+            || preg_match('/\b(nakakaapekto).{0,20}\b(hindi|wala)\b/u', $normalized)) {
+            return 'Patient reports no meaningful effect on movement';
+        }
+
+        if (preg_match('/\b(nakakaapekto|affects? (?:my )?(?:walking|movement|daily)|cannot walk|can\'t walk|hirap maglakad|nahihirapan (?:akong )?maglakad)\b/u', $normalized)) {
+            return 'Patient reports effect on movement or daily activity';
         }
 
         return null;

@@ -11,6 +11,12 @@
 
             <h1 id="mgDisclaimerTitle" class="mg-disclaimer-title">Before You Continue</h1>
 
+            @if (session('status'))
+                <div class="mg-front-desk-status" role="status">
+                    {{ session('status') }}
+                </div>
+            @endif
+
             <div class="mg-disclaimer-copy">
                 <p>MediGuide is an AI-assisted virtual front desk designed to help guide you to an appropriate hospital department or medical specialist based on the information you provide.</p>
                 <p>MediGuide does not provide medical diagnoses, prescriptions, treatment recommendations, or emergency medical services. Its recommendations are intended for patient navigation only and should not replace consultation with a licensed healthcare professional.</p>

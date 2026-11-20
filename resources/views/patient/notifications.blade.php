@@ -111,6 +111,9 @@
                                                     <span class="mg-note-message">{{ $data['message'] }}</span>
                                                 @endif
                                                 <span class="mg-note-time">{{ \App\Support\PatientNotifications::timeLabel($notification) }}</span>
+                                                @if (in_array($data['event'] ?? '', ['patient_instructions_published', 'patient_instructions_revised'], true))
+                                                    <span class="mg-note-action">View Instructions</span>
+                                                @endif
                                             </span>
                                             @if ($isUnread)
                                                 <span class="mg-note-dot" aria-hidden="true"></span>
