@@ -19,13 +19,7 @@ class ShareDemoEnvironmentBanner
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $active = DemoBookingEnvironment::isAuthorizedOnlineDemoInstance()
-            || (
-                DemoBookingEnvironment::provisionalBookingAllowed()
-                && DemoBookingEnvironment::provisionalBookingConfigured()
-                && ! DemoBookingEnvironment::isBlockedDatabase()
-                && app()->environment('local', 'testing')
-            );
+        $active = DemoBookingEnvironment::shouldShowBanner($request->user());
 
         View::share('mediguideDemoBanner', $active ? DemoBookingEnvironment::bannerMessage() : null);
 

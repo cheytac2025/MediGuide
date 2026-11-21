@@ -2,16 +2,21 @@
 
 namespace App\Support\Demo;
 
+use App\Models\User;
+
 /**
- * Guards that keep demonstration schedule writes and provisional booking
- * off production databases while allowing an explicit isolated demo instance.
+ * Guards demonstration schedule writes and provisional booking exposure.
+ *
+ * Supports:
+ * - Local loopback / testing with HOSPITAL_PROVISIONAL_LOCAL_BOOKING
+ * - Isolated MEDIGUIDE_DEMO_INSTANCE deployments
+ * - Capstone defense on the existing public site: provisional slots may be
+ *   visible when MEDIGUIDE_CAPSTONE_BOOKING=true, but only allowlisted
+ *   synthetic accounts may confirm those bookings.
  */
 final class DemoBookingEnvironment
 {
     /**
-     * Production and shared live database names that must never receive
-     * synthetic demonstration schedules from this tooling.
-     *
      * @var list<string>
      */
     public const BLOCKED_DATABASE_NAMES = [
@@ -23,6 +28,38 @@ final class DemoBookingEnvironment
     public static function provisionalBookingConfigured(): bool
     {
         return config('hospital.provisional_local_booking') === true;
+    }
+
+    public static function capstoneBookingEnabled(): bool
+    {
+        return config('hospital.capstone_booking') === true
+            && self::capstoneAccounts() !== [];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function capstoneAccounts(): array
+    {
+        /** @var list<string> $accounts */
+        $accounts = config('hospital.capstone_booking_accounts', []);
+
+        return array_values(array_filter($accounts, static fn ($email): bool => is_string($email) && $email !== ''));
+    }
+
+    public static function isCapstoneAccount(?User $user): bool
+    {
+        if (! $user instanceof User) {
+            return false;
+        }
+
+        $email = mb_strtolower(trim((string) $user->email));
+
+        if ($email === '') {
+            return false;
+        }
+
+        return in_array($email, self::capstoneAccounts(), true);
     }
 
     /**
@@ -53,7 +90,33 @@ final class DemoBookingEnvironment
     }
 
     /**
-     * Whether provisional demonstration slots may be offered for booking.
+     * Whether provisional demonstration slots may be listed / computed.
+     * Capstone mode makes slots visible without enabling global provisional booking.
+     */
+    public static function provisionalSlotsVisible(): bool
+    {
+        if (self::provisionalBookingAllowed()) {
+            return true;
+        }
+
+        return self::capstoneBookingEnabled();
+    }
+
+    /**
+     * Whether the given user may confirm a provisional demonstration booking.
+     */
+    public static function provisionalBookingPermitted(?User $user): bool
+    {
+        if (self::provisionalBookingAllowed()) {
+            return true;
+        }
+
+        return self::capstoneBookingEnabled() && self::isCapstoneAccount($user);
+    }
+
+    /**
+     * Unrestricted provisional booking (local/testing or isolated demo instance).
+     * Never true solely because capstone account allowlisting is enabled.
      */
     public static function provisionalBookingAllowed(): bool
     {
@@ -133,6 +196,20 @@ final class DemoBookingEnvironment
             'hospital.demo_banner',
             'CAPSTONE DEMONSTRATION — schedules and appointments are synthetic and not real hospital bookings.',
         );
+    }
+
+    public static function shouldShowBanner(?User $user = null): bool
+    {
+        if (self::isAuthorizedOnlineDemoInstance()) {
+            return true;
+        }
+
+        if (self::provisionalBookingAllowed() && app()->environment('local', 'testing') && ! self::isBlockedDatabase()) {
+            return true;
+        }
+
+        return self::capstoneBookingEnabled()
+            && ($user === null || self::isCapstoneAccount($user) || ! auth()->check());
     }
 
     /**

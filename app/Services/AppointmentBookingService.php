@@ -56,7 +56,7 @@ class AppointmentBookingService
             [$patient, $doctor, $schedule] = $this->lockForBooking($patient, $doctor, $schedule);
 
             $this->assertScheduleBelongsToDoctor($doctor, $schedule);
-            $this->assertHierarchyIsActive($doctor, $schedule);
+            $this->assertHierarchyIsActive($doctor, $schedule, $patient->user, mutating: true);
             $this->assertDateIsInsideBookingWindow($date);
             $this->lockDateOverride($doctor, $date);
 
@@ -215,7 +215,7 @@ class AppointmentBookingService
                 continue;
             }
 
-            if ($slot['provisional'] && ! $this->provisionalBookingAllowed()) {
+            if ($slot['provisional'] && ! DemoBookingEnvironment::provisionalSlotsVisible()) {
                 continue;
             }
 
@@ -364,7 +364,7 @@ class AppointmentBookingService
             }
 
             $this->assertScheduleBelongsToDoctor($doctor, $lockedSchedule);
-            $this->assertHierarchyIsActive($doctor, $lockedSchedule);
+            $this->assertHierarchyIsActive($doctor, $lockedSchedule, $actor, mutating: true);
             $this->assertDateIsInsideBookingWindow($date);
             $this->lockDateOverride($doctor, $date);
 
@@ -517,9 +517,13 @@ class AppointmentBookingService
         }
     }
 
-    private function assertHierarchyIsActive(Doctor $doctor, DoctorSchedule $schedule): void
-    {
-        $reason = $this->inactiveReason($doctor, $schedule);
+    private function assertHierarchyIsActive(
+        Doctor $doctor,
+        DoctorSchedule $schedule,
+        ?User $actor = null,
+        bool $mutating = false,
+    ): void {
+        $reason = $this->inactiveReason($doctor, $schedule, $actor, $mutating);
 
         if ($reason === null) {
             return;
@@ -530,14 +534,20 @@ class AppointmentBookingService
                 'department' => 'The department is not active.',
                 'clinic' => 'The clinic is not active.',
                 'doctor_id' => 'The doctor is not active.',
-                'provisional_schedule' => 'This demonstration schedule is not available for booking in this environment.',
+                'provisional_schedule' => $mutating
+                    ? 'Demonstration appointments can only be confirmed by an authorized capstone demonstration account.'
+                    : 'This demonstration schedule is not available for booking in this environment.',
                 default => 'The schedule is not active.',
             },
         ]);
     }
 
-    private function inactiveReason(Doctor $doctor, DoctorSchedule $schedule): ?string
-    {
+    private function inactiveReason(
+        Doctor $doctor,
+        DoctorSchedule $schedule,
+        ?User $actor = null,
+        bool $mutating = false,
+    ): ?string {
         $clinic = $doctor->clinic;
         $department = $clinic?->department;
 
@@ -557,20 +567,17 @@ class AppointmentBookingService
             return 'doctor_schedule_id';
         }
 
-        if ($schedule->provisional_demonstration && ! $this->provisionalBookingAllowed()) {
-            return 'provisional_schedule';
+        if ($schedule->provisional_demonstration) {
+            if ($mutating) {
+                if (! DemoBookingEnvironment::provisionalBookingPermitted($actor)) {
+                    return 'provisional_schedule';
+                }
+            } elseif (! DemoBookingEnvironment::provisionalSlotsVisible()) {
+                return 'provisional_schedule';
+            }
         }
 
         return null;
-    }
-
-    /**
-     * Poster demonstration schedules stay hidden unless this process is an
-     * authorized isolated demo (local loopback or MEDIGUIDE_DEMO_INSTANCE).
-     */
-    private function provisionalBookingAllowed(): bool
-    {
-        return DemoBookingEnvironment::provisionalBookingAllowed();
     }
 
     private function assertDateIsInsideBookingWindow(Carbon $date): void
@@ -627,9 +634,9 @@ class AppointmentBookingService
                     continue;
                 }
 
-                if ($slot['provisional'] && ! $this->provisionalBookingAllowed()) {
+                if ($slot['provisional'] && ! DemoBookingEnvironment::provisionalBookingPermitted(auth()->user())) {
                     throw ValidationException::withMessages([
-                        'provisional_schedule' => 'This demonstration schedule is not available for booking in this environment.',
+                        'provisional_schedule' => 'Demonstration appointments can only be confirmed by an authorized capstone demonstration account.',
                     ]);
                 }
 
@@ -667,7 +674,7 @@ class AppointmentBookingService
                     continue;
                 }
 
-                if ($slot['provisional'] && ! $this->provisionalBookingAllowed()) {
+                if ($slot['provisional'] && ! DemoBookingEnvironment::provisionalSlotsVisible()) {
                     continue;
                 }
 

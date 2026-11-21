@@ -70,4 +70,25 @@ return [
 
     'demo_basic_auth_user' => env('MEDIGUIDE_DEMO_BASIC_AUTH_USER', ''),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Capstone defense booking on the existing public site
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, provisional demonstration schedules become visible for AI
+    | recommendations and calendars, but only allowlisted synthetic accounts
+    | may confirm bookings. Keep HOSPITAL_PROVISIONAL_LOCAL_BOOKING=false so
+    | the public site does not offer unrestricted provisional booking.
+    |
+    | MEDIGUIDE_CAPSTONE_BOOKING_ACCOUNTS is a comma-separated email list.
+    |
+    */
+
+    'capstone_booking' => filter_var(env('MEDIGUIDE_CAPSTONE_BOOKING', false), FILTER_VALIDATE_BOOLEAN),
+
+    'capstone_booking_accounts' => array_values(array_filter(array_map(
+        static fn (string $email): string => mb_strtolower(trim($email)),
+        explode(',', (string) env('MEDIGUIDE_CAPSTONE_BOOKING_ACCOUNTS', '')),
+    ))),
+
 ];
