@@ -9,6 +9,8 @@ use App\Enums\DoctorStatus;
 use App\Enums\RoleName;
 use App\Enums\Sex;
 use App\Models\Appointment;
+use App\Models\Clinic;
+use App\Models\Department;
 use App\Models\Doctor;
 use App\Models\DoctorSchedule;
 use App\Models\User;
@@ -87,6 +89,8 @@ class DemoBookingCoverageTest extends TestCase
 
         $before = app(DemoBookingCoverageService::class)->ensureCoverage(dryRun: true);
         $this->assertSame(16, $before['eligible_active']);
+        $this->assertSame(16, $before['active_total']);
+        $this->assertSame(0, $before['skipped_explicit_exclusion']);
         $this->assertGreaterThan(0, $before['made_bookable']);
         $this->assertSame(
             4,
@@ -144,6 +148,43 @@ class DemoBookingCoverageTest extends TestCase
                 $name.' must not receive approved official schedules from demo coverage',
             );
         }
+    }
+
+    public function test_production_style_eighteen_doctor_inventory_documents_catalog_gap(): void
+    {
+        app(HospitalScheduleImportService::class)->execute(30);
+
+        $clinic = Clinic::query()->firstOrFail();
+        $this->assertInstanceOf(Department::class, $clinic->department);
+
+        // Extra production doctors outside the 16-doctor imported catalog.
+        Doctor::query()->create([
+            'clinic_id' => $clinic->id,
+            'display_name' => 'Dr. Robles',
+            'specialization' => 'Ortho',
+            'status' => DoctorStatus::Active,
+        ]);
+        Doctor::query()->create([
+            'clinic_id' => $clinic->id,
+            'display_name' => 'Phase4J DoctorPilot',
+            'specialization' => 'Capstone pilot (non-clinical)',
+            'status' => DoctorStatus::Active,
+        ]);
+
+        $coverage = app(DemoBookingCoverageService::class)->ensureCoverage(dryRun: true);
+
+        $this->assertSame(18, $coverage['active_total']);
+        $this->assertSame(17, $coverage['eligible_active']);
+        $this->assertSame(1, $coverage['skipped_explicit_exclusion']);
+
+        $pilot = collect($coverage['inventory'])->firstWhere('name', 'Phase4J DoctorPilot');
+        $this->assertSame('non_clinical_pilot', $pilot['exclusion_reason']);
+        $this->assertFalse($pilot['in_imported_catalog']);
+
+        $robles = collect($coverage['inventory'])->firstWhere('name', 'Dr. Robles');
+        $this->assertNull($robles['exclusion_reason']);
+        $this->assertFalse($robles['in_imported_catalog']);
+        $this->assertTrue($robles['eligible_scope']);
     }
 
     public function test_ai_cards_label_demonstration_slots_and_remain_specialty_grounded(): void

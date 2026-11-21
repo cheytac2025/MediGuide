@@ -58,11 +58,13 @@ class EnsureDemoBookingCoverageCommand extends Command
         $this->table(
             ['Metric', 'Value'],
             [
-                ['Eligible active doctors', (string) $result['eligible_active']],
+                ['Active doctors total', (string) ($result['active_total'] ?? count($result['inventory']))],
+                ['Eligible demonstration doctors', (string) $result['eligible_active']],
                 ['Already bookable', (string) $result['already_bookable']],
                 ['Made / would make bookable', (string) $result['made_bookable']],
                 ['Schedules created', (string) $result['created_schedules']],
                 ['Skipped inactive clinic/department', (string) $result['skipped_inactive_scope']],
+                ['Skipped explicit exclusion', (string) ($result['skipped_explicit_exclusion'] ?? 0)],
                 ['Still unbookable', (string) count($result['still_unbookable'])],
                 ['Bookable after', (string) $result['bookable_after']],
             ],
@@ -71,9 +73,11 @@ class EnsureDemoBookingCoverageCommand extends Command
         $this->line($dryRun ? '=== INVENTORY (current) ===' : '=== INVENTORY (before writes) ===');
         foreach ($result['inventory'] as $row) {
             $this->line(sprintf(
-                'DOCTOR id=%d bookable=%s appt_only=%s approved=%d provisional=%d next=%s name=%s spec=%s',
+                'DOCTOR id=%d bookable=%s catalog=%s excluded=%s appt_only=%s approved=%d provisional=%d next=%s name=%s spec=%s',
                 $row['id'],
                 $row['bookable'] ? 'yes' : 'no',
+                ($row['in_imported_catalog'] ?? false) ? 'yes' : 'no',
+                $row['exclusion_reason'] ?? 'none',
                 $row['appointment_only'] ? 'yes' : 'no',
                 $row['approved_schedules'],
                 $row['provisional_schedules'],

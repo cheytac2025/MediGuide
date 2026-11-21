@@ -37,9 +37,11 @@ final class DemoBookingCoverageService
      *     already_bookable: int,
      *     made_bookable: int,
      *     skipped_inactive_scope: int,
+     *     skipped_explicit_exclusion: int,
      *     still_unbookable: list<array{id:int,name:string,reason:string}>,
      *     eligible_active: int,
-     *     bookable_after: int
+     *     bookable_after: int,
+     *     active_total: int
      * }
      */
     public function ensureCoverage(bool $dryRun = false): array
@@ -57,6 +59,7 @@ final class DemoBookingCoverageService
         $already = 0;
         $made = 0;
         $skippedScope = 0;
+        $skippedExcluded = 0;
         $still = [];
 
         $doctors = $this->activeDoctors();
@@ -64,6 +67,12 @@ final class DemoBookingCoverageService
         foreach ($doctors as $doctor) {
             $row = $this->inventoryRow($doctor);
             $inventory[] = $row;
+
+            if ($row['exclusion_reason'] !== null) {
+                $skippedExcluded++;
+
+                continue;
+            }
 
             if (! $row['eligible_scope']) {
                 $skippedScope++;
@@ -131,9 +140,11 @@ final class DemoBookingCoverageService
             'already_bookable' => $already,
             'made_bookable' => $made,
             'skipped_inactive_scope' => $skippedScope,
+            'skipped_explicit_exclusion' => $skippedExcluded,
             'still_unbookable' => $still,
             'eligible_active' => $eligible,
             'bookable_after' => $bookableAfter,
+            'active_total' => $doctors->count(),
         ];
     }
 
@@ -159,7 +170,8 @@ final class DemoBookingCoverageService
         );
         $provisional = $active->filter(fn (DoctorSchedule $s): bool => (bool) $s->provisional_demonstration);
         $approved = $active->filter(fn (DoctorSchedule $s): bool => ! $s->provisional_demonstration);
-        $eligible = $this->eligibleScope($doctor);
+        $exclusion = $this->explicitExclusionReason($doctor);
+        $eligible = $exclusion === null && $this->eligibleScope($doctor);
         $slot = $eligible ? $this->booking->nextAvailableSlot($doctor) : null;
 
         return [
@@ -171,6 +183,8 @@ final class DemoBookingCoverageService
             'department' => $doctor->clinic?->department?->name,
             'status' => $doctor->status->value,
             'eligible_scope' => $eligible,
+            'exclusion_reason' => $exclusion,
+            'in_imported_catalog' => $this->inImportedCatalog($doctor),
             'appointment_only' => AppointmentOnlyDoctors::excludes($doctor),
             'active_schedules' => $active->count(),
             'approved_schedules' => $approved->count(),
@@ -180,6 +194,35 @@ final class DemoBookingCoverageService
             'next_provisional' => (bool) ($slot['provisional'] ?? false),
             'missing_demo_availability' => $eligible && $slot === null,
         ];
+    }
+
+    /**
+     * Explicit, non-silent exclusions from demonstration coverage.
+     * Production may include pilots outside the 16-doctor imported catalog.
+     */
+    public function explicitExclusionReason(Doctor $doctor): ?string
+    {
+        $name = mb_strtolower(trim($doctor->display_name));
+        $spec = mb_strtolower(trim((string) $doctor->specialization));
+
+        if (str_contains($name, 'phase4j') || str_contains($spec, 'non-clinical')) {
+            return 'non_clinical_pilot';
+        }
+
+        return null;
+    }
+
+    public function inImportedCatalog(Doctor $doctor): bool
+    {
+        $name = mb_strtolower(trim($doctor->display_name));
+
+        foreach (QueenMaryClinicScheduleCatalog::doctors() as $record) {
+            if (mb_strtolower(trim((string) ($record['display_name'] ?? ''))) === $name) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function eligibleScope(Doctor $doctor): bool

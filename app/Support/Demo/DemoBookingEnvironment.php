@@ -2,6 +2,8 @@
 
 namespace App\Support\Demo;
 
+use App\Enums\RoleName;
+use App\Enums\UserStatus;
 use App\Models\User;
 
 /**
@@ -10,9 +12,9 @@ use App\Models\User;
  * Supports:
  * - Local loopback / testing with HOSPITAL_PROVISIONAL_LOCAL_BOOKING
  * - Isolated MEDIGUIDE_DEMO_INSTANCE deployments
- * - Capstone defense on the existing public site: provisional slots may be
- *   visible when MEDIGUIDE_CAPSTONE_BOOKING=true, but only allowlisted
- *   synthetic accounts may confirm those bookings.
+ * - Capstone defense on the existing public site: provisional slots are
+ *   visible and bookable only for authenticated, active, verified synthetic
+ *   patient accounts allowlisted by stable user ID (email is secondary).
  */
 final class DemoBookingEnvironment
 {
@@ -32,8 +34,25 @@ final class DemoBookingEnvironment
 
     public static function capstoneBookingEnabled(): bool
     {
-        return config('hospital.capstone_booking') === true
-            && self::capstoneAccounts() !== [];
+        if (config('hospital.capstone_booking') !== true) {
+            return false;
+        }
+
+        return self::capstoneUserIds() !== [] || self::capstoneAccounts() !== [];
+    }
+
+    /**
+     * @return list<int>
+     */
+    public static function capstoneUserIds(): array
+    {
+        /** @var list<int> $ids */
+        $ids = config('hospital.capstone_booking_user_ids', []);
+
+        return array_values(array_filter(
+            array_map(static fn ($id): int => (int) $id, $ids),
+            static fn (int $id): bool => $id > 0,
+        ));
     }
 
     /**
@@ -47,7 +66,52 @@ final class DemoBookingEnvironment
         return array_values(array_filter($accounts, static fn ($email): bool => is_string($email) && $email !== ''));
     }
 
+    /**
+     * Authenticated, active, email-verified patient whose stable user id
+     * (preferred) or synthetic email is on the capstone allowlist.
+     */
+    public static function isAuthorizedCapstonePatient(?User $user): bool
+    {
+        if (! self::capstoneBookingEnabled() || ! $user instanceof User) {
+            return false;
+        }
+
+        if ($user->status !== UserStatus::Active) {
+            return false;
+        }
+
+        if ($user->email_verified_at === null) {
+            return false;
+        }
+
+        if (! $user->hasRole(RoleName::Patient)) {
+            return false;
+        }
+
+        $user->loadMissing('patient');
+
+        if ($user->patient === null) {
+            return false;
+        }
+
+        $ids = self::capstoneUserIds();
+
+        if ($ids !== []) {
+            return in_array((int) $user->id, $ids, true);
+        }
+
+        return self::matchesCapstoneEmail($user);
+    }
+
+    /**
+     * @deprecated Prefer isAuthorizedCapstonePatient(); retained for callers/tests.
+     */
     public static function isCapstoneAccount(?User $user): bool
+    {
+        return self::isAuthorizedCapstonePatient($user);
+    }
+
+    public static function matchesCapstoneEmail(?User $user): bool
     {
         if (! $user instanceof User) {
             return false;
@@ -90,16 +154,16 @@ final class DemoBookingEnvironment
     }
 
     /**
-     * Whether provisional demonstration slots may be listed / computed.
-     * Capstone mode makes slots visible without enabling global provisional booking.
+     * Whether provisional demonstration slots may be listed / computed for a user.
+     * Capstone mode never exposes provisional slots to guests or ordinary patients.
      */
-    public static function provisionalSlotsVisible(): bool
+    public static function provisionalSlotsVisible(?User $user = null): bool
     {
         if (self::provisionalBookingAllowed()) {
             return true;
         }
 
-        return self::capstoneBookingEnabled();
+        return self::provisionalBookingPermitted($user ?? auth()->user());
     }
 
     /**
@@ -111,7 +175,7 @@ final class DemoBookingEnvironment
             return true;
         }
 
-        return self::capstoneBookingEnabled() && self::isCapstoneAccount($user);
+        return self::isAuthorizedCapstonePatient($user);
     }
 
     /**
@@ -208,8 +272,7 @@ final class DemoBookingEnvironment
             return true;
         }
 
-        return self::capstoneBookingEnabled()
-            && ($user === null || self::isCapstoneAccount($user) || ! auth()->check());
+        return self::isAuthorizedCapstonePatient($user);
     }
 
     /**

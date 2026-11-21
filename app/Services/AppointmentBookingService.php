@@ -124,7 +124,7 @@ class AppointmentBookingService
             return [];
         }
 
-        if ($this->inactiveReason($doctor, $schedule) !== null) {
+        if ($this->inactiveReason($doctor, $schedule, auth()->user()) !== null) {
             return [];
         }
 
@@ -215,13 +215,13 @@ class AppointmentBookingService
                 continue;
             }
 
-            if ($slot['provisional'] && ! DemoBookingEnvironment::provisionalSlotsVisible()) {
+            if ($slot['provisional'] && ! DemoBookingEnvironment::provisionalSlotsVisible(auth()->user())) {
                 continue;
             }
 
             $schedule = $doctor->schedules->firstWhere('id', $slot['schedule_id']);
 
-            if (! $schedule instanceof DoctorSchedule || $this->inactiveReason($doctor, $schedule) !== null) {
+            if (! $schedule instanceof DoctorSchedule || $this->inactiveReason($doctor, $schedule, auth()->user()) !== null) {
                 continue;
             }
 
@@ -572,10 +572,10 @@ class AppointmentBookingService
                 if (! DemoBookingEnvironment::provisionalBookingPermitted($actor)) {
                     return 'provisional_schedule';
                 }
-            } elseif (! DemoBookingEnvironment::provisionalSlotsVisible()) {
-                return 'provisional_schedule';
+            } elseif (! DemoBookingEnvironment::provisionalSlotsVisible($actor ?? auth()->user())) {
+                    return 'provisional_schedule';
+                }
             }
-        }
 
         return null;
     }
@@ -674,7 +674,7 @@ class AppointmentBookingService
                     continue;
                 }
 
-                if ($slot['provisional'] && ! DemoBookingEnvironment::provisionalSlotsVisible()) {
+                if ($slot['provisional'] && ! DemoBookingEnvironment::provisionalSlotsVisible(auth()->user())) {
                     continue;
                 }
 

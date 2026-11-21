@@ -75,16 +75,24 @@ return [
     | Capstone defense booking on the existing public site
     |--------------------------------------------------------------------------
     |
-    | When enabled, provisional demonstration schedules become visible for AI
-    | recommendations and calendars, but only allowlisted synthetic accounts
-    | may confirm bookings. Keep HOSPITAL_PROVISIONAL_LOCAL_BOOKING=false so
-    | the public site does not offer unrestricted provisional booking.
+    | When enabled, provisional demonstration schedules are visible and
+    | bookable only for authenticated, active, verified synthetic patients
+    | on the allowlist. Prefer stable user IDs. Emails are a secondary
+    | fallback when no user IDs are configured (local tests). Keep
+    | HOSPITAL_PROVISIONAL_LOCAL_BOOKING=false so the public site does not
+    | offer unrestricted provisional booking.
     |
-    | MEDIGUIDE_CAPSTONE_BOOKING_ACCOUNTS is a comma-separated email list.
+    | MEDIGUIDE_CAPSTONE_BOOKING_USER_IDS — comma-separated integer user IDs
+    | MEDIGUIDE_CAPSTONE_BOOKING_ACCOUNTS — comma-separated emails (fallback)
     |
     */
 
     'capstone_booking' => filter_var(env('MEDIGUIDE_CAPSTONE_BOOKING', false), FILTER_VALIDATE_BOOLEAN),
+
+    'capstone_booking_user_ids' => array_values(array_filter(array_map(
+        static fn (string $id): int => (int) trim($id),
+        explode(',', (string) env('MEDIGUIDE_CAPSTONE_BOOKING_USER_IDS', '')),
+    ), static fn (int $id): bool => $id > 0)),
 
     'capstone_booking_accounts' => array_values(array_filter(array_map(
         static fn (string $email): string => mb_strtolower(trim($email)),
