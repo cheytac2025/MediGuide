@@ -112,12 +112,15 @@ class AiSuggestedDoctorService
     {
         $slot = $this->booking->nextAvailableSlot($doctor);
         $bookable = $slot !== null;
+        $provisional = $bookable && (($slot['provisional'] ?? false) === true);
         $nextAvailable = $bookable
             ? $this->booking->formatSlotLabel($slot['date'], $slot['time'])
             : null;
-        $availability = $bookable
-            ? $nextAvailable
-            : 'No online appointments currently available.';
+        $availability = ! $bookable
+            ? 'No online appointments currently available.'
+            : ($provisional
+                ? 'Demonstration availability: '.$nextAvailable
+                : $nextAvailable);
 
         $clinic = $doctor->clinic;
         $specialization = is_string($doctor->specialization) && trim($doctor->specialization) !== ''
@@ -134,6 +137,7 @@ class AiSuggestedDoctorService
             'next_available' => $nextAvailable,
             'next_available_sort' => $bookable ? $slot['date'].' '.$slot['time'] : null,
             'bookable' => $bookable,
+            'demonstration_slot' => $provisional,
             'availability' => $availability,
         ];
     }

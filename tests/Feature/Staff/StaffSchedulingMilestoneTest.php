@@ -393,10 +393,12 @@ class StaffSchedulingMilestoneTest extends TestCase
         $booking = app(AppointmentBookingService::class);
         $this->assertSame([], $booking->getAvailableSlots($doctor, $monday, '2026-10-05'));
         $this->assertSame([], $booking->openSlots($doctor, '2026-10-05'));
-        $this->assertSame(
-            ['date' => '2026-10-07', 'time' => '13:00'],
-            $booking->nextAvailableSlot($doctor),
-        );
+        $next = $booking->nextAvailableSlot($doctor);
+        $this->assertIsArray($next);
+        $this->assertSame('2026-10-07', $next['date']);
+        $this->assertSame('13:00', $next['time']);
+        $this->assertFalse($next['provisional']);
+        $this->assertNotNull($next['schedule_id']);
 
         $clinic = Clinic::query()->where('name', 'Development Clinic A')->firstOrFail();
         $guidance = app(AiSuggestedDoctorService::class)->forGuidance(AiGuidanceResult::fromPayload([

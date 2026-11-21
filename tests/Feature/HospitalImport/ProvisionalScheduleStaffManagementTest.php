@@ -104,7 +104,7 @@ class ProvisionalScheduleStaffManagementTest extends TestCase
         $friday = $this->window($cadiente, DayOfWeek::Friday);
         $booking = app(AppointmentBookingService::class);
 
-        $this->assertSame(['date' => '2026-10-05', 'time' => '11:00'], $booking->nextAvailableSlot($cadiente));
+        $this->assertNextSlot($booking->nextAvailableSlot($cadiente), '2026-10-05', '11:00', provisional: true);
 
         $this->actingAs($this->assignedStaff())
             ->patch(route('staff.doctor-schedules.update', $monday), $this->payload(
@@ -118,7 +118,7 @@ class ProvisionalScheduleStaffManagementTest extends TestCase
         $monday->refresh();
         $this->assertSame('10:30:00', substr((string) $monday->start_time, 0, 8));
         $this->assertTrue($monday->provisional_demonstration);
-        $this->assertSame(['date' => '2026-10-05', 'time' => '10:30'], $booking->nextAvailableSlot($cadiente->fresh()));
+        $this->assertNextSlot($booking->nextAvailableSlot($cadiente->fresh()), '2026-10-05', '10:30', provisional: true);
         $this->assertSame('10:30', $booking->getAvailableSlots($cadiente, $monday, '2026-10-05')[0]);
         $this->assertNotContains('10:00', $booking->getAvailableSlots($cadiente, $monday, '2026-10-05'));
 
@@ -172,7 +172,7 @@ class ProvisionalScheduleStaffManagementTest extends TestCase
             ->assertSessionHas('schedule_status');
 
         $slot = app(AppointmentBookingService::class)->nextAvailableSlot($cadiente->fresh());
-        $this->assertSame(['date' => '2026-10-07', 'time' => '11:00'], $slot);
+        $this->assertNextSlot($slot, '2026-10-07', '11:00', provisional: true);
 
         $this->actingAs($this->assignedStaff())
             ->patch(route('staff.doctor-schedules.status', $monday), [
@@ -180,9 +180,11 @@ class ProvisionalScheduleStaffManagementTest extends TestCase
             ])
             ->assertSessionHas('schedule_status', 'Doctor schedule deactivated successfully.');
 
-        $this->assertSame(
-            ['date' => '2026-10-07', 'time' => '11:00'],
+        $this->assertNextSlot(
             app(AppointmentBookingService::class)->nextAvailableSlot($cadiente->fresh()),
+            '2026-10-07',
+            '11:00',
+            provisional: true,
         );
         $this->assertSame([], app(AppointmentBookingService::class)->getAvailableSlots($cadiente, $monday->fresh(), '2026-10-05'));
 
@@ -438,5 +440,17 @@ class ProvisionalScheduleStaffManagementTest extends TestCase
         ]);
 
         return app(AiSuggestedDoctorService::class)->forGuidance($guidance)['doctors'];
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $slot
+     */
+    private function assertNextSlot(?array $slot, string $date, string $time, bool $provisional): void
+    {
+        $this->assertIsArray($slot);
+        $this->assertSame($date, $slot['date']);
+        $this->assertSame($time, $slot['time']);
+        $this->assertSame($provisional, $slot['provisional']);
+        $this->assertNotNull($slot['schedule_id']);
     }
 }

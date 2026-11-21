@@ -69,12 +69,17 @@ For the Pediatrician service, the database can show:
 
 Names come from the imported rows. A booking button appears only when `AppointmentBookingService` returns a next slot. The slot label and the calendar must match that calculation. On 10 November 2026, an isolated check showed Dr. Arada-Hocate’s next demonstration slot as Thursday, 12 November 2026, 2:00–2:30 PM. On a later demonstration date, use the slot the booking service calculates that day. Do not hard-code that Thursday slot into the script.
 
-These doctors have no ordinary public booking slots. The demonstration must not invent one:
+Appointment-only poster doctors (Eclipse, Enriquez, Saquitan-Epetia, Epetia) do **not** receive ordinary approved public hours from hospital import. On an **isolated demonstration database only**, run:
 
-- Dr. Eclipse Jr., Eulalio
-- Dr. Enriquez, Tyron Vincent P.
-- Dr. Saquitan-Epetia, Angeli
-- Dr. Epetia, Mar Christopher
+```bash
+php artisan mediguide:ensure-demo-booking-coverage \
+  --confirm-local-demonstration \
+  --confirm-database=<exact_isolated_db_name>
+```
+
+That command adds `provisional_demonstration` windows so every eligible active doctor has a future demo slot. It refuses `mediguide_demo` and other blocked production names. It never writes approved (non-provisional) schedules.
+
+AI doctor cards label those slots as `Demonstration availability: …`. Public production must keep `HOSPITAL_PROVISIONAL_LOCAL_BOOKING=false`.
 
 Development doctors, including Test Doctor 1, stay hidden while the data source is imported.
 

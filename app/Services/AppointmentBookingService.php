@@ -296,9 +296,26 @@ class AppointmentBookingService
             }
 
             if ($earliest !== null) {
+                $scheduleId = null;
+                $provisional = false;
+
+                foreach ($schedules as $schedule) {
+                    foreach ($this->getAvailableSlots($doctor, $schedule, $date->toDateString()) as $start) {
+                        if ($start !== $earliest) {
+                            continue;
+                        }
+
+                        $scheduleId = (int) $schedule->id;
+                        $provisional = (bool) $schedule->provisional_demonstration;
+                        break 2;
+                    }
+                }
+
                 return [
                     'date' => $date->toDateString(),
                     'time' => $earliest,
+                    'schedule_id' => $scheduleId,
+                    'provisional' => $provisional,
                 ];
             }
 
