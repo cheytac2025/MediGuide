@@ -11,7 +11,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Clinic;
 use App\Models\Doctor;
 use App\Models\DoctorSchedule;
+use App\Models\User;
 use App\Services\AppointmentBookingService;
+use App\Support\Demo\DemoBookingEnvironment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -70,6 +72,8 @@ class AiClinicDoctorsController extends Controller
             'is_authenticated' => $user !== null,
             'is_authenticated_patient' => $isPatient,
             'patient_booking_only_message' => AiBookingIntentController::PATIENT_ACCOUNT_REQUIRED_MESSAGE,
+            'auth_required_to_book_message' => AiBookingIntentController::AUTH_REQUIRED_TO_BOOK_MESSAGE,
+            'demonstration_account_required_message' => AiBookingIntentController::DEMONSTRATION_ACCOUNT_REQUIRED_MESSAGE,
             'booking_intent_url' => route('ai-front-desk.booking-intent'),
         ]);
     }
@@ -79,14 +83,30 @@ class AiClinicDoctorsController extends Controller
      */
     private function doctorCard(Doctor $doctor, Clinic $clinic): array
     {
+        /** @var User|null $user */
+        $user = auth()->user();
         $slot = $this->booking->nextAvailableSlot($doctor);
-        $bookable = $slot !== null;
-        $nextAvailable = $bookable
+        $hasSlot = $slot !== null;
+        $provisional = $hasSlot && (($slot['provisional'] ?? false) === true);
+        $nextAvailable = $hasSlot
             ? $this->booking->formatSlotLabel($slot['date'], $slot['time'])
             : null;
+        $bookable = $hasSlot;
+        if ($provisional && ! DemoBookingEnvironment::mayOfferProvisionalBookingAction($user instanceof User ? $user : null)) {
+            $bookable = false;
+        }
         $hasActiveSchedule = $doctor->schedules->contains(
             fn (DoctorSchedule $schedule): bool => $schedule->status === DoctorScheduleStatus::Active,
         );
+
+        $availability = $nextAvailable;
+        if ($provisional && $nextAvailable !== null) {
+            $availability = $bookable
+                ? 'Demonstration availability: '.$nextAvailable
+                : 'Demonstration availability: '.$nextAvailable.'. '.AiBookingIntentController::DEMONSTRATION_ACCOUNT_REQUIRED_MESSAGE;
+        } elseif ($availability === null && ! $hasActiveSchedule) {
+            $availability = 'No available schedule';
+        }
 
         return [
             'id' => $doctor->id,
@@ -96,7 +116,8 @@ class AiClinicDoctorsController extends Controller
             'clinic' => $clinic->name,
             'bookable' => $bookable,
             'next_available' => $nextAvailable,
-            'availability' => $nextAvailable ?? ($hasActiveSchedule ? null : 'No available schedule'),
+            'demonstration_slot' => $provisional,
+            'availability' => $availability,
         ];
     }
 }

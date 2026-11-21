@@ -29,16 +29,29 @@
             <div class="mg-login-form-wrap">
                 <p class="mg-login-wordmark">Medi<span>Guide</span></p>
                 <h1 class="mg-login-title">Welcome Back</h1>
-                <p class="mg-login-lead">Sign in to continue to MediGuide.</p>
+                <p class="mg-login-lead">
+                    @if (!empty($hasBookingIntent))
+                        Sign in to continue booking your appointment.
+                    @else
+                        Sign in to continue to MediGuide.
+                    @endif
+                </p>
 
                 <p class="mg-login-back-wrap">
                     <a href="{{ route('home') }}" class="mg-login-back">← Back to AI Virtual Front Desk</a>
                 </p>
 
-                @if (session('status'))
+                @if ($status ?? session('status'))
                     <div class="mg-alert-success" role="status">
-                        {{ session('status') }}
+                        {{ $status ?? session('status') }}
                     </div>
+                @endif
+
+                @if (!empty($hasBookingIntent))
+                    <p class="mg-login-lead" style="margin-top:0.75rem;">
+                        <a href="{{ $registerUrl ?? route('register') }}" class="mg-login-create-btn">Create Account</a>
+                        if you do not already have a MediGuide patient account.
+                    </p>
                 @endif
 
                 <form method="POST" action="{{ route('login.store') }}" class="mg-login-form" novalidate>

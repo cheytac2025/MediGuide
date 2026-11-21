@@ -106,4 +106,24 @@ final class BookingIntent
 
         return self::validated($intent);
     }
+
+    /**
+     * True when the next available slot for this intent is a provisional demonstration slot.
+     *
+     * @param  array{clinic_id: int, doctor_id: int}  $intent
+     */
+    public static function isProvisionalOnlyFor(array $intent): bool
+    {
+        $doctor = Doctor::query()
+            ->with(['clinic.department', 'schedules'])
+            ->find($intent['doctor_id'] ?? null);
+
+        if (! $doctor instanceof Doctor) {
+            return false;
+        }
+
+        $slot = app(AppointmentBookingService::class)->nextAvailableSlot($doctor);
+
+        return is_array($slot) && (($slot['provisional'] ?? false) === true);
+    }
 }

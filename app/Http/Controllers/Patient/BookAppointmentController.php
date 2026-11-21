@@ -17,6 +17,7 @@ use App\Services\Ai\AppointmentAiSummaryService;
 use App\Services\AppointmentBookingService;
 use App\Support\AiBookingContext;
 use App\Support\BookingIntent;
+use App\Support\Demo\DemoBookingEnvironment;
 use App\Support\PatientHeader;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -96,11 +97,19 @@ class BookAppointmentController extends Controller
         }
 
         if ($doctor instanceof Doctor) {
-            $dates = $this->bookableDates($doctor);
+            if ($this->doctorOffersOnlyUnauthorizedProvisional($doctor, $user)) {
+                $error = AiBookingIntentController::DEMONSTRATION_ACCOUNT_REQUIRED_MESSAGE;
+                $dates = [];
+                $date = null;
+                $slots = [];
+                $slot = null;
+            } else {
+                $dates = $this->bookableDates($doctor, $user);
+            }
         }
 
-        if ($doctor instanceof Doctor && $date instanceof Carbon && $request->filled('start_time')) {
-            $slots = $this->slotsFor($doctor, $date);
+        if ($doctor instanceof Doctor && $date instanceof Carbon && $dates !== [] && $request->filled('start_time')) {
+            $slots = $this->slotsFor($doctor, $date, $user);
             $slot = collect($slots)->firstWhere('start', (string) $request->query('start_time'));
 
             if ($slot === null) {
@@ -108,8 +117,8 @@ class BookAppointmentController extends Controller
                     ? AppointmentBookingService::PASSED_SLOT_MESSAGE
                     : 'That time slot is no longer available. Please choose another time.';
             }
-        } elseif ($doctor instanceof Doctor && $date instanceof Carbon) {
-            $slots = $this->slotsFor($doctor, $date);
+        } elseif ($doctor instanceof Doctor && $date instanceof Carbon && $dates !== []) {
+            $slots = $this->slotsFor($doctor, $date, $user);
         }
 
         $step = 1;
@@ -416,14 +425,14 @@ class BookAppointmentController extends Controller
     /**
      * @return list<Carbon>
      */
-    private function bookableDates(Doctor $doctor): array
+    private function bookableDates(Doctor $doctor, ?User $user = null): array
     {
         $dates = [];
         $cursor = $this->hospitalToday();
         $last = $this->booking->lastBookableDate();
 
         while ($cursor->lte($last)) {
-            if ($this->booking->openSlots($doctor, $cursor->toDateString()) !== []) {
+            if ($this->slotsFor($doctor, $cursor, $user) !== []) {
                 $dates[] = $cursor;
             }
 
@@ -441,7 +450,7 @@ class BookAppointmentController extends Controller
             return null;
         }
 
-        foreach ($this->bookableDates($doctor) as $bookable) {
+        foreach ($this->bookableDates($doctor, auth()->user()) as $bookable) {
             if ($bookable->toDateString() === $date->toDateString()) {
                 return $date;
             }
@@ -453,11 +462,24 @@ class BookAppointmentController extends Controller
     /**
      * @return list<array{start: string, label: string, doctor_schedule_id: int}>
      */
-    private function slotsFor(Doctor $doctor, Carbon $date): array
+    private function slotsFor(Doctor $doctor, CarbonInterface $date, ?User $user = null): array
     {
         $slots = [];
+        $actor = $user ?? auth()->user();
+        $allowProvisional = DemoBookingEnvironment::provisionalBookingPermitted($actor instanceof User ? $actor : null)
+            || DemoBookingEnvironment::provisionalBookingAllowed();
+
+        $doctor->loadMissing('schedules');
 
         foreach ($this->booking->openSlots($doctor, $date->toDateString()) as $slot) {
+            $schedule = $doctor->schedules->firstWhere('id', $slot['schedule_id']);
+
+            if ($schedule instanceof DoctorSchedule
+                && $schedule->provisional_demonstration
+                && ! $allowProvisional) {
+                continue;
+            }
+
             $slots[] = [
                 'start' => $slot['start'],
                 'label' => $this->formatTime($slot['start']),
@@ -466,6 +488,22 @@ class BookAppointmentController extends Controller
         }
 
         return $slots;
+    }
+
+    private function doctorOffersOnlyUnauthorizedProvisional(Doctor $doctor, User $user): bool
+    {
+        if (DemoBookingEnvironment::provisionalBookingPermitted($user)
+            || DemoBookingEnvironment::provisionalBookingAllowed()) {
+            return false;
+        }
+
+        $next = $this->booking->nextAvailableSlot($doctor);
+
+        if ($next === null || (($next['provisional'] ?? false) !== true)) {
+            return false;
+        }
+
+        return $this->bookableDates($doctor, $user) === [];
     }
 
     /**

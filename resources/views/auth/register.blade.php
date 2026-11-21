@@ -27,8 +27,18 @@
 
                 <h1 class="mg-auth-title">Create Your Account</h1>
                 <p class="mg-auth-lead">
-                    Create your MediGuide patient account to access appointment and patient navigation services.
+                    @if (session()->has(\App\Support\BookingIntent::SESSION_KEY))
+                        Create your MediGuide patient account to continue booking your appointment.
+                    @else
+                        Create your MediGuide patient account to access appointment and patient navigation services.
+                    @endif
                 </p>
+
+                @if (session('status'))
+                    <div class="mg-alert-success" role="status">
+                        {{ session('status') }}
+                    </div>
+                @endif
 
                 <form method="POST" action="{{ route('register.store') }}" class="mg-auth-form" novalidate data-mg-register>
                     @csrf

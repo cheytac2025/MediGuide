@@ -4,12 +4,14 @@ namespace App\Providers;
 
 use App\Actions\Fortify\ResetUserPassword;
 use App\Enums\UserStatus;
+use App\Http\Controllers\Patient\AiBookingIntentController;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Responses\LoginResponse;
 use App\Http\Responses\LogoutResponse;
 use App\Http\Responses\VerifyEmailResponse;
 use App\Models\User;
 use App\Services\Auth\EmailOtpChallengeService;
+use App\Support\BookingIntent;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -76,9 +78,20 @@ class FortifyServiceProvider extends ServiceProvider
      */
     private function configureViews(): void
     {
-        Fortify::loginView(fn (Request $request) => view('auth.login', [
-            'status' => $request->session()->get('status'),
-        ]));
+        Fortify::loginView(function (Request $request) {
+            $hasBookingIntent = BookingIntent::get($request->session()) !== null;
+            $status = $request->session()->get('status');
+
+            if ($hasBookingIntent && (! is_string($status) || $status === '')) {
+                $status = AiBookingIntentController::AUTH_REQUIRED_TO_BOOK_MESSAGE;
+            }
+
+            return view('auth.login', [
+                'status' => $status,
+                'hasBookingIntent' => $hasBookingIntent,
+                'registerUrl' => route('register'),
+            ]);
+        });
 
         Fortify::resetPasswordView(fn (Request $request) => Inertia::render('auth/reset-password', [
             'email' => $request->email,

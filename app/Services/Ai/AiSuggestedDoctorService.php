@@ -5,9 +5,11 @@ namespace App\Services\Ai;
 use App\Enums\RoleName;
 use App\Http\Controllers\Patient\AiBookingIntentController;
 use App\Models\Doctor;
+use App\Models\User;
 use App\Services\AiHospitalContextService;
 use App\Services\AppointmentBookingService;
 use App\Support\AiGuidanceResult;
+use App\Support\Demo\DemoBookingEnvironment;
 use App\Support\HospitalImport\QueenMaryClinicScheduleCatalog;
 use Illuminate\Http\Request;
 
@@ -101,6 +103,8 @@ class AiSuggestedDoctorService
             'is_authenticated' => $user !== null,
             'is_authenticated_patient' => $isPatient,
             'patient_booking_only_message' => AiBookingIntentController::PATIENT_ACCOUNT_REQUIRED_MESSAGE,
+            'auth_required_to_book_message' => AiBookingIntentController::AUTH_REQUIRED_TO_BOOK_MESSAGE,
+            'demonstration_account_required_message' => AiBookingIntentController::DEMONSTRATION_ACCOUNT_REQUIRED_MESSAGE,
             'preview_limit' => self::PREVIEW_LIMIT,
         ];
     }
@@ -110,16 +114,28 @@ class AiSuggestedDoctorService
      */
     private function card(Doctor $doctor): array
     {
+        /** @var User|null $user */
+        $user = auth()->user();
         $slot = $this->booking->nextAvailableSlot($doctor);
-        $bookable = $slot !== null;
-        $provisional = $bookable && (($slot['provisional'] ?? false) === true);
-        $nextAvailable = $bookable
+        $hasSlot = $slot !== null;
+        $provisional = $hasSlot && (($slot['provisional'] ?? false) === true);
+        $nextAvailable = $hasSlot
             ? $this->booking->formatSlotLabel($slot['date'], $slot['time'])
             : null;
-        $availability = ! $bookable
+
+        $bookable = $hasSlot;
+        if ($provisional && ! DemoBookingEnvironment::mayOfferProvisionalBookingAction($user instanceof User ? $user : null)) {
+            $bookable = false;
+        }
+
+        $availability = ! $hasSlot
             ? 'No online appointments currently available.'
             : ($provisional
-                ? 'Demonstration availability: '.$nextAvailable
+                ? (
+                    $bookable
+                        ? 'Demonstration availability: '.$nextAvailable
+                        : 'Demonstration availability: '.$nextAvailable.'. '.AiBookingIntentController::DEMONSTRATION_ACCOUNT_REQUIRED_MESSAGE
+                )
                 : $nextAvailable);
 
         $clinic = $doctor->clinic;
@@ -135,7 +151,7 @@ class AiSuggestedDoctorService
             'clinic' => $this->patientFacingClinicName($clinic->name, $specialization),
             'department' => $this->patientFacingDepartment($clinic->department?->name),
             'next_available' => $nextAvailable,
-            'next_available_sort' => $bookable ? $slot['date'].' '.$slot['time'] : null,
+            'next_available_sort' => $hasSlot ? $slot['date'].' '.$slot['time'] : null,
             'bookable' => $bookable,
             'demonstration_slot' => $provisional,
             'availability' => $availability,

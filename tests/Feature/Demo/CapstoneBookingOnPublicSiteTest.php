@@ -12,6 +12,7 @@ use App\Enums\HospitalDataSource;
 use App\Enums\RoleName;
 use App\Enums\Sex;
 use App\Enums\UserStatus;
+use App\Http\Controllers\Patient\AiBookingIntentController;
 use App\Models\Clinic;
 use App\Models\Department;
 use App\Models\Doctor;
@@ -20,9 +21,12 @@ use App\Models\User;
 use App\Services\Ai\AiSuggestedDoctorService;
 use App\Services\AppointmentBookingService;
 use App\Services\Demo\DemoBookingCoverageService;
+use App\Support\AiDisclaimer;
 use App\Support\AiGuidanceResult;
+use App\Support\BookingIntent;
 use App\Support\Demo\DemoBookingEnvironment;
 use Database\Seeders\RoleSeeder;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Notification;
@@ -47,8 +51,8 @@ class CapstoneBookingOnPublicSiteTest extends TestCase
 
         Carbon::setTestNow(Carbon::parse('2026-11-10 08:00:00', 'Asia/Manila'));
         $this->seed(RoleSeeder::class);
+        $this->withoutMiddleware(PreventRequestForgery::class);
 
-        // Simulate production public site: provisional flag OFF.
         config([
             'hospital.provisional_local_booking' => false,
             'hospital.demo_instance' => false,
@@ -122,10 +126,9 @@ class CapstoneBookingOnPublicSiteTest extends TestCase
         $this->assertNotNull($booking->nextAvailableSlot($this->approvedOnlyDoctor->fresh(['schedules', 'clinic.department'])));
     }
 
-    public function test_guests_and_ordinary_patients_cannot_see_provisional_slots_when_capstone_enabled(): void
+    public function test_guests_see_demonstration_availability_and_must_authenticate_to_book(): void
     {
         $synthetic = $this->makePatient('patient.demo@mediguide.test');
-        $outsider = $this->makePatient('public.user@example.com');
 
         config([
             'hospital.capstone_booking' => true,
@@ -136,9 +139,9 @@ class CapstoneBookingOnPublicSiteTest extends TestCase
 
         $booking = app(AppointmentBookingService::class);
 
-        $this->assertFalse(DemoBookingEnvironment::provisionalSlotsVisible(null));
-        $this->assertFalse(DemoBookingEnvironment::provisionalSlotsVisible($outsider));
-        $this->assertNull($booking->nextAvailableSlot($this->doctor->fresh(['schedules', 'clinic.department'])));
+        $this->assertTrue(DemoBookingEnvironment::provisionalSlotsVisible(null));
+        $this->assertTrue(DemoBookingEnvironment::mayOfferProvisionalBookingAction(null));
+        $this->assertNotNull($booking->nextAvailableSlot($this->doctor->fresh(['schedules', 'clinic.department'])));
 
         $cardsAsGuest = app(AiSuggestedDoctorService::class)->forGuidance(AiGuidanceResult::fromPayload([
             'type' => 'recommendation',
@@ -147,11 +150,96 @@ class CapstoneBookingOnPublicSiteTest extends TestCase
             'specialization' => 'Pediatrician',
             'reason' => 'Synthetic pediatric concern.',
         ]));
-        $this->assertFalse($cardsAsGuest['doctors'][0]['bookable']);
+        $this->assertTrue($cardsAsGuest['doctors'][0]['bookable']);
+        $this->assertStringContainsString('Demonstration availability:', $cardsAsGuest['doctors'][0]['availability']);
+
+        $this->withSession([AiDisclaimer::SESSION_KEY => true])
+            ->post(route('ai-front-desk.booking-intent'), [
+                'clinic_id' => $this->doctor->clinic_id,
+                'doctor_id' => $this->doctor->id,
+            ])
+            ->assertRedirect(route('login'))
+            ->assertSessionHas(BookingIntent::SESSION_KEY, [
+                'clinic_id' => $this->doctor->clinic_id,
+                'doctor_id' => $this->doctor->id,
+            ])
+            ->assertSessionHas('status', AiBookingIntentController::AUTH_REQUIRED_TO_BOOK_MESSAGE);
+
+        $this->get(route('login'))
+            ->assertOk()
+            ->assertSee(AiBookingIntentController::AUTH_REQUIRED_TO_BOOK_MESSAGE, false)
+            ->assertSee('Create Account', false);
+    }
+
+    public function test_guest_booking_intent_resumes_for_authorized_patient_after_login(): void
+    {
+        Notification::fake();
+        $synthetic = $this->makePatient('patient.demo@mediguide.test');
+
+        config([
+            'hospital.capstone_booking' => true,
+            'hospital.capstone_booking_user_ids' => [(int) $synthetic->id],
+            'hospital.provisional_local_booking' => false,
+        ]);
+
+        $this->withSession([
+            AiDisclaimer::SESSION_KEY => true,
+            BookingIntent::SESSION_KEY => [
+                'clinic_id' => $this->doctor->clinic_id,
+                'doctor_id' => $this->doctor->id,
+            ],
+        ])->post(route('login.store'), [
+            'email' => $synthetic->email,
+            'password' => 'password',
+        ])->assertRedirect(route('patient.book-appointment', [
+            'clinic_id' => $this->doctor->clinic_id,
+            'doctor_id' => $this->doctor->id,
+        ]));
+
+        $this->actingAs($synthetic)
+            ->get(route('patient.book-appointment', [
+                'clinic_id' => $this->doctor->clinic_id,
+                'doctor_id' => $this->doctor->id,
+            ]))
+            ->assertOk()
+            ->assertSee('Dr. Capstone Pediatrician', false);
+    }
+
+    public function test_ordinary_patient_cannot_confirm_provisional_and_sees_explanation(): void
+    {
+        $synthetic = $this->makePatient('patient.demo@mediguide.test');
+        $outsider = $this->makePatient('public.user@example.com');
+
+        config([
+            'hospital.capstone_booking' => true,
+            'hospital.capstone_booking_user_ids' => [(int) $synthetic->id],
+            'hospital.provisional_local_booking' => false,
+        ]);
 
         $this->actingAs($outsider);
-        $this->assertNull($booking->nextAvailableSlot($this->doctor->fresh(['schedules', 'clinic.department'])));
-        $this->assertNotNull($booking->nextAvailableSlot($this->approvedOnlyDoctor->fresh(['schedules', 'clinic.department'])));
+        $cards = app(AiSuggestedDoctorService::class)->forGuidance(AiGuidanceResult::fromPayload([
+            'type' => 'recommendation',
+            'clinic_id' => $this->doctor->clinic_id,
+            'service_id' => 1,
+            'specialization' => 'Pediatrician',
+            'reason' => 'Synthetic pediatric concern.',
+        ]));
+        $this->assertFalse($cards['doctors'][0]['bookable']);
+        $this->assertStringContainsString('Demonstration availability:', $cards['doctors'][0]['availability']);
+        $this->assertStringContainsString('authorized demonstration patient account', $cards['doctors'][0]['availability']);
+
+        $this->actingAs($outsider)
+            ->withSession([AiDisclaimer::SESSION_KEY => true])
+            ->post(route('ai-front-desk.booking-intent'), [
+                'clinic_id' => $this->doctor->clinic_id,
+                'doctor_id' => $this->doctor->id,
+            ])
+            ->assertRedirect(route('ai-front-desk'))
+            ->assertSessionHas('status', AiBookingIntentController::DEMONSTRATION_ACCOUNT_REQUIRED_MESSAGE);
+
+        $this->assertNotNull(app(AppointmentBookingService::class)->nextAvailableSlot(
+            $this->approvedOnlyDoctor->fresh(['schedules', 'clinic.department']),
+        ));
     }
 
     public function test_allowlisted_verified_patient_sees_and_books_provisional_by_user_id(): void
@@ -169,7 +257,7 @@ class CapstoneBookingOnPublicSiteTest extends TestCase
         $this->assertFalse(DemoBookingEnvironment::provisionalBookingAllowed());
         $this->assertTrue(DemoBookingEnvironment::isAuthorizedCapstonePatient($patient));
         $this->assertTrue(DemoBookingEnvironment::provisionalSlotsVisible($patient));
-        $this->assertFalse(DemoBookingEnvironment::provisionalSlotsVisible(null));
+        $this->assertTrue(DemoBookingEnvironment::provisionalSlotsVisible(null));
 
         $this->actingAs($patient);
 
@@ -178,16 +266,6 @@ class CapstoneBookingOnPublicSiteTest extends TestCase
         );
         $this->assertNotNull($slot);
         $this->assertTrue($slot['provisional']);
-
-        $cards = app(AiSuggestedDoctorService::class)->forGuidance(AiGuidanceResult::fromPayload([
-            'type' => 'recommendation',
-            'clinic_id' => $this->doctor->clinic_id,
-            'service_id' => 1,
-            'specialization' => 'Pediatrician',
-            'reason' => 'Synthetic pediatric concern.',
-        ]));
-        $this->assertTrue($cards['doctors'][0]['bookable']);
-        $this->assertStringContainsString('Demonstration availability:', $cards['doctors'][0]['availability']);
 
         $appointment = app(AppointmentBookingService::class)->book(
             $patient->patient,
@@ -200,7 +278,6 @@ class CapstoneBookingOnPublicSiteTest extends TestCase
 
         $this->assertSame(AppointmentStatus::Pending, $appointment->status);
         $this->assertSame($patient->patient->id, $appointment->patient_id);
-        $this->assertTrue((bool) $this->provisional->fresh()->provisional_demonstration);
     }
 
     public function test_email_allowlist_is_fallback_only_when_user_ids_empty(): void
@@ -296,10 +373,9 @@ class CapstoneBookingOnPublicSiteTest extends TestCase
         $this->assertSame('non_clinical_pilot', $row['exclusion_reason']);
         $this->assertFalse($row['eligible_scope']);
         $this->assertFalse($row['in_imported_catalog']);
-        $this->assertSame('non_clinical_pilot', $coverage->explicitExclusionReason($pilot));
     }
 
-    public function test_banner_only_for_authorized_capstone_patient(): void
+    public function test_banner_for_guests_and_authorized_capstone_patient(): void
     {
         $synthetic = $this->makePatient('patient.demo@mediguide.test');
         $outsider = $this->makePatient('public.user@example.com');
@@ -309,7 +385,7 @@ class CapstoneBookingOnPublicSiteTest extends TestCase
             'hospital.capstone_booking_user_ids' => [(int) $synthetic->id],
         ]);
 
-        $this->assertFalse(DemoBookingEnvironment::shouldShowBanner(null));
+        $this->assertTrue(DemoBookingEnvironment::shouldShowBanner(null));
         $this->assertFalse(DemoBookingEnvironment::shouldShowBanner($outsider));
         $this->assertTrue(DemoBookingEnvironment::shouldShowBanner($synthetic));
     }

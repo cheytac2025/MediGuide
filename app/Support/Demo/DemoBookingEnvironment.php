@@ -154,8 +154,11 @@ final class DemoBookingEnvironment
     }
 
     /**
-     * Whether provisional demonstration slots may be listed / computed for a user.
-     * Capstone mode never exposes provisional slots to guests or ordinary patients.
+     * Whether provisional demonstration slots may be listed / computed.
+     *
+     * Capstone defense lists demonstration availability for AI/guest UX so a
+     * guest can click Book Appointment and authenticate. Confirmation remains
+     * gated by provisionalBookingPermitted().
      */
     public static function provisionalSlotsVisible(?User $user = null): bool
     {
@@ -163,7 +166,29 @@ final class DemoBookingEnvironment
             return true;
         }
 
-        return self::provisionalBookingPermitted($user ?? auth()->user());
+        return self::capstoneBookingEnabled();
+    }
+
+    /**
+     * Whether the UI may offer a Book Appointment action for a provisional slot.
+     * Guests may start the auth handoff; only authorized accounts may confirm.
+     */
+    public static function mayOfferProvisionalBookingAction(?User $user): bool
+    {
+        if (self::provisionalBookingAllowed()) {
+            return true;
+        }
+
+        if (! self::capstoneBookingEnabled()) {
+            return false;
+        }
+
+        // Guests: show Book Appointment → sign-in / register handoff.
+        if ($user === null) {
+            return true;
+        }
+
+        return self::isAuthorizedCapstonePatient($user);
     }
 
     /**
@@ -269,6 +294,15 @@ final class DemoBookingEnvironment
         }
 
         if (self::provisionalBookingAllowed() && app()->environment('local', 'testing') && ! self::isBlockedDatabase()) {
+            return true;
+        }
+
+        if (! self::capstoneBookingEnabled()) {
+            return false;
+        }
+
+        // Guests (no user) and authorized demonstration patients see the banner.
+        if ($user === null) {
             return true;
         }
 

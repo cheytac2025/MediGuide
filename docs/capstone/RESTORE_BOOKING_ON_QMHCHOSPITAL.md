@@ -42,11 +42,12 @@ MEDIGUIDE_CAPSTONE_BOOKING_ACCOUNTS=patient.demo@mediguide.test
 
 Behavior:
 
-1. Guests and ordinary patients **never** see provisional slots as bookable hospital appointments.
-2. Approved schedules (e.g. Dr. Robles) remain visible to ordinary patients.
-3. Only authenticated, **active**, **email-verified** synthetic **patient** accounts on the **user-ID allowlist** may see and confirm provisional demonstration slots.
-4. UI labels *Demonstration availability*; banner only for authorized synthetic patients.
-5. Conflict / double-booking, CSRF, OTP, RBAC, integrity, and audit controls unchanged.
+1. Guests may use AI Front Desk and **see** demonstration availability (labeled). Book Appointment requires Sign In / Create Account; BookingIntent resumes after auth/OTP/verification.
+2. Guests cannot open the booking wizard or confirm appointments anonymously.
+3. Approved schedules (e.g. Dr. Robles) remain bookable for ordinary patients.
+4. Only authenticated, **active**, **email-verified** synthetic **patient** accounts on the **user-ID allowlist** may **confirm** provisional demonstration bookings.
+5. Ordinary authenticated patients receive a clear explanation instead of an invalid provisional booking action.
+6. Conflict / double-booking, CSRF, OTP, RBAC, integrity, and audit controls unchanged.
 
 ## Production data changes still requiring separate approval
 
