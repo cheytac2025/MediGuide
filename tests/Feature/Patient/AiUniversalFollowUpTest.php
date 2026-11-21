@@ -297,7 +297,7 @@ class AiUniversalFollowUpTest extends TestCase
             ->assertJsonPath('doctors.0.specialization', 'Internal Medicine')
             ->assertJsonPath('doctors.0.clinic', null)
             ->assertJsonPath('doctors.0.department', null)
-            ->assertJsonPath('doctors.0.availability', null)
+            ->assertJsonPath('doctors.0.availability', 'No online appointments currently available.')
             ->assertJsonPath('doctors.0.bookable', false)
             ->assertJsonPath('all_unavailable', true)
             ->assertJsonPath('message', AiSuggestedDoctorService::NO_ONLINE_SLOTS_MESSAGE)

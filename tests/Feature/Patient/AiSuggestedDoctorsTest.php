@@ -117,7 +117,7 @@ class AiSuggestedDoctorsTest extends TestCase
             ->assertJsonPath('type', 'recommendation')
             ->assertJsonPath('doctors.0.bookable', false)
             ->assertJsonPath('doctors.0.next_available', null)
-            ->assertJsonPath('doctors.0.availability', null)
+            ->assertJsonPath('doctors.0.availability', 'No online appointments currently available.')
             ->assertJsonPath('all_unavailable', true)
             ->assertJsonPath('message', AiSuggestedDoctorService::NO_ONLINE_SLOTS_MESSAGE);
         $this->assertSame(['Dr. Endaya, Hazel Anne'], $names);
@@ -186,7 +186,7 @@ class AiSuggestedDoctorsTest extends TestCase
             ->assertJsonFragment([
                 'display_name' => 'Dr. None',
                 'bookable' => false,
-                'availability' => null,
+                'availability' => 'No online appointments currently available.',
             ])
             ->assertJsonPath('all_unavailable', false);
 

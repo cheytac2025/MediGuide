@@ -389,6 +389,7 @@
             item.classList.toggle('is-unavailable', !bookable);
 
             const bookBtn = item.querySelector('[data-mg-book-appointment]');
+            const unavailableEl = item.querySelector('[data-mg-doctor-unavailable]');
 
             if (bookBtn) {
                 if (
@@ -401,6 +402,7 @@
                 ) {
                     bookBtn.hidden = false;
                     bookBtn.disabled = false;
+                    bookBtn.textContent = 'Book Appointment';
                     bookBtn.dataset.clinicId = String(clinicId);
                     bookBtn.dataset.doctorId = String(doctorId);
                     bookBtn.dataset.bookUrl = payload.book_appointment_url || '';
@@ -410,10 +412,16 @@
                     bookBtn.dataset.patientBookingOnlyMessage = typeof payload.patient_booking_only_message === 'string'
                         ? payload.patient_booking_only_message
                         : '';
+                    if (unavailableEl) {
+                        unavailableEl.hidden = true;
+                    }
                 } else {
                     bookBtn.hidden = true;
                     bookBtn.disabled = true;
                     bookBtn.removeAttribute('data-doctor-id');
+                    if (unavailableEl && doctors.length > 0) {
+                        unavailableEl.hidden = false;
+                    }
                 }
             }
 

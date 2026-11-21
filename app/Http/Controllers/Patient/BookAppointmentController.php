@@ -15,6 +15,8 @@ use App\Models\User;
 use App\Notifications\AppointmentSubmittedNotification;
 use App\Services\Ai\AppointmentAiSummaryService;
 use App\Services\AppointmentBookingService;
+use App\Support\AiBookingContext;
+use App\Support\BookingIntent;
 use App\Support\PatientHeader;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -55,17 +57,25 @@ class BookAppointmentController extends Controller
         $slots = [];
         $slot = null;
 
-        if ($request->filled('clinic_id')) {
-            $clinic = $clinics->firstWhere('id', (int) $request->query('clinic_id'));
+        $handoff = $this->aiBookingHandoffIds($request);
+
+        if ($request->filled('clinic_id') || isset($handoff['clinic_id'])) {
+            $clinicId = $request->filled('clinic_id')
+                ? (int) $request->query('clinic_id')
+                : (int) $handoff['clinic_id'];
+            $clinic = $clinics->firstWhere('id', $clinicId);
 
             if (! $clinic instanceof Clinic) {
                 $error = 'The selected clinic is unavailable.';
             }
         }
 
-        if ($clinic instanceof Clinic && $request->filled('doctor_id')) {
+        if ($clinic instanceof Clinic && ($request->filled('doctor_id') || isset($handoff['doctor_id']))) {
             $doctors = $this->activeDoctors($clinic);
-            $doctor = $doctors->firstWhere('id', (int) $request->query('doctor_id'));
+            $doctorId = $request->filled('doctor_id')
+                ? (int) $request->query('doctor_id')
+                : (int) $handoff['doctor_id'];
+            $doctor = $doctors->firstWhere('id', $doctorId);
 
             if (! $doctor instanceof Doctor) {
                 $error = 'The selected doctor is unavailable.';
@@ -711,5 +721,35 @@ class BookAppointmentController extends Controller
             'email' => $user->email,
             'contact' => $user->patient?->contact_number,
         ];
+    }
+
+    /**
+     * Recover clinic/doctor IDs from AI booking session when query params are lost
+     * (for example after email verification). Does not invent availability.
+     *
+     * @return array{clinic_id?: int, doctor_id?: int}
+     */
+    private function aiBookingHandoffIds(Request $request): array
+    {
+        if ($request->filled('clinic_id') && $request->filled('doctor_id')) {
+            return [];
+        }
+
+        $context = AiBookingContext::validated(AiBookingContext::get($request->session()));
+
+        if ($context !== null) {
+            $intent = BookingIntent::validated([
+                'clinic_id' => $context['clinic_id'],
+                'doctor_id' => $context['doctor_id'],
+            ]);
+
+            if ($intent !== null) {
+                return $intent;
+            }
+        }
+
+        $pending = BookingIntent::validated(BookingIntent::get($request->session()));
+
+        return $pending ?? [];
     }
 }

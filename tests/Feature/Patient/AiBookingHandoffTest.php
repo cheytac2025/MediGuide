@@ -792,6 +792,129 @@ class AiBookingHandoffTest extends TestCase
         ]);
     }
 
+    public function test_email_otp_success_resumes_booking_intent(): void
+    {
+        config(['auth_security.email_otp_enabled' => true]);
+        \Illuminate\Support\Facades\Notification::fake();
+
+        $user = $this->patientUser();
+        $user->forceFill([
+            'email_otp_enabled' => true,
+            'password' => \Illuminate\Support\Facades\Hash::make('password'),
+            'email_verified_at' => now(),
+        ])->save();
+
+        $clinic = $this->clinicA();
+        $doctor = $this->doctor1();
+
+        $this->withSession([
+            AiDisclaimer::SESSION_KEY => true,
+            BookingIntent::SESSION_KEY => [
+                'clinic_id' => $clinic->id,
+                'doctor_id' => $doctor->id,
+            ],
+        ])->post(route('login.store'), [
+            'email' => $user->email,
+            'password' => 'password',
+        ])->assertRedirect(route('auth.email-otp.challenge'));
+
+        $challenge = \App\Models\EmailOtpChallenge::query()->where('user_id', $user->id)->latest('id')->first();
+        $this->assertNotNull($challenge);
+        $plain = '424242';
+        $challenge->forceFill(['code_hash' => \Illuminate\Support\Facades\Hash::make($plain)])->save();
+
+        $this->post(route('auth.email-otp.verify'), ['code' => $plain])
+            ->assertRedirect(route('patient.book-appointment', [
+                'clinic_id' => $clinic->id,
+                'doctor_id' => $doctor->id,
+            ]));
+
+        $this->assertAuthenticatedAs($user);
+        $this->assertNull(session(BookingIntent::SESSION_KEY));
+    }
+
+    public function test_ai_booking_context_preselects_doctor_when_query_params_missing(): void
+    {
+        $user = $this->patientUser();
+        $user->forceFill(['email_verified_at' => now()])->save();
+        $clinic = $this->clinicA();
+        $doctor = $this->doctor1();
+
+        $this->actingAs($user)
+            ->withSession([
+                AiDisclaimer::SESSION_KEY => true,
+                \App\Support\AiBookingContext::SESSION_KEY => [
+                    'clinic_id' => $clinic->id,
+                    'doctor_id' => $doctor->id,
+                    'specialization' => DevelopmentDoctorSeeder::SPECIALIZATION_A,
+                ],
+            ])
+            ->get(route('patient.book-appointment'))
+            ->assertOk()
+            ->assertSee('Development Clinic A')
+            ->assertSee('Test Doctor 1')
+            ->assertSee('Select a date');
+    }
+
+    public function test_unbookable_doctor_booking_intent_is_rejected(): void
+    {
+        $user = $this->patientUser();
+        $clinic = $this->clinicA();
+        $doctor = Doctor::query()->create([
+            'clinic_id' => $clinic->id,
+            'display_name' => 'Active Schedule Without Slots Doctor',
+            'specialization' => DevelopmentDoctorSeeder::SPECIALIZATION_A,
+            'status' => DoctorStatus::Active,
+        ]);
+        DoctorSchedule::query()->create([
+            'doctor_id' => $doctor->id,
+            'day_of_week' => DayOfWeek::Monday,
+            'start_time' => '09:00:00',
+            'end_time' => '09:30:00',
+            'slot_duration' => 30,
+            'status' => DoctorScheduleStatus::Active,
+            'provisional_demonstration' => true,
+        ]);
+
+        config(['hospital.provisional_local_booking' => false]);
+
+        $this->actingAs($user)
+            ->withSession([AiDisclaimer::SESSION_KEY => true])
+            ->post(route('ai-front-desk.booking-intent'), [
+                'clinic_id' => $clinic->id,
+                'doctor_id' => $doctor->id,
+            ])
+            ->assertRedirect(route('ai-front-desk'));
+
+        $this->assertNull(session(BookingIntent::SESSION_KEY));
+    }
+
+    public function test_emergency_guidance_does_not_offer_booking_doctors(): void
+    {
+        $this->fakeAnthropicPayload([
+            'type' => 'safety',
+            'message' => 'If this may be a medical emergency, seek help now.',
+        ]);
+
+        $this->withSession([AiDisclaimer::SESSION_KEY => true])
+            ->postJson(route('ai-front-desk.guidance'), [
+                'message' => 'I have a sudden severe headache and I cannot speak.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('type', 'safety')
+            ->assertJsonMissingPath('doctors.0.id')
+            ->assertJsonPath('navigation.booking_permitted', false);
+    }
+
+    public function test_front_desk_page_shows_book_appointment_label(): void
+    {
+        $this->withSession([AiDisclaimer::SESSION_KEY => true])
+            ->get(route('ai-front-desk'))
+            ->assertOk()
+            ->assertSee('Book Appointment', false)
+            ->assertSee('Online booking is unavailable for this doctor right now', false);
+    }
+
     private function fakeGuidanceServiceRecommendation(string $specialization): int
     {
         $serviceId = null;

@@ -7,6 +7,7 @@ use App\Enums\AuditOutcome;
 use App\Models\User;
 use App\Support\Audit\AuditTrailService;
 use App\Support\AuthenticatedHome;
+use App\Support\PostAuthBookingRedirect;
 use Laravel\Fortify\Contracts\VerifyEmailResponse as VerifyEmailResponseContract;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -22,6 +23,12 @@ class VerifyEmailResponse implements VerifyEmailResponseContract
                 AuditOutcome::Success,
                 actor: $user,
             );
+
+            $bookingRedirect = PostAuthBookingRedirect::afterAuthentication($request, $user);
+
+            if ($bookingRedirect !== null) {
+                return $bookingRedirect;
+            }
         }
 
         return redirect()->intended(AuthenticatedHome::route($user).'?verified=1');

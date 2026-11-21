@@ -8,6 +8,7 @@ use App\Enums\DoctorScheduleStatus;
 use App\Enums\DoctorStatus;
 use App\Models\Clinic;
 use App\Models\Doctor;
+use App\Services\AppointmentBookingService;
 use Illuminate\Contracts\Session\Session;
 
 /**
@@ -55,6 +56,12 @@ final class BookingIntent
             ->first();
 
         if (! $doctor instanceof Doctor) {
+            return null;
+        }
+
+        // Match AI Front Desk bookable gate: an active schedule row alone is not enough
+        // when provisional demonstration schedules are hidden in this environment.
+        if (app(AppointmentBookingService::class)->nextAvailableSlot($doctor) === null) {
             return null;
         }
 

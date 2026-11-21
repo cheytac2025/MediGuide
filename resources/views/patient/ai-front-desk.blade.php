@@ -158,8 +158,11 @@
             <p class="mg-doctor-place" data-mg-doctor-clinic></p>
             <p class="mg-doctor-availability" data-mg-doctor-availability></p>
             <button type="button" class="mg-recommend-btn" data-mg-book-appointment hidden>
-                View Available Appointments
+                Book Appointment
             </button>
+            <p class="mg-doctor-unavailable" data-mg-doctor-unavailable hidden>
+                Online booking is unavailable for this doctor right now. Please contact hospital staff for assistance.
+            </p>
         </article>
     </template>
 

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\Auth\EmailOtpChallengeService;
 use App\Support\AuthenticatedHome;
+use App\Support\PostAuthBookingRedirect;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -73,6 +74,12 @@ class EmailOtpChallengeController extends Controller
             EmailOtpChallengeService::SESSION_USER,
         ]);
         $request->session()->regenerate();
+
+        $bookingRedirect = PostAuthBookingRedirect::afterAuthentication($request, $user);
+
+        if ($bookingRedirect !== null) {
+            return $bookingRedirect;
+        }
 
         return redirect()->intended(AuthenticatedHome::route($user));
     }

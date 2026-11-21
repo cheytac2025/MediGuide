@@ -120,7 +120,7 @@ class AiFrontDeskTest extends TestCase
         $response->assertSee('New Conversation');
         $response->assertSee('View Available Doctors');
         $response->assertSee('Suggested Doctors');
-        $response->assertSee('View Available Appointments');
+        $response->assertSee('Book Appointment');
         $response->assertSee('View More Doctors');
         $response->assertSee('MediGuide provides patient navigation assistance only');
         $response->assertDontSee('Development Clinic A');

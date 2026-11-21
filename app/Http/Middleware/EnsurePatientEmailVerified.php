@@ -41,8 +41,10 @@ class EnsurePatientEmailVerified
             return response()->json(['message' => 'Email verification is required.'], 403);
         }
 
+        // Preserve the booking wizard URL (including clinic/doctor query params)
+        // so verification can return the patient to the intended handoff.
         return redirect()
-            ->route('verification.notice')
+            ->guest(route('verification.notice'))
             ->with('status', 'Please verify your email address to continue.');
     }
 }

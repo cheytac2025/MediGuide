@@ -2,14 +2,10 @@
 
 namespace App\Http\Responses;
 
-use App\Enums\RoleName;
-use App\Http\Controllers\Patient\AiBookingIntentController;
 use App\Models\User;
 use App\Services\Auth\EmailOtpChallengeService;
-use App\Support\AiBookingContext;
-use App\Support\AiDisclaimer;
 use App\Support\AuthenticatedHome;
-use App\Support\BookingIntent;
+use App\Support\PostAuthBookingRedirect;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 use Symfony\Component\HttpFoundation\Response;
@@ -50,23 +46,10 @@ class LoginResponse implements LoginResponseContract
             }
         }
 
-        if ($user instanceof User && $user->hasRole(RoleName::Patient)) {
-            $intent = BookingIntent::consumeValidated($request->session());
+        $bookingRedirect = PostAuthBookingRedirect::afterAuthentication($request, $user instanceof User ? $user : null);
 
-            if ($intent !== null) {
-                return redirect()->route('patient.book-appointment', $intent);
-            }
-        } elseif (BookingIntent::get($request->session()) !== null) {
-            BookingIntent::forget($request->session());
-            AiBookingContext::forget($request->session());
-
-            $target = AiDisclaimer::isAcknowledged($request->session())
-                ? redirect()->route('ai-front-desk')
-                : redirect()->route('ai-disclaimer');
-
-            return $target->with('status', AiBookingIntentController::PATIENT_ACCOUNT_REQUIRED_MESSAGE);
-        } else {
-            BookingIntent::forget($request->session());
+        if ($bookingRedirect !== null) {
+            return $bookingRedirect;
         }
 
         return redirect()->intended(AuthenticatedHome::route($user));
