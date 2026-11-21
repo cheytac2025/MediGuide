@@ -78,7 +78,7 @@ echo "=== SUDO: filesystem + MySQL + packages ==="
 sudo mkdir -p "$APP_ROOT" /var/lib/mediguide-demo/audit
 sudo chown mediguide:www-data "$APP_ROOT" /var/lib/mediguide-demo /var/lib/mediguide-demo/audit
 sudo chmod 750 "$APP_ROOT"
-sudo apt-get install -y apache2-utils >/dev/null
+echo "APT_SKIPPED=yes REASON=use_openssl_apr1_for_htpasswd"
 
 # MySQL DB + user (localhost + 127.0.0.1)
 sudo mysql -e "CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
@@ -197,7 +197,8 @@ stat -c 'config=%a %U:%G' bootstrap/cache/config.php
 
 echo "=== NGINX + BASIC AUTH + TLS ==="
 HTPASSWD=/etc/nginx/mediguide-demo.htpasswd
-echo "$BASIC_PASS" | sudo htpasswd -ciB "$HTPASSWD" defense
+HASH=$(openssl passwd -apr1 "$BASIC_PASS")
+printf 'defense:%s\n' "$HASH" | sudo tee "$HTPASSWD" >/dev/null
 sudo chmod 640 "$HTPASSWD"
 sudo chown root:www-data "$HTPASSWD"
 

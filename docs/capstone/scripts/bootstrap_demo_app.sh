@@ -66,12 +66,30 @@ EOF
 chmod 600 "$CRED_FILE"
 echo "CRED_FILE=$CRED_FILE"
 
-echo "=== SUDO bootstrap ==="
+echo "=== DEPENDENCY CHECK (no APT / no PHP reinstall) ==="
+php -v | head -n1
+command -v composer >/dev/null || { echo "FAIL composer missing"; exit 1; }
+command -v mysql >/dev/null || { echo "FAIL mysql client missing"; exit 1; }
+command -v git >/dev/null || { echo "FAIL git missing"; exit 1; }
+command -v openssl >/dev/null || { echo "FAIL openssl missing"; exit 1; }
+command -v python3 >/dev/null || { echo "FAIL python3 missing"; exit 1; }
+# htpasswd/apache2-utils intentionally not required — publish script uses openssl apr1 hashes.
+echo "APT_SKIPPED=yes REASON=php_and_tools_already_present"
+
+echo "=== CLEAN incomplete prior credentials (keep successful BOOTSTRAP_DONE markers only) ==="
+# Remove orphaned credential files from failed runs that never finished bootstrap.
+find "$CRED_DIR" -maxdepth 1 -type f -name 'demo_credentials_*.txt' ! -name '*.ok' -mtime -30 2>/dev/null | while read -r f; do
+  if [[ ! -f "${f}.ok" ]]; then
+    echo "REMOVE_INCOMPLETE=$(basename "$f")"
+    shred -u "$f" 2>/dev/null || rm -f "$f"
+  fi
+done
+find "$CRED_DIR" -maxdepth 1 -type f -name 'basic_pass_*.tmp' -delete 2>/dev/null || true
+
+echo "=== SUDO bootstrap (filesystem + MySQL only; no apt) ==="
 sudo mkdir -p "$APP_ROOT" /var/lib/mediguide-demo/audit
 sudo chown mediguide:www-data "$APP_ROOT" /var/lib/mediguide-demo /var/lib/mediguide-demo/audit
 sudo chmod 750 "$APP_ROOT"
-sudo apt-get update -qq
-sudo apt-get install -y apache2-utils
 
 sudo mysql -e "CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 sudo mysql -e "CREATE USER IF NOT EXISTS '${DB_USER}'@'127.0.0.1' IDENTIFIED BY '${DB_PASS}';"
@@ -95,8 +113,16 @@ echo "DEMO_GIT=$AFTER"
 [[ "$AFTER" == "$EXPECTED_SHA" ]] || { echo "FAIL sha $AFTER != $EXPECTED_SHA"; exit 1; }
 
 composer install --no-dev --optimize-autoloader --no-interaction
-cp -n .env.example .env || true
-php artisan key:generate --force >/dev/null
+if [[ ! -f .env ]]; then
+  cp .env.example .env
+fi
+# Generate APP_KEY only when empty (safe re-runs).
+if ! grep -qE '^APP_KEY=base64:' .env; then
+  php artisan key:generate --force >/dev/null
+  echo "APP_KEY=generated"
+else
+  echo "APP_KEY=preserved"
+fi
 
 python3 - "$DB_PASS" "$INT_KEY" "$AUD_KEY" "$PAT_PASS" "$STAFF_PASS" "$DOC_PASS" "$ADM_PASS" <<'PY'
 import sys
@@ -105,7 +131,16 @@ db_pass, int_key, aud_key, pat, staff, doc, adm = sys.argv[1:8]
 path = Path('.env')
 lines = path.read_text(encoding='utf-8').replace('\r\n','\n').replace('\r','\n').split('\n')
 
-def upsert(lines, key, value):
+def current(lines, key):
+    for line in lines:
+        if line.startswith(key+'='):
+            return line.split('=',1)[1]
+    return ''
+
+def upsert(lines, key, value, *, only_if_empty=False):
+    existing = current(lines, key)
+    if only_if_empty and existing not in ('', 'null', '""'):
+        return lines
     out=[]; found=False
     for line in lines:
         if line.startswith(key+'='):
@@ -139,9 +174,7 @@ vals = {
  'HOSPITAL_PROVISIONAL_LOCAL_BOOKING': 'true',
  'MEDIGUIDE_DEMO_INSTANCE': 'true',
  'MEDIGUIDE_DEMO_DATABASE': 'mediguide_capstone_full_demo',
- 'MEDIGUIDE_INTEGRITY_KEY': int_key,
  'MEDIGUIDE_INTEGRITY_KEY_VERSION': '1',
- 'MEDIGUIDE_AUDIT_KEY': aud_key,
  'MEDIGUIDE_AUDIT_KEY_VERSION': '1',
  'MEDIGUIDE_AUDIT_CHECKPOINT_PATH': '/var/lib/mediguide-demo/audit/checkpoint.jsonl',
  'AUTH_REQUIRE_VERIFIED_PATIENT': 'false',
@@ -156,6 +189,9 @@ vals = {
 }
 for k,v in vals.items():
     lines = upsert(lines, k, v)
+# Preserve existing integrity/audit keys on re-run.
+lines = upsert(lines, 'MEDIGUIDE_INTEGRITY_KEY', int_key, only_if_empty=True)
+lines = upsert(lines, 'MEDIGUIDE_AUDIT_KEY', aud_key, only_if_empty=True)
 path.write_text('\n'.join(lines)+'\n', encoding='utf-8')
 print('ENV_WRITTEN=yes')
 PY
@@ -212,5 +248,8 @@ echo 'PROD_AFTER_PAT='.Illuminate\Support\Facades\DB::table('patients')->count()
 echo 'PROD_AFTER_PROV='.var_export(config('hospital.provisional_local_booking'), true).PHP_EOL;
 PHP
 
+touch "${CRED_FILE}.ok"
+chmod 600 "${CRED_FILE}.ok"
 echo "BOOTSTRAP_DONE=yes"
+echo "CRED_FILE_OK=${CRED_FILE}.ok"
 echo "NEXT=Create DNS A record demo.qmhchospital.com -> $(curl -sS --max-time 10 https://api.ipify.org) then run publish_demo_nginx.sh"

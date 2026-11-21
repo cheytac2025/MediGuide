@@ -4,7 +4,7 @@ Automated deploy reached **interactive sudo password** and **missing DNS**. Comp
 
 | Item | Value |
 | --- | --- |
-| Deploy tip | `0d6703f` on `origin/main` (includes demo gates + scripts + this runbook) |
+| Deploy tip | latest `origin/main` (bootstrap skips APT; uses existing PHP 8.4) |
 | VPS IP | `189.31.38.114` |
 | Scripts on VPS | `/home/mediguide/bootstrap_demo_app.sh`, `/home/mediguide/publish_demo_nginx.sh` |
 
@@ -27,9 +27,15 @@ dig +short A demo.qmhchospital.com
 
 ---
 
-## 2. Refresh scripts (optional) and bootstrap app + DB
+## 2. Refresh scripts and bootstrap app + DB
 
-SSH as `mediguide`. If scripts are older than `0d6703f`, re-upload from the repo, then:
+Bootstrap **does not run `apt-get`** and will not reinstall PHP. It only needs sudo for:
+
+- `mkdir` / `chown` under `/var/www/mediguide-demo` and `/var/lib/mediguide-demo`
+- MySQL `CREATE DATABASE` / `CREATE USER` / `GRANT`
+- storage group ownership for `www-data`
+
+SSH as `mediguide`:
 
 ```bash
 # Resolve full SHA of origin/main
@@ -41,7 +47,7 @@ APPROVAL_PHRASE='APPROVED deploy MediGuide isolated online capstone demonstratio
 bash /home/mediguide/bootstrap_demo_app.sh
 ```
 
-Enter the **mediguide sudo password** when prompted.
+Enter the **mediguide sudo password** when prompted. Incomplete credential files from failed runs are removed automatically.
 
 This creates:
 

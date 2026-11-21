@@ -27,11 +27,13 @@ BASIC_TMP=$(ls -1t "$CRED_DIR"/basic_pass_*.tmp 2>/dev/null | head -n1 || true)
 [[ -n "$BASIC_TMP" && -f "$BASIC_TMP" ]] || { echo "FAIL missing basic pass tmp from bootstrap"; exit 1; }
 BASIC_PASS=$(cat "$BASIC_TMP")
 
-sudo apt-get install -y apache2-utils >/dev/null
+# Prefer openssl apr1 hash — avoids apt-get / apache2-utils / Ondrej PPA.
 HTPASSWD=/etc/nginx/mediguide-demo.htpasswd
-echo "$BASIC_PASS" | sudo htpasswd -ciB "$HTPASSWD" defense
+HASH=$(openssl passwd -apr1 "$BASIC_PASS")
+printf 'defense:%s\n' "$HASH" | sudo tee "$HTPASSWD" >/dev/null
 sudo chmod 640 "$HTPASSWD"
 sudo chown root:www-data "$HTPASSWD"
+echo "HTPASSWD_METHOD=openssl_apr1"
 
 sudo tee /etc/nginx/sites-available/demo.qmhchospital.com >/dev/null <<'NGX'
 server {
