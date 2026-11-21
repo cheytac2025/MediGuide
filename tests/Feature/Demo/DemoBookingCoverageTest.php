@@ -295,6 +295,50 @@ class DemoBookingCoverageTest extends TestCase
         $this->assertFalse(DemoBookingEnvironment::isBlockedDatabase(':memory:'));
     }
 
+    public function test_authorized_online_demo_instance_allows_provisional_booking_without_loopback(): void
+    {
+        config([
+            'hospital.provisional_local_booking' => true,
+            'hospital.demo_instance' => true,
+            'hospital.demo_database' => ':memory:',
+            'database.default' => 'sqlite',
+            'database.connections.sqlite.database' => ':memory:',
+        ]);
+        $this->app['env'] = 'production';
+
+        $this->assertTrue(DemoBookingEnvironment::isAuthorizedOnlineDemoInstance());
+        $this->assertTrue(DemoBookingEnvironment::provisionalBookingAllowed());
+    }
+
+    public function test_online_demo_instance_refuses_production_database_name(): void
+    {
+        config([
+            'hospital.provisional_local_booking' => true,
+            'hospital.demo_instance' => true,
+            'hospital.demo_database' => 'mediguide_demo',
+            'database.default' => 'sqlite',
+            'database.connections.sqlite.database' => 'mediguide_demo',
+        ]);
+        $this->app['env'] = 'production';
+
+        $this->assertFalse(DemoBookingEnvironment::isAuthorizedOnlineDemoInstance());
+        $this->assertFalse(DemoBookingEnvironment::provisionalBookingAllowed());
+    }
+
+    public function test_production_without_demo_flag_hides_provisional_even_when_flag_true(): void
+    {
+        config([
+            'hospital.provisional_local_booking' => true,
+            'hospital.demo_instance' => false,
+            'hospital.demo_database' => '',
+            'database.default' => 'sqlite',
+            'database.connections.sqlite.database' => ':memory:',
+        ]);
+        $this->app['env'] = 'production';
+
+        $this->assertFalse(DemoBookingEnvironment::provisionalBookingAllowed());
+    }
+
     public function test_catalog_specialization_count_matches_unique_poster_rows(): void
     {
         $specializations = collect(QueenMaryClinicScheduleCatalog::doctors())

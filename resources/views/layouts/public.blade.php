@@ -17,6 +17,7 @@
         @stack('head')
     </head>
     <body class="mg-body">
+        <x-demo-banner />
         <div class="mg-public">
             <x-public.header :active="$active ?? ''" />
 

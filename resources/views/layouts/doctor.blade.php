@@ -16,6 +16,7 @@
         <link rel="stylesheet" href="{{ asset('css/mediguide.css') }}">
     </head>
     <body class="mg-body">
+        <x-demo-banner />
         <div class="mg-app">
             <x-doctor.sidebar :doctor="$doctor" :active="$active ?? 'dashboard'" />
 

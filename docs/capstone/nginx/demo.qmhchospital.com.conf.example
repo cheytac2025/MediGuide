@@ -1,0 +1,56 @@
+# EXAMPLE ONLY — do not install without DNS + TLS + written approval.
+# Target: https://demo.qmhchospital.com → /var/www/mediguide-demo/public
+# Isolation: separate root, separate PHP-FPM socket, optional basic auth, noindex.
+
+# upstream mediguide_demo_fpm {
+#     server unix:/run/php/php8.4-fpm-mediguide-demo.sock;
+# }
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name demo.qmhchospital.com;
+
+    # Certbot will replace this with HTTPS once DNS exists.
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name demo.qmhchospital.com;
+
+    # ssl_certificate     /etc/letsencrypt/live/demo.qmhchospital.com/fullchain.pem;
+    # ssl_certificate_key /etc/letsencrypt/live/demo.qmhchospital.com/privkey.pem;
+    # include /etc/letsencrypt/options-ssl-nginx.conf;
+
+    root /var/www/mediguide-demo/public;
+    index index.php;
+
+    add_header X-Robots-Tag "noindex, nofollow, noarchive" always;
+    add_header Strict-Transport-Security "max-age=15552000" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    # Optional defense gate — create htpasswd before enabling:
+    #   sudo htpasswd -c /etc/nginx/mediguide-demo.htpasswd defense
+    # auth_basic "MediGuide Capstone Demonstration";
+    # auth_basic_user_file /etc/nginx/mediguide-demo.htpasswd;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        # fastcgi_pass unix:/run/php/php8.4-fpm-mediguide-demo.sock;
+        fastcgi_pass unix:/run/php/php8.4-fpm.sock;
+    }
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+
+    client_max_body_size 16M;
+}

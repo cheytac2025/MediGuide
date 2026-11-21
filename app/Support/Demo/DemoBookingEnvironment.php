@@ -3,7 +3,8 @@
 namespace App\Support\Demo;
 
 /**
- * Guards that keep demonstration schedule writes off production databases.
+ * Guards that keep demonstration schedule writes and provisional booking
+ * off production databases while allowing an explicit isolated demo instance.
  */
 final class DemoBookingEnvironment
 {
@@ -24,10 +25,66 @@ final class DemoBookingEnvironment
         return config('hospital.provisional_local_booking') === true;
     }
 
+    /**
+     * Online / VPS demonstration instance: explicit flag + exact DB allowlist match.
+     * Never true for blocked production database names.
+     */
+    public static function isAuthorizedOnlineDemoInstance(): bool
+    {
+        if (config('hospital.demo_instance') !== true) {
+            return false;
+        }
+
+        if (! self::provisionalBookingConfigured()) {
+            return false;
+        }
+
+        if (self::isBlockedDatabase()) {
+            return false;
+        }
+
+        $expected = trim((string) config('hospital.demo_database'));
+
+        if ($expected === '' || self::isBlockedDatabase($expected)) {
+            return false;
+        }
+
+        return $expected === self::effectiveDatabaseName();
+    }
+
+    /**
+     * Whether provisional demonstration slots may be offered for booking.
+     */
+    public static function provisionalBookingAllowed(): bool
+    {
+        if (! self::provisionalBookingConfigured()) {
+            return false;
+        }
+
+        if (self::isAuthorizedOnlineDemoInstance()) {
+            return true;
+        }
+
+        $connection = (string) config('database.default');
+
+        if ($connection === 'sqlite') {
+            return app()->environment('testing', 'local');
+        }
+
+        $host = (string) config("database.connections.{$connection}.host");
+
+        return app()->environment('local')
+            && in_array($host, ['127.0.0.1', 'localhost', '::1'], true);
+    }
+
     public static function isIsolatedProcess(): bool
     {
         if (! self::provisionalBookingConfigured()) {
             return false;
+        }
+
+        if (self::isAuthorizedOnlineDemoInstance()) {
+            return true;
         }
 
         $connection = (string) config('database.default');
@@ -70,6 +127,14 @@ final class DemoBookingEnvironment
         return false;
     }
 
+    public static function bannerMessage(): string
+    {
+        return (string) config(
+            'hospital.demo_banner',
+            'CAPSTONE DEMONSTRATION — schedules and appointments are synthetic and not real hospital bookings.',
+        );
+    }
+
     /**
      * @return list<string>
      */
@@ -88,7 +153,7 @@ final class DemoBookingEnvironment
         }
 
         if (! self::isIsolatedProcess()) {
-            $reasons[] = 'Demonstration schedules can be written only on local loopback MySQL or testing SQLite.';
+            $reasons[] = 'Demonstration schedules can be written only on local loopback MySQL, testing SQLite, or an authorized MEDIGUIDE_DEMO_INSTANCE.';
         }
 
         $effective = self::effectiveDatabaseName();

@@ -4610,3 +4610,17 @@ a.mg-sched-slot:hover {
     }
 }
 
+.mg-demo-banner {
+    position: sticky;
+    top: 0;
+    z-index: 1100;
+    padding: 0.65rem 1rem;
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: #1f2937;
+    background: #fef3c7;
+    border-bottom: 1px solid #f59e0b;
+}
+

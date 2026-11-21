@@ -18,6 +18,7 @@ use App\Models\Patient;
 use App\Models\User;
 use App\Services\Scheduling\EffectiveScheduleService;
 use App\Support\Audit\AuditTrailService;
+use App\Support\Demo\DemoBookingEnvironment;
 use App\Support\Integrity\IntegrityStatus;
 use App\Support\Integrity\RecordIntegrityService;
 use App\Support\Scheduling\ConsultationWindows;
@@ -564,25 +565,12 @@ class AppointmentBookingService
     }
 
     /**
-     * Poster demonstration schedules stay hidden unless this process is the
-     * local MediGuide database with the explicit local flag enabled.
+     * Poster demonstration schedules stay hidden unless this process is an
+     * authorized isolated demo (local loopback or MEDIGUIDE_DEMO_INSTANCE).
      */
     private function provisionalBookingAllowed(): bool
     {
-        if (config('hospital.provisional_local_booking') !== true) {
-            return false;
-        }
-
-        $connection = (string) config('database.default');
-
-        if ($connection === 'sqlite') {
-            return app()->environment('testing');
-        }
-
-        $host = (string) config("database.connections.{$connection}.host");
-
-        return app()->environment('local')
-            && in_array($host, ['127.0.0.1', 'localhost', '::1'], true);
+        return DemoBookingEnvironment::provisionalBookingAllowed();
     }
 
     private function assertDateIsInsideBookingWindow(Carbon $date): void

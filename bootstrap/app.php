@@ -14,6 +14,7 @@ use App\Http\Middleware\EnsurePrivilegedTotpEnabled;
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\ShareDemoEnvironmentBanner;
 use App\Support\Audit\AuditTrailService;
 use App\Support\AuthenticatedHome;
 use Illuminate\Database\QueryException;
@@ -39,6 +40,7 @@ return Application::configure(basePath: dirname(__DIR__))
             EnsureAccountIsActive::class,
             EnsureEmailOtpSatisfied::class,
             EnsurePrivilegedTotpEnabled::class,
+            ShareDemoEnvironmentBanner::class,
             HandleAppearance::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,

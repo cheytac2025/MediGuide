@@ -17,6 +17,7 @@
         @stack('head')
     </head>
     <body class="mg-body">
+        <x-demo-banner />
         @yield('content')
 
         <script src="{{ asset('vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
