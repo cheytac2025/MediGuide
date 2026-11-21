@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document | MediGuide Capstone Security Assessment |
-| Version | 1.3 (checkpoint refresh; Nginx pending interactive sudo) |
+| Version | 1.4 (Nginx headers verified; AI Front Desk symptom improvements) |
 | Baseline version | 1.0 (21 November 2026 initial STRIDE/PT) |
 | Report date | 21 November 2026 |
 | Classification | Capstone / Internal Security Assessment |
@@ -11,8 +11,7 @@
 | Application path | /var/www/mediguide |
 | Host | srv2179431 |
 | Database | mediguide_demo |
-| Production Git | 726d516cefc98e9c3595ef6c906f982545b0a8c2 |
-| Hardening runtime commit | 3df7c9efc30d770cf3a9806ed0e96fd65d537a16 |
+| Production Git (pre-AI deploy) | c1fc1b21ce8b8db5a38c6edab2fcae11799cb787 |
 | Deployed packages | Laravel 13.40.0 · commonmark 2.10.2 · Symfony http-foundation/serializer 7.4.23 |
 | Assessor role | Senior penetration tester / Laravel security engineer (AI-assisted) |
 
@@ -507,6 +506,7 @@ Cookie values collected during header inspection were **discarded** and are **no
 | 1.1 | 2026-11-21 | Post-STRIDE local dependency remediation; header/checkpoint/account plans; retest evidence; production still on e2f3a36 |
 | 1.2 | 2026-11-21 | Production deploy of dependency hardening + clinic description display cleanup at 3df7c9e; FIND-004/005/006 closed in production; Nginx/checkpoint still open |
 | 1.3 | 2026-11-21 | FIND-007 checkpoint refreshed to seq 111 (lag 0); FIND-001/002/003 approved but blocked on interactive sudo |
+| 1.4 | 2026-11-21 | FIND-001/002/003 verified live on production; AI Front Desk EN/FIL/Taglish symptom understanding improvements + 223-scenario offline eval |
 
 ---
 
@@ -540,19 +540,17 @@ Focused clinic/AI/booking/security PHPUnit before commit: **395 passed**. Full r
 
 ### D.2 HTTP headers (FIND-001/002/003)
 
-Prepared under `docs/security/nginx/` — **approved but not applied** (interactive sudo required).
+**Verified live** on `https://qmhchospital.com/login` (2026-11-20/21 UTC).
 
-| Finding | Prepared fix | Production status |
+| Finding | Production evidence | Status |
 |---|---|---|
-| FIND-001 HSTS | `max-age=15552000` (no includeSubDomains/preload) | **Open** — awaiting operator sudo apply |
-| FIND-002 CSP | CSP-Report-Only (no unsafe-inline/eval); enforce later after nonces | **Open** — Report-Only only; **not** enforcement |
-| FIND-003 Server banner | `server_tokens off` | **Open** — awaiting operator sudo apply |
+| FIND-001 HSTS | `Strict-Transport-Security: max-age=15552000` (no includeSubDomains/preload) | **Resolved** |
+| FIND-002 CSP | `Content-Security-Policy-Report-Only: …` present; **enforcement not enabled** | **Resolved as Report-Only** (enforcement still open) |
+| FIND-003 Server banner | `Server: nginx` (version string removed) | **Resolved** |
 
-Live pre-apply evidence: `Server: nginx/1.24.0 (Ubuntu)`; no HSTS; no CSP-Report-Only.
+CSP violation evidence: no dedicated report-uri collector is configured; violations (if any) are browser-local only. Do **not** mark CSP enforcement complete.
 
-CSP compatibility note: Blade/Inertia/Vite/`'self'` Bootstrap OK; Google Fonts domains included; `app.blade.php` inline appearance bootstrap will report under Report-Only — do not enforce until nonce/hash refactor.
-
-Operator apply script (staged on VPS): `/tmp/_phase4j_nginx_headers_apply.sh`
+CSP compatibility note: Blade/Inertia/Vite/`'self'` Bootstrap OK; Google Fonts domains included; `app.blade.php` inline appearance bootstrap may still violate under Report-Only — enforce only after nonce/hash refactor.
 
 ### D.3 Audit checkpoint (FIND-007)
 
@@ -581,9 +579,9 @@ Plan only: `docs/security/ops/account_email_remediation_plan.md`. Global OTP rem
 | FIND-005 | **Resolved in production** at 3df7c9e (Laravel 13.40.0; defense-in-depth) |
 | FIND-006 | **Resolved in production** at 3df7c9e (http-foundation/serializer 7.4.23; yaml 7.4.23 locked for dev) |
 | FIND-007 | **Resolved in production** — checkpoint seq 111 / lag 0 / protection verified |
-| FIND-001 | Approved — **blocked on interactive sudo** |
-| FIND-002 | Approved Report-Only — **blocked on interactive sudo** (enforcement still deferred) |
-| FIND-003 | Approved — **blocked on interactive sudo** |
+| FIND-001 | **Resolved in production** — HSTS max-age=15552000 verified |
+| FIND-002 | **Report-Only resolved** — enforcement still deferred |
+| FIND-003 | **Resolved in production** — `Server: nginx` without version |
 | FIND-008 | Plan only — **open** (inaccessible account emails) |
 
 ### D.6 Production verification snapshot (v1.3)
@@ -605,12 +603,21 @@ Plan only: `docs/security/ops/account_email_remediation_plan.md`. Global OTP rem
 
 ### D.7 Updated readiness conclusion
 
-| Question | Verdict (v1.3) |
+| Question | Verdict (v1.4) |
 |---|---|
-| Capstone demo security | **ACCEPTABLE**; deps + checkpoint closed |
+| Capstone demo security | **ACCEPTABLE**; deps + headers + checkpoint closed |
 | Production dependency patch | **YES** |
 | Audit checkpoint refresh | **YES** (seq 111) |
-| Nginx header hardening | **NOT APPLIED** (sudo required) |
-| CSP enforcement | **NOT COMPLETE** (Report-Only pending apply) |
-| Mandatory fleet OTP | **NOT READY** (FIND-008) |
-| Exact remaining operator action | Interactive sudo for FPM reload + Nginx header apply script |
+| Nginx header hardening | **YES** (HSTS + CSP-RO + tokens) |
+| CSP enforcement | **NOT COMPLETE** (Report-Only only) |
+| Mandatory fleet OTP | **NOT READY** (FIND-008 inaccessible inboxes) |
+| AI Front Desk | Improved EN/FIL/Taglish overlays; **not clinically validated** |
+
+### D.8 AI Front Desk symptom-understanding update (v1.4)
+
+| Item | Result |
+|---|---|
+| Improvements | Informal Taglish spelling; expanded concern kinds (chest/vomiting/dental/urinary/sipon); tighter readiness for other/chest/vomiting; richer emergency phrases; concern-specific follow-ups; prompt Taglish/multi-symptom guidance |
+| Offline eval | **223** synthetic scenarios; emergency recall **1.00**; kind agreement **≥0.80**; readiness agreement **≥0.75** |
+| Clinical validation | **Not claimed** — requires qualified clinical review |
+| Live Anthropic soak | **Not performed** (isolated/mocked only) |

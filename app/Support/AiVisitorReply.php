@@ -439,9 +439,17 @@ final class AiVisitorReply
         $normalized = preg_replace('/\bbilga(ng|an)?\b/u', 'bigla$1', $normalized) ?? $normalized;
         $normalized = preg_replace('/\bren\b/u', 'rin', $normalized) ?? $normalized;
         $normalized = preg_replace('/\bkasaket\b/u', 'kasakit', $normalized) ?? $normalized;
+        $normalized = preg_replace('/\bmasaket\b/u', 'masakit', $normalized) ?? $normalized;
         $normalized = preg_replace('/\bsaket\b/u', 'sakit', $normalized) ?? $normalized;
         $normalized = preg_replace('/\bganon\b/u', 'ganoon', $normalized) ?? $normalized;
         $normalized = preg_replace('/\bngalay\b/u', 'nangangalay', $normalized) ?? $normalized;
+        $normalized = preg_replace('/\bdibdib\s+ko\b/u', 'dibdib', $normalized) ?? $normalized;
+        $normalized = preg_replace('/\bnahilo\b/u', 'nahihilo', $normalized) ?? $normalized;
+        $normalized = preg_replace('/\bhirap\s+hinga\b/u', 'hirap huminga', $normalized) ?? $normalized;
+        $normalized = preg_replace('/\bdi\s+ako\b/u', 'hindi ako', $normalized) ?? $normalized;
+        $normalized = preg_replace('/\bdiko\b/u', 'di ko', $normalized) ?? $normalized;
+        $normalized = preg_replace('/\bnagsuka\b/u', 'nagsusuka', $normalized) ?? $normalized;
+        $normalized = preg_replace('/\bnasuka\b/u', 'nasusuka', $normalized) ?? $normalized;
 
         return $normalized;
     }

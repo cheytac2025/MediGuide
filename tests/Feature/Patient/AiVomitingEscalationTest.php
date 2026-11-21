@@ -122,7 +122,7 @@ class AiVomitingEscalationTest extends TestCase
         $result = $this->service()->guide('nagsusuka ako');
 
         $this->assertSame(AiGuidanceType::Clarification, $result->type);
-        $this->assertSame(ClaudeGuidanceService::FOCUSED_GENERAL_FOLLOW_UP_FILIPINO, $result->question);
+        $this->assertSame(ClaudeGuidanceService::VOMITING_DURATION_FOLLOW_UP_FILIPINO, $result->question);
         $this->assertNull($result->clinicId);
         $this->assertNull($result->serviceId);
     }

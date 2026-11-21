@@ -1,0 +1,31 @@
+{
+    "scenarios": 223,
+    "urgent_expected": 20,
+    "urgent_recall": 1,
+    "urgent_false_positives": 1,
+    "kind_agreement": 0.979,
+    "ready_agreement": 0.874,
+    "failure_sample": [
+        "en-joint-1: kind joint != injury",
+        "fil-abdo-2: false urgent",
+        "fil-vomit-2: ready true != false",
+        "fil-chest-2: ready false != true",
+        "tl-2: ready false != true",
+        "tl-3: ready true != false",
+        "tl-7: kind multiple != injury",
+        "multi-1: ready true != false",
+        "multi-4: ready true != false",
+        "multi-6: ready true != false",
+        "multi-8: ready true != false",
+        "em-1: ready true != false",
+        "em-2: ready true != false",
+        "em-8: ready true != false",
+        "em-9: ready true != false",
+        "em-17: ready true != false",
+        "neg-2: ready true != false",
+        "neg-6: ready true != false",
+        "neg-7: ready true != false",
+        "typo-7: kind multiple != injury"
+    ],
+    "clinical_validation": "not claimed"
+}

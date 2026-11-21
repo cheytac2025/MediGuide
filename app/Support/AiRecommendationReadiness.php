@@ -71,6 +71,30 @@ final class AiRecommendationReadiness
 
     private function hasBaselineRoutingDetail(AiConversationFacts $facts): bool
     {
+        // Ambiguous / high-risk kinds need more than a single thin cue before
+        // limited specialization routing is allowed. This is software policy,
+        // not a clinical score.
+        if (in_array($facts->concernKind, ['other', 'chest', 'vomiting'], true)) {
+            $signals = 0;
+            if ($facts->hasUsableDuration()) {
+                $signals++;
+            }
+            if ($facts->hasUsableSeverity()) {
+                $signals++;
+            }
+            if ($facts->hasTopic(AiConversationInterpreter::TOPIC_ASSOCIATED)) {
+                $signals++;
+            }
+            if ($facts->hasUsableLocation()) {
+                $signals++;
+            }
+            if ($facts->hasTopic(AiConversationInterpreter::TOPIC_ONSET)) {
+                $signals++;
+            }
+
+            return $signals >= 2;
+        }
+
         return $facts->hasUsableDuration()
             || $facts->hasUsableLocation()
             || $facts->hasUsableSeverity()

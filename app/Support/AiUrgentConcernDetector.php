@@ -106,6 +106,28 @@ final class AiUrgentConcernDetector
         'having a seizure',
         'kombulsyon',
         'convulsing',
+        'biglang hirap huminga',
+        'biglaang hirap huminga',
+        'biglang di makahinga',
+        'biglaang di makahinga',
+        'parang hinihina ako',
+        'parang mamamatay ako',
+        'crushing chest pain',
+        'pressure in my chest',
+        'radiating to my left arm',
+        'chest pain radiating',
+        'sumasakit dibdib papunta sa braso',
+        'biglang nanlalabo ang paningin',
+        'biglang nanghihina ang kalahati',
+        'one side of my body is weak',
+        'face drooped',
+        'arm drift',
+        'cannot move my arm',
+        'hindi ko maigalaw ang braso',
+        'bleeding heavily',
+        'dugo nang dugo',
+        'seizure now',
+        'nanginginig at nawalan ng malay',
     ];
 
     /**
@@ -166,6 +188,14 @@ final class AiUrgentConcernDetector
         ['sobrang sakit ng ulo', 'bigla'],
         ['matinding sakit ng ulo', 'bigla'],
         ['severe headache', 'sudden'],
+        ['chest pressure', 'shortness of breath'],
+        ['chest pressure', 'left arm'],
+        ['dibdib', 'braso'],
+        ['dibdib', 'left arm'],
+        ['masakit dibdib', 'pawis'],
+        ['chest pain', 'cold sweat'],
+        ['chest pain', 'radiating'],
+        ['sumasakit dibdib', 'nanghihina'],
     ];
 
     public function containsAffirmed(string $normalized, string $phrase): bool

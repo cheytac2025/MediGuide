@@ -1,6 +1,6 @@
 # MediGuide Nginx Security Header Deployment (Prepared)
 
-**Status:** Approved for production — **blocked on interactive sudo**. Apply with `/tmp/_phase4j_nginx_headers_apply.sh` (or the commands in the final hardening report).
+**Status:** **Applied and verified** on production (`HSTS`, `CSP-Report-Only`, `Server: nginx` without version). CSP **enforcement** remains deferred.
 
 ## Findings addressed
 

@@ -458,8 +458,8 @@ final class AiConversationInterpreter
             return 'pregnancy';
         }
 
-        if (preg_match('/\b(headache|sakit ng ulo|masakit ulo|masaket ulo)\b/u', $normalized)
-            || (preg_match('/\bulo\b/u', $normalized) && preg_match('/\b(sakit|masakit|masaket|pain)\b/u', $normalized))) {
+        if (preg_match('/\b(headache|sakit ng ulo|masakit ulo|masaket ulo|head pain|head hurts)\b/u', $normalized)
+            || (preg_match('/\b(ulo|head)\b/u', $normalized) && preg_match('/\b(sakit|masakit|masaket|pain|hurts?)\b/u', $normalized))) {
             $kinds[] = 'headache';
         }
 
@@ -467,19 +467,28 @@ final class AiConversationInterpreter
             $kinds[] = 'abdominal';
         }
 
-        if (preg_match('/\b(ubo|cough)\b/u', $normalized)) {
+        if (preg_match('/\b(nagsusuka|nasusuka|nagsuka|nasuka|sumuka|vomiting|vomit|throwing up|nauseous|nausea|suka)\b/u', $normalized)) {
+            $kinds[] = 'vomiting';
+        }
+
+        if (preg_match('/\b(dibdib|chest pain|chest discomfort|chest)\b/u', $normalized)
+            || preg_match('/\b(pananakit ng dibdib|sumasakit(?: ang)? dibdib|masakit(?: ang)? dibdib)\b/u', $normalized)) {
+            $kinds[] = 'chest';
+        }
+
+        if (preg_match('/\b(ubo|cough|sipon|runny nose|cold symptoms|hika|wheez(?:e|ing)|asthma)\b/u', $normalized)) {
             $kinds[] = 'cough';
         }
 
-        if (preg_match('/\b(lalamunan|throat|sore throat)\b/u', $normalized)) {
+        if (preg_match('/\b(lalamunan|throat|sore throat|masakit lalamunan)\b/u', $normalized)) {
             $kinds[] = 'throat';
         }
 
-        if (preg_match('/\b(lagnat|nilalagnat|fever)\b/u', $normalized)) {
+        if (preg_match('/\b(lagnat|nilalagnat|fever|mainit ang katawan)\b/u', $normalized)) {
             $kinds[] = 'fever';
         }
 
-        if (preg_match('/\b(tuhod|knee|joint|kasukasuan|siko|wrist|ankle)\b/u', $normalized)) {
+        if (preg_match('/\b(tuhod|knee|joint|kasukasuan|siko|wrist|ankle|balikat|shoulder)\b/u', $normalized)) {
             $kinds[] = 'joint';
         }
 
@@ -488,11 +497,11 @@ final class AiConversationInterpreter
             $kinds[] = 'back';
         }
 
-        if (preg_match('/\b(rash|kati|balat|skin|bugas)\b/u', $normalized)) {
+        if (preg_match('/\b(rash|kati|balat|skin|bugas|pantal)\b/u', $normalized)) {
             $kinds[] = 'skin';
         }
 
-        if (preg_match('/\b(tenga|ear)\b/u', $normalized)) {
+        if (preg_match('/\b(tenga|ear|sears|earache)\b/u', $normalized)) {
             $kinds[] = 'ear';
         }
 
@@ -501,7 +510,15 @@ final class AiConversationInterpreter
             $kinds[] = 'eye';
         }
 
-        if (preg_match('/\b(nahulog|injury|injured|nabalian|broke|deformed)\b/u', $normalized)) {
+        if (preg_match('/\b(ngipin|tooth|toothache|dental)\b/u', $normalized)) {
+            $kinds[] = 'dental';
+        }
+
+        if (preg_match('/\b(ihi|urinat(?:e|ion)|dysuria|masakit umihi|burning when i pee)\b/u', $normalized)) {
+            $kinds[] = 'urinary';
+        }
+
+        if (preg_match('/\b(nahulog|injury|injured|nabalian|broke|deformed|naaksidente)\b/u', $normalized)) {
             $kinds[] = 'injury';
         }
 
@@ -529,6 +546,8 @@ final class AiConversationInterpreter
             'skin' => 'skin',
             'ear' => 'ear',
             'eye' => 'eye',
+            'dental' => 'tooth',
+            'vomiting' => 'abdomen',
             default => null,
         };
     }
@@ -831,16 +850,18 @@ final class AiConversationInterpreter
 
         $order = match ($kind) {
             'headache' => [self::TOPIC_DURATION, self::TOPIC_LOCATION, self::TOPIC_ONSET, self::TOPIC_SEVERITY, self::TOPIC_ASSOCIATED],
-            'cough' => [self::TOPIC_DURATION, self::TOPIC_ASSOCIATED],
+            'cough', 'throat' => [self::TOPIC_DURATION, self::TOPIC_ASSOCIATED],
             'fever', 'pediatric', 'pregnancy', 'dizziness' => [self::TOPIC_DURATION, self::TOPIC_ASSOCIATED],
+            'chest' => [self::TOPIC_DURATION, self::TOPIC_ASSOCIATED, self::TOPIC_ONSET, self::TOPIC_SEVERITY],
+            'vomiting' => [self::TOPIC_DURATION, self::TOPIC_ASSOCIATED, self::TOPIC_SEVERITY],
             'abdominal' => [self::TOPIC_DURATION, self::TOPIC_LOCATION, self::TOPIC_QUADRANT, self::TOPIC_ONSET, self::TOPIC_SEVERITY],
             'joint' => [self::TOPIC_DURATION, self::TOPIC_INJURY, self::TOPIC_SEVERITY, self::TOPIC_ASSOCIATED],
             'skin' => [self::TOPIC_LOCATION, self::TOPIC_DURATION, self::TOPIC_APPEARANCE],
-            'ear', 'eye' => [self::TOPIC_DURATION, self::TOPIC_SEVERITY, self::TOPIC_ASSOCIATED],
+            'ear', 'eye', 'dental', 'urinary' => [self::TOPIC_DURATION, self::TOPIC_SEVERITY, self::TOPIC_ASSOCIATED],
             'back' => [self::TOPIC_DURATION, self::TOPIC_LOCATION, self::TOPIC_SEVERITY, self::TOPIC_ONSET, self::TOPIC_ASSOCIATED],
             'injury' => [self::TOPIC_LOCATION, self::TOPIC_INJURY, self::TOPIC_SEVERITY],
             'multiple' => ['primary', self::TOPIC_DURATION],
-            default => [self::TOPIC_DURATION, self::TOPIC_LOCATION, self::TOPIC_ONSET, self::TOPIC_SEVERITY],
+            default => [self::TOPIC_DURATION, self::TOPIC_ASSOCIATED, self::TOPIC_ONSET, self::TOPIC_SEVERITY],
         };
 
         foreach ($order as $topic) {
