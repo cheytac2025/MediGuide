@@ -31,6 +31,9 @@ class CapstoneDemoAccountSeeder extends Seeder
 
     public const ADMIN_EMAIL = 'admin.demo@mediguide.test';
 
+    /**
+     * Local-only fallback. Online demo seeding must supply unique env passwords.
+     */
     public const PASSWORD = 'MediGuide@Demo2026';
 
     public function run(): void
@@ -51,6 +54,31 @@ class CapstoneDemoAccountSeeder extends Seeder
         $this->seedAdmin();
     }
 
+    private function passwordFor(string $account): string
+    {
+        $envKey = match ($account) {
+            'patient' => 'MEDIGUIDE_DEMO_PATIENT_PASSWORD',
+            'staff' => 'MEDIGUIDE_DEMO_STAFF_PASSWORD',
+            'doctor' => 'MEDIGUIDE_DEMO_DOCTOR_PASSWORD',
+            'admin' => 'MEDIGUIDE_DEMO_ADMIN_PASSWORD',
+            default => throw new \InvalidArgumentException('Unknown demo account: '.$account),
+        };
+
+        $fromEnv = env($envKey);
+
+        if (is_string($fromEnv) && $fromEnv !== '') {
+            return $fromEnv;
+        }
+
+        if (config('hospital.demo_instance') === true) {
+            throw new \RuntimeException(
+                "Missing {$envKey}. Generate a unique random password before seeding the online demo.",
+            );
+        }
+
+        return self::PASSWORD;
+    }
+
     private function seedPatient(): void
     {
         $role = Role::query()->firstOrCreate(
@@ -66,7 +94,7 @@ class CapstoneDemoAccountSeeder extends Seeder
                 'middle_name' => null,
                 'last_name' => 'Patient',
                 'name' => 'Demo Patient',
-                'password' => Hash::make(self::PASSWORD),
+                'password' => Hash::make($this->passwordFor('patient')),
                 'status' => UserStatus::Active,
                 'email_verified_at' => now(),
             ],
@@ -97,7 +125,7 @@ class CapstoneDemoAccountSeeder extends Seeder
                 'middle_name' => null,
                 'last_name' => 'Staff',
                 'name' => 'Demo Staff',
-                'password' => Hash::make(self::PASSWORD),
+                'password' => Hash::make($this->passwordFor('staff')),
                 'status' => UserStatus::Active,
                 'email_verified_at' => now(),
             ],
@@ -140,7 +168,7 @@ class CapstoneDemoAccountSeeder extends Seeder
                 'middle_name' => null,
                 'last_name' => 'Doctor',
                 'name' => 'Demo Doctor',
-                'password' => Hash::make(self::PASSWORD),
+                'password' => Hash::make($this->passwordFor('doctor')),
                 'status' => UserStatus::Active,
                 'email_verified_at' => now(),
             ],
@@ -166,7 +194,7 @@ class CapstoneDemoAccountSeeder extends Seeder
                 'middle_name' => null,
                 'last_name' => 'Admin',
                 'name' => 'Demo Admin',
-                'password' => Hash::make(self::PASSWORD),
+                'password' => Hash::make($this->passwordFor('admin')),
                 'status' => UserStatus::Active,
                 'email_verified_at' => now(),
             ],

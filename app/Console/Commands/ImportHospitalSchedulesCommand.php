@@ -32,7 +32,11 @@ class ImportHospitalSchedulesCommand extends Command
         $minutes = $this->option('bookable-slot-minutes');
         $slotMinutes = is_numeric($minutes) ? (int) $minutes : null;
 
-        if ($execute && app()->isProduction() && ! $this->confirm('Execute the hospital schedule import in production?')) {
+        $isAuthorizedDemo = (bool) config('hospital.demo_instance')
+            && (string) config('hospital.demo_database') !== ''
+            && (string) config('hospital.demo_database') === (string) config('database.connections.'.config('database.default').'.database');
+
+        if ($execute && app()->isProduction() && ! $isAuthorizedDemo && ! $this->confirm('Execute the hospital schedule import in production?')) {
             $this->warn('Import cancelled.');
 
             return self::SUCCESS;
